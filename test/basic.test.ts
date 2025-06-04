@@ -2,11 +2,6 @@ import { fileURLToPath } from 'node:url'
 import { buildFixture, createTest, createTestContext, loadFixture, useTestContext } from '@nuxt/test-utils'
 import { describe, expect, it } from 'vitest'
 
-/**
- * Basic module tests - currently skipped due to testing setup complexity
- * TODO: Implement proper integration tests for validation scenarios
- */
-
 describe('nuxt-safe-runtime-config module', () => {
   it('should successfully build with valid runtime config', async () => {
     createTest({
