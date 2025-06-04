@@ -1,0 +1,86 @@
+{
+  "name": "nuxt-safe-runtime-config",
+  "type": "module",
+  "version": "1.0.0",
+  "packageManager": "pnpm@9.15.4+sha512.b2dc20e2fc72b3e18848459b37359a32064663e5627a51e4c74b2c29dd8e8e0491483c3abb40789cfd578bf362fb6ba8261b05f0387d76792ed6e23ea3b1b6a0",
+  "description": "Validate Nuxt runtime config with Standard Schema at build time",
+  "author": {
+    "name": "onmax"
+  },
+  "license": "MIT",
+  "repository": "onmax/nuxt-safe-runtime-config",
+  "keywords": [
+    "nuxt",
+    "nuxt-module",
+    "runtime-config",
+    "validation",
+    "standard-schema",
+    "valibot",
+    "zod",
+    "arktype",
+    "build-time"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    }
+  },
+  "main": "./dist/module.mjs",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/types.d.mts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "prepack": "nuxt-module-build build",
+    "dev": "nuxi dev playground",
+    "dev:build": "nuxi build playground",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground && pnpm -C test/fixtures/validation-failure prepare && pnpm -C test/fixtures/validation-success prepare",
+    "release": "nr lint && nr typecheck && nr test && nr prepack && bumpp && pnpm publish",
+    "typecheck": "nuxt typecheck && pnpm -C playground typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@nuxt/kit": "catalog:",
+    "@standard-schema/spec": "catalog:",
+    "consola": "catalog:"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "catalog:",
+    "@antfu/ni": "catalog:",
+    "@nuxt/devtools": "catalog:",
+    "@nuxt/eslint": "catalog:",
+    "@nuxt/eslint-config": "catalog:",
+    "@nuxt/module-builder": "catalog:",
+    "@nuxt/schema": "catalog:",
+    "@nuxt/test-utils": "catalog:",
+    "@types/node": "catalog:",
+    "bumpp": "catalog:",
+    "changelogen": "catalog:",
+    "eslint": "catalog:",
+    "eslint-plugin-format": "catalog:",
+    "lint-staged": "catalog:",
+    "nuxt": "catalog:",
+    "simple-git-hooks": "catalog:",
+    "typescript": "catalog:",
+    "valibot": "catalog:",
+    "vitest": "catalog:",
+    "vue-tsc": "catalog:"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm lint-staged"
+  },
+  "lint-staged": {
+    "*": "eslint --fix"
+  }
+}

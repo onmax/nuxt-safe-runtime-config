@@ -1,0 +1,31 @@
+packages:
+  - ./
+  - ./playground
+  - ./test/fixtures/*
+catalog:
+  '@antfu/eslint-config': ^4.13.3
+  '@antfu/ni': ^25.0.0
+  '@nuxt/devtools': ^2.4.1
+  '@nuxt/eslint': ^1.4.1
+  '@nuxt/eslint-config': ^1.4.1
+  '@nuxt/kit': ^3.17.4
+  '@nuxt/module-builder': ^1.0.1
+  '@nuxt/schema': ^3.17.4
+  '@nuxt/test-utils': ^3.19.1
+  '@standard-schema/spec': ^1.0.0
+  '@types/node': latest
+  bumpp: ^10.1.1
+  changelogen: ^0.6.1
+  consola: ^3.4.2
+  eslint: ^9.28.0
+  eslint-plugin-format: ^1.0.1
+  lint-staged: ^16.1.0
+  nuxt: ^3.17.4
+  simple-git-hooks: ^2.13.0
+  typescript: ~5.8.3
+  valibot: ^1.1.0
+  vitest: ^3.2.0
+  vue-tsc: ^2.2.10
+onlyBuiltDependencies:
+  - '@parcel/watcher'
+  - esbuild
