@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { setup } from '@nuxt/test-utils'
+import { buildFixture, createTest, createTestContext, loadFixture, useTestContext } from '@nuxt/test-utils'
 import { describe, expect, it } from 'vitest'
 
 /**
@@ -8,20 +8,25 @@ import { describe, expect, it } from 'vitest'
  */
 
 describe('nuxt-safe-runtime-config module', () => {
-  it.skip('should successfully build with valid runtime config', async () => {
-    await setup({
+  it('should successfully build with valid runtime config', async () => {
+    createTest({
       rootDir: fileURLToPath(new URL('./fixtures/validation-success', import.meta.url)),
       dev: false,
+      server: false,
     })
-    expect(true).toBe(true) // Placeholder assertion to ensure the test runs
-  })
+    await loadFixture()
+    await buildFixture()
+    const nuxt = useTestContext().nuxt!
+    expect(nuxt.options.runtimeConfig.public.apiBase).toBe('https://api.test.com')
+  }, 20000)
 
-  it.skip('should fail to build with invalid runtime config', async () => {
-    await expect(async () => {
-      await setup({
-        rootDir: fileURLToPath(new URL('./fixtures/validation-failure', import.meta.url)),
-        dev: false,
-      })
-    }).rejects.toThrow()
-  })
+  it('should fail to build with invalid runtime config', async () => {
+    createTestContext({
+      rootDir: fileURLToPath(new URL('./fixtures/validation-failure', import.meta.url)),
+      dev: false,
+      server: false,
+    })
+    await loadFixture()
+    await expect(buildFixture()).rejects.toThrowError()
+  }, 20000)
 })

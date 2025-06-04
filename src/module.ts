@@ -12,7 +12,7 @@ export default defineNuxtModule<ModuleOptions>({
     configKey: 'safeRuntimeConfig',
   },
   defaults: {
-    $schema?: undefined, // No default schema, users must provide their own
+    $schema: undefined, // No default schema, users must provide their own
   },
   setup(options, nuxt) {
     // Skip validation when no schema is provided to avoid breaking existing setups
