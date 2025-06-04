@@ -17,7 +17,7 @@ export default defineNuxtModule<ModuleOptions>({
   setup(options, nuxt) {
     // Skip validation when no schema is provided to avoid breaking existing setups
     // This makes the module opt-in and non-intrusive
-    if (!options.$schema)
+    if (!options?.$schema)
       return
 
     // In development mode, validate immediately when modules are done loading
