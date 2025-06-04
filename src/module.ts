@@ -2,8 +2,6 @@ import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { defineNuxtModule } from '@nuxt/kit'
 import { consola } from 'consola'
 
-// We keep this empty for now since the module doesn't need configuration options
-// but can be extended in the future for customizing validation behavior
 export interface ModuleOptions {
   $schema: StandardSchemaV1
 }
@@ -14,7 +12,7 @@ export default defineNuxtModule<ModuleOptions>({
     configKey: 'safeRuntimeConfig',
   },
   defaults: {
-    $schema: undefined, // No default schema, users must provide their own
+    $schema?: undefined, // No default schema, users must provide their own
   },
   setup(options, nuxt) {
     // Skip validation when no schema is provided to avoid breaking existing setups
