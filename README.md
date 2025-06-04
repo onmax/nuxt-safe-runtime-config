@@ -22,7 +22,6 @@ Validate Nuxt runtime config at build time using <b>Zod</b>, <b>Valibot</b>, <b>
   </a>
 </p>
 
-
 ## Features
 
 - 🔒 &nbsp;Validate runtime config at build time with **Zod**, **Valibot**, **ArkType**, and more
