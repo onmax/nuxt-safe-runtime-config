@@ -90,6 +90,8 @@ function isStandardSchema(schema: any): schema is StandardSchemaV1 {
 // We format validation issues in a developer-friendly way to make debugging easier
 // The path shows exactly where in the config the issue occurred
 function formatIssue(issue: any): string {
-  const path = issue.path ? issue.path.map((p: any) => p.key || p).join('.') : 'root'
+  const path = issue.path
+    ? issue.path.map((p: any) => p && typeof p === 'object' && 'key' in p ? p.key : p,).join('.')
+    : 'root'
   return `${path}: ${issue.message || 'Validation error'}`
 }
