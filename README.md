@@ -1,11 +1,27 @@
-# Nuxt Safe Runtime Config
+<h1 align="center">
+  <img alt="Nuxt safe runtime config logo" loading="lazy" width="50" height="50" decoding="async" data-nimg="1" style="color:transparent" src="https://raw.githubusercontent.com/onmax/nuxt-safe-runtime-config/refs/heads/main/.github/logo.svg" />
+  </br>
+  Nuxt Safe Runtime Config</h1>
+<p align="center">
+Validate Nuxt runtime config at build time using <b>Zod</b>, <b>Valibot</b>, <b>ArkType</b>, or any Standard Schema compatible library.
+</p>
+<br/>
 
-[![npm version][npm-version-src]][npm-version-href]
-[![npm downloads][npm-downloads-src]][npm-downloads-href]
-[![License][license-src]][license-href]
-[![Nuxt][nuxt-src]][nuxt-href]
+<p align="center">
+  <a href="https://www.npmjs.com/package/nuxt-safe-runtime-config">
+    <img src="https://img.shields.io/npm/v/nuxt-safe-runtime-config.svg" alt="npm version" />
+  </a>
+  <a href="https://www.npmjs.com/package/nuxt-safe-runtime-config">
+    <img src="https://img.shields.io/npm/dm/nuxt-safe-runtime-config.svg" alt="npm downloads" />
+  </a>
+  <a href="https://github.com/onmax/nuxt-safe-runtime-config/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/onmax/nuxt-safe-runtime-config.svg" alt="License" />
+  </a>
+  <a href="https://nuxt.com">
+    <img src="https://img.shields.io/badge/Nuxt-3.0-00DC82.svg" alt="Nuxt" />
+  </a>
+</p>
 
-Validate Nuxt runtime config at build time using **Zod**, **Valibot**, **ArkType**, or any Standard Schema compatible library.
 
 ## Features
 
@@ -179,14 +195,3 @@ pnpm run release
 ```
 
 </details>
-
-<!-- Badges -->
-
-[npm-version-src]: https://img.shields.io/npm/v/nuxt-safe-runtime-config/latest.svg?style=flat&colorA=020420&colorB=00DC82
-[npm-version-href]: https://npmjs.com/package/nuxt-safe-runtime-config
-[npm-downloads-src]: https://img.shields.io/npm/dm/nuxt-safe-runtime-config.svg?style=flat&colorA=020420&colorB=00DC82
-[npm-downloads-href]: https://npm.chart.dev/nuxt-safe-runtime-config
-[license-src]: https://img.shields.io/npm/l/nuxt-safe-runtime-config.svg?style=flat&colorA=020420&colorB=00DC82
-[license-href]: https://npmjs.com/package/nuxt-safe-runtime-config
-[nuxt-src]: https://img.shields.io/badge/Nuxt-020420?logo=nuxt.js
-[nuxt-href]: https://nuxt.com
