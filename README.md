@@ -7,8 +7,6 @@
 
 Validate Nuxt runtime config at build time using **Zod**, **Valibot**, **ArkType**, or any Standard Schema compatible library.
 
-- [✨ &nbsp;Release Notes](/CHANGELOG.md)
-
 ## Features
 
 - 🔒 &nbsp;Validate runtime config at build time with **Zod**, **Valibot**, **ArkType**, and more
@@ -37,7 +35,8 @@ export default defineNuxtConfig({
 
 2. Define your runtime config schema using **Valibot**, **Zod**, **ArkType**, or any other Standard Schema compatible library:
 
-### With Valibot
+<details>
+<summary>With Valibot</summary>
 
 ```typescript
 import { number, object, optional, string } from 'valibot'
@@ -53,7 +52,10 @@ const runtimeConfigSchema = object({
 })
 ```
 
-### With Zod
+</details>
+
+<details>
+<summary>With Zod</summary>
 
 ```typescript
 import { z } from 'zod'
@@ -69,7 +71,10 @@ const runtimeConfigSchema = z.object({
 })
 ```
 
-### With ArkType
+</details>
+
+<details>
+<summary>With ArkType</summary>
 
 ```typescript
 import { type } from 'arktype'
@@ -84,6 +89,8 @@ const runtimeConfigSchema = type({
   'port?': 'number'
 })
 ```
+
+</details>
 
 3. Configure your Nuxt app:
 
