@@ -24,4 +24,16 @@ describe('nuxt-safe-runtime-config module', () => {
     await loadFixture()
     await expect(buildFixture()).rejects.toThrowError()
   }, 20000)
+
+  it('should successfully build when module is included but no safeRuntimeConfig is provided', async () => {
+    createTest({
+      rootDir: fileURLToPath(new URL('./fixtures/no-config', import.meta.url)),
+      dev: false,
+      server: false,
+    })
+    await loadFixture()
+    await buildFixture()
+    const nuxt = useTestContext().nuxt!
+    expect(nuxt.options.runtimeConfig.public.apiBase).toBe('https://api.test.com')
+  }, 20000)
 })

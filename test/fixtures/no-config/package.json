@@ -1,0 +1,11 @@
+{
+  "name": "nuxt-safe-runtime-config-test-no-config",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "prepare": "nuxt prepare"
+  },
+  "devDependencies": {
+    "nuxt": "catalog:"
+  }
+}
