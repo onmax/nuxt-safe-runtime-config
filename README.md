@@ -20,6 +20,12 @@ Validate Nuxt runtime config at build time using <b>Zod</b>, <b>Valibot</b>, <b>
   <a href="https://nuxt.com">
     <img src="https://img.shields.io/badge/Nuxt-3.0-00DC82.svg" alt="Nuxt" />
   </a>
+
+  <p align="center">
+    <a href="https://github.com/nuxt/nuxt/discussions/32301">
+      🔗 Related Nuxt RFC: Enable Standard Schema Validation in Nuxt Config
+    </a>
+  </p>
 </p>
 
 ## Features
