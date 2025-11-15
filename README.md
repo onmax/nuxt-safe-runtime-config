@@ -137,13 +137,13 @@ export default defineNuxtConfig({
 })
 ```
 
-The module will validate your runtime config against the schema during:
+The module validates your runtime config **after environment variables are merged** during:
 
 - `nuxi dev` (development mode)
 - `nuxi build`
 - `nuxi generate`
 
-If validation fails, the build process will stop with detailed error messages.
+This means validation happens at **runtime initialization**, after all `NUXT_*` environment variables from `.env` files have been merged into your runtime config. If validation fails, the build process will stop with detailed error messages.
 
 ## Important Notes
 

@@ -16,7 +16,6 @@ catalog:
   '@types/node': latest
   bumpp: ^10.1.1
   changelogen: ^0.6.1
-  consola: ^3.4.2
   eslint: ^9.28.0
   eslint-plugin-format: ^1.0.1
   lint-staged: ^16.1.0

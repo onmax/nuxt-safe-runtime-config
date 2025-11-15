@@ -2,9 +2,6 @@
   "name": "nuxt-safe-runtime-config-test-failure",
   "type": "module",
   "private": true,
-  "scripts": {
-    "prepare": "nuxt prepare"
-  },
   "dependencies": {
     "valibot": "catalog:"
   },

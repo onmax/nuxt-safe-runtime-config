@@ -1,6 +1,5 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { defineNuxtModule } from '@nuxt/kit'
-import { consola } from 'consola'
 
 export interface ModuleOptions {
   $schema: StandardSchemaV1
@@ -12,66 +11,42 @@ export default defineNuxtModule<ModuleOptions>({
     configKey: 'safeRuntimeConfig',
   },
   defaults: {
-    $schema: undefined, // No default schema, users must provide their own
+    $schema: undefined,
   },
   setup(options, nuxt) {
-    // In development mode, validate after Nuxt is ready
-    // This runs after env vars (NUXT_*) are merged into runtimeConfig
-    if (nuxt.options.dev) {
-      nuxt.hook('ready', async () => {
-        await validateRuntimeConfig(nuxt, options)
-      })
+    if (!options.$schema)
       return
-    }
 
-    // For production builds, validate after build is complete
-    // This ensures validation runs during CI/CD pipelines and local builds
-    nuxt.hook('build:done', async () => {
-      await validateRuntimeConfig(nuxt, options)
+    const schema = options.$schema
+
+    // Validate during Nitro initialization (after env vars are merged)
+    // Using nitro:init ensures errors block the build
+    nuxt.hook('nitro:init', async (nitro) => {
+      await validateRuntimeConfig(nitro.options.runtimeConfig, schema)
     })
   },
 })
 
-async function validateRuntimeConfig(nuxt: any, options: ModuleOptions): Promise<void> {
-  const schemaConfig = options.$schema
-
-  // Skip validation when no schema is provided to avoid breaking existing setups
-  // This makes the module opt-in and non-intrusive
-  if (!schemaConfig)
-    return
-
-  try {
-    const runtimeConfig = nuxt.options.runtimeConfig || {}
-
-    // We use Standard Schema to ensure compatibility with multiple validation libraries
-    // This gives users flexibility to choose their preferred schema library (Zod, Valibot, etc.)
-    if (!isStandardSchema(schemaConfig)) {
-      consola.error('Safe Runtime Config: Schema is not Standard Schema compatible')
-      return
-    }
-    const result = await schemaConfig['~standard'].validate(runtimeConfig)
-
-    // Standard Schema uses different result formats, so we check for issues property
-    // to handle both success/failure patterns across different implementations
-    if ('issues' in result && result.issues && result.issues.length > 0) {
-      consola.error('Safe Runtime Config: Validation failed!')
-      result.issues.forEach((issue: any, index: number) => {
-        consola.error(`  ${index + 1}. ${formatIssue(issue)}`)
-      })
-      // We throw to stop the build process and force developers to fix config issues
-      throw new Error('Runtime config validation failed')
-    }
-
-    consola.success('Validated Runtime Config')
+async function validateRuntimeConfig(config: any, schema: StandardSchemaV1): Promise<void> {
+  if (!isStandardSchema(schema)) {
+    console.error('Safe Runtime Config: Schema is not Standard Schema compatible')
+    throw new Error('Invalid schema format')
   }
-  catch (error) {
-    consola.error('Safe Runtime Config: Validation error:', error)
-    throw error
+
+  const result = await schema['~standard'].validate(config)
+
+  if ('issues' in result && result.issues && result.issues.length > 0) {
+    console.error('Safe Runtime Config: Validation failed!')
+    result.issues.forEach((issue: any, index: number) => {
+      console.error(`  ${index + 1}. ${formatIssue(issue)}`)
+    })
+    throw new Error('Runtime config validation failed')
   }
+
+  // eslint-disable-next-line no-console
+  console.log('✓ Validated Runtime Config')
 }
 
-// Standard Schema detection helps ensure we're working with compatible validation libraries
-// This prevents runtime errors when users provide incompatible schema objects
 function isStandardSchema(schema: any): schema is StandardSchemaV1 {
   return schema
     && typeof schema === 'object'
@@ -80,8 +55,6 @@ function isStandardSchema(schema: any): schema is StandardSchemaV1 {
     && typeof schema['~standard'].validate === 'function'
 }
 
-// We format validation issues in a developer-friendly way to make debugging easier
-// The path shows exactly where in the config the issue occurred
 function formatIssue(issue: any): string {
   const path = issue.path
     ? issue.path.map((p: any) => p && typeof p === 'object' && 'key' in p ? p.key : p).join('.')

@@ -15,16 +15,17 @@ export default defineNuxtConfig({
   modules: [SafeRuntimeConfig],
 
   runtimeConfig: {
-    databaseUrl: '\',
-    secretKey: '\',
+    databaseUrl: '',
+    secretKey: '',
     port: 3000,
     public: {
-      apiBase: '\',
+      apiBase: '',
       appName: 'Test App',
     },
   },
 
+  // @ts-expect-error you need to run `prepare` to generate the types
   safeRuntimeConfig: {
-    : runtimeConfigSchema,
+    $schema: runtimeConfigSchema,
   },
 })
