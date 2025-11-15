@@ -37,3 +37,21 @@ describe('nuxt-safe-runtime-config module', () => {
     expect(nuxt.options.runtimeConfig.public.apiBase).toBe('https://api.test.com')
   }, 20000)
 })
+
+  it('should validate env vars from .env file', async () => {
+    createTest({
+      rootDir: fileURLToPath(new URL('./fixtures/env-var-validation', import.meta.url)),
+      dev: true,
+      server: false,
+    })
+    await loadFixture()
+    const nuxt = useTestContext().nuxt!
+    
+    // Wait for ready hook to populate env vars
+    await nuxt.ready()
+    
+    // Verify env vars were loaded and passed validation
+    expect(nuxt.options.runtimeConfig.databaseUrl).toBe('postgresql://env:5432/envdb')
+    expect(nuxt.options.runtimeConfig.secretKey).toBe('env-secret-key')
+    expect(nuxt.options.runtimeConfig.public.apiBase).toBe('https://env-api.test.com')
+  }, 20000)

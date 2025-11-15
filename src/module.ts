@@ -15,10 +15,10 @@ export default defineNuxtModule<ModuleOptions>({
     $schema: undefined, // No default schema, users must provide their own
   },
   setup(options, nuxt) {
-    // In development mode, validate immediately when modules are done loading
-    // This catches config errors early during dev server startup
+    // In development mode, validate after Nuxt is ready
+    // This runs after env vars (NUXT_*) are merged into runtimeConfig
     if (nuxt.options.dev) {
-      nuxt.hook('modules:done', async () => {
+      nuxt.hook('ready', async () => {
         await validateRuntimeConfig(nuxt, options)
       })
       return
