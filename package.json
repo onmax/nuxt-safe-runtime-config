@@ -1,7 +1,7 @@
 {
   "name": "nuxt-safe-runtime-config",
   "type": "module",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "packageManager": "pnpm@9.15.4+sha512.b2dc20e2fc72b3e18848459b37359a32064663e5627a51e4c74b2c29dd8e8e0491483c3abb40789cfd578bf362fb6ba8261b05f0387d76792ed6e23ea3b1b6a0",
   "description": "Validate Nuxt runtime config with Standard Schema at build time",
   "author": {
@@ -52,9 +52,7 @@
   },
   "dependencies": {
     "@nuxt/kit": "catalog:",
-    "@standard-schema/spec": "catalog:",
-    "consola": "catalog:",
-    "dotenv": "^17.2.3"
+    "@standard-schema/spec": "catalog:"
   },
   "devDependencies": {
     "@antfu/eslint-config": "catalog:",
