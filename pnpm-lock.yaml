@@ -92,6 +92,9 @@ importers:
       dotenv:
         specifier: ^17.2.3
         version: 17.2.3
+      pathe:
+        specifier: ^2.0.3
+        version: 2.0.3
     devDependencies:
       '@antfu/eslint-config':
         specifier: 'catalog:'

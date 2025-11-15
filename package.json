@@ -54,7 +54,8 @@
     "@nuxt/kit": "catalog:",
     "@standard-schema/spec": "catalog:",
     "consola": "catalog:",
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.2.3",
+    "pathe": "^2.0.3"
   },
   "devDependencies": {
     "@antfu/eslint-config": "catalog:",
