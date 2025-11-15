@@ -22,7 +22,7 @@ export default defineNuxtModule<ModuleOptions>({
     // This runs after env vars (NUXT_*) are merged into runtimeConfig
     if (nuxt.options.dev) {
       nuxt.hook('ready', async () => {
-        loadDotenv({ path: resolve(nuxt.options.rootDir, '.env') })
+        loadDotenv()
         await validateRuntimeConfig(nuxt, options)
       })
       return
