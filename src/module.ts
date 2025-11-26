@@ -19,10 +19,15 @@ export default defineNuxtModule<ModuleOptions>({
 
     const schema = options.$schema
 
-    // Validate during Nitro initialization (after env vars are merged)
-    // Using nitro:init ensures errors block the build
-    nuxt.hook('nitro:init', async (nitro) => {
-      await validateRuntimeConfig(nitro.options.runtimeConfig, schema)
+    // Validate during dev (ready) and build (build:done)
+    // Skip during prepare/typecheck where env vars may not be set
+    nuxt.hook('ready', async () => {
+      if ((nuxt.options as any)._prepare)
+        return
+      await validateRuntimeConfig(nuxt.options.nitro.runtimeConfig, schema)
+    })
+    nuxt.hook('build:done', async () => {
+      await validateRuntimeConfig(nuxt.options.nitro.runtimeConfig, schema)
     })
   },
 })
