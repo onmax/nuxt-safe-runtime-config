@@ -11,6 +11,7 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
+    "@valibot/to-json-schema": "catalog:",
     "nuxt": "catalog:",
     "valibot": "catalog:"
   }

@@ -51,8 +51,10 @@
     "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
   },
   "dependencies": {
-    "@nuxt/kit": "^3.17.4",
-    "@standard-schema/spec": "^1.0.0"
+    "@nuxt/kit": "catalog:",
+    "@standard-community/standard-json": "catalog:",
+    "@standard-schema/spec": "catalog:",
+    "ajv": "catalog:"
   },
   "devDependencies": {
     "@antfu/eslint-config": "catalog:",

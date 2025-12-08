@@ -1,8 +1,11 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
-import { defineNuxtModule } from '@nuxt/kit'
+import { addImportsDir, addTemplate, createResolver, defineNuxtModule } from '@nuxt/kit'
+import { toJsonSchema } from '@standard-community/standard-json'
 
 export interface ModuleOptions {
   $schema: StandardSchemaV1
+  validateAtBuild: boolean
+  validateAtRuntime: boolean
 }
 
 export default defineNuxtModule<ModuleOptions>({
@@ -12,23 +15,39 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: {
     $schema: undefined,
+    validateAtBuild: true,
+    validateAtRuntime: false,
   },
-  setup(options, nuxt) {
+  async setup(options, nuxt) {
     if (!options.$schema)
       return
 
     const schema = options.$schema
+    const resolver = createResolver(import.meta.url)
 
-    // Validate during dev (ready) and build (build:done)
-    // Skip during prepare/typecheck where env vars may not be set
-    nuxt.hook('ready', async () => {
-      if ((nuxt.options as any)._prepare)
-        return
-      await validateRuntimeConfig(nuxt.options.nitro.runtimeConfig, schema)
-    })
-    nuxt.hook('build:done', async () => {
-      await validateRuntimeConfig(nuxt.options.nitro.runtimeConfig, schema)
-    })
+    // Build-time validation (existing behavior)
+    if (options.validateAtBuild) {
+      nuxt.hook('ready', async () => {
+        if ((nuxt.options as any)._prepare)
+          return
+        await validateRuntimeConfig(nuxt.options.nitro.runtimeConfig, schema)
+      })
+      nuxt.hook('build:done', async () => {
+        await validateRuntimeConfig(nuxt.options.nitro.runtimeConfig, schema)
+      })
+    }
+
+    // Runtime validation setup
+    if (options.validateAtRuntime) {
+      const jsonSchema = await toJsonSchema(schema as any)
+      addTemplate({
+        filename: 'safe-runtime-config/schema.json',
+        write: true,
+        getContents: () => JSON.stringify(jsonSchema),
+      })
+
+      addImportsDir(resolver.resolve('./runtime/composables'))
+    }
   },
 })
 
