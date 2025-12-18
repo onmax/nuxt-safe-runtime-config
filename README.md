@@ -177,7 +177,11 @@ Runtime validation uses [@cfworker/json-schema](https://github.com/cfworker/cfwo
 
 The module includes an ESLint plugin that warns when using `useRuntimeConfig()` instead of `useSafeRuntimeConfig()`.
 
-### Setup
+### With @nuxt/eslint (Automatic)
+
+If you use [@nuxt/eslint](https://eslint.nuxt.com), the rule is auto-registered. No configuration needed.
+
+### Manual Setup
 
 Add to your `eslint.config.mjs`:
 

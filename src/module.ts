@@ -124,6 +124,17 @@ export default defineNitroPlugin(() => {
 
     // Always add composable for type-safe config access
     addImportsDir(resolver.resolve('./runtime/composables'))
+
+    // Auto-register ESLint rule when @nuxt/eslint is present
+    nuxt.hook('eslint:config:addons', (addons) => {
+      addons.push({
+        name: 'nuxt-safe-runtime-config',
+        getConfigs: () => ({
+          imports: [{ from: 'nuxt-safe-runtime-config/eslint', name: 'default', as: 'safeRuntimeConfig' }],
+          configs: [`safeRuntimeConfig.configs.recommended`],
+        }),
+      })
+    })
   },
 })
 
@@ -198,9 +209,12 @@ function formatIssue(issue: any): string {
   return `${path}: ${issue.message || 'Validation error'}`
 }
 
-// Module augmentation for type-safe config
-declare module 'nuxt/schema' {
-  interface NuxtConfig {
-    safeRuntimeConfig?: Partial<ModuleOptions>
+// Hook type from @nuxt/eslint (only fires when that module is installed)
+declare module '@nuxt/schema' {
+  interface NuxtHooks {
+    'eslint:config:addons': (addons: Array<{
+      name: string
+      getConfigs: () => { imports?: Array<{ from: string, name: string, as: string }>, configs?: string[] }
+    }>) => void
   }
 }
