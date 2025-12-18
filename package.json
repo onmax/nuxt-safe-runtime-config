@@ -39,7 +39,7 @@
     "dev": "nuxi dev playground",
     "dev:build": "nuxi build playground",
     "dev:prepare": "nuxt-module-build build --stub && nuxi prepare playground",
-    "release": "nr lint && nr typecheck && nr test && nr prepack && bumpp && pnpm publish",
+    "release": "bumpp && git push --follow-tags",
     "typecheck": "nuxt typecheck && pnpm -C playground typecheck",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
