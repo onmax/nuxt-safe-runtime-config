@@ -38,7 +38,7 @@
     "prepack": "nuxt-module-build build && unbuild",
     "dev": "nuxi dev playground",
     "dev:build": "nuxi build playground",
-    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground && pnpm -C test/fixtures/validation-failure prepare && pnpm -C test/fixtures/validation-success prepare",
+    "dev:prepare": "nuxt-module-build build --stub && nuxi prepare playground",
     "release": "nr lint && nr typecheck && nr test && nr prepack && bumpp && pnpm publish",
     "typecheck": "nuxt typecheck && pnpm -C playground typecheck",
     "lint": "eslint .",

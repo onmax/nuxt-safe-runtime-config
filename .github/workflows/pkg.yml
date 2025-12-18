@@ -18,5 +18,6 @@ jobs:
           cache: pnpm
 
       - run: pnpm install
+      - run: pnpm dev:prepare
       - run: pnpm prepack
       - run: pnpm dlx pkg-pr-new publish
