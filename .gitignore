@@ -54,3 +54,7 @@ coverage
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Build artifacts in runtime
+src/runtime/**/*.js
+src/runtime/**/*.d.ts
