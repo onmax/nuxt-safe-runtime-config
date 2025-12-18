@@ -18,7 +18,7 @@ Validate Nuxt runtime config at build time using <b>Zod</b>, <b>Valibot</b>, <b>
     <img src="https://img.shields.io/github/license/onmax/nuxt-safe-runtime-config.svg" alt="License" />
   </a>
   <a href="https://nuxt.com">
-    <img src="https://img.shields.io/badge/Nuxt-3.0-00DC82.svg" alt="Nuxt" />
+    <img src="https://img.shields.io/badge/Nuxt-3.0+-00DC82.svg" alt="Nuxt" />
   </a>
 
   <p align="center">
@@ -30,15 +30,15 @@ Validate Nuxt runtime config at build time using <b>Zod</b>, <b>Valibot</b>, <b>
 
 ## Features
 
-- 🔒 &nbsp;Validate runtime config at build time with **Zod**, **Valibot**, **ArkType**, and more
-- 🚀 &nbsp;Works with any [Standard Schema](https://standardschema.dev/) compatible library
-- 🛠 &nbsp;Only runs during dev/build/generate phases
-- ⚡ &nbsp;Zero runtime overhead - validation happens at build time only
-- 📝 &nbsp;Does not modify your runtime config or types - only validates them
+- 🔒 **Build-time validation** with Zod, Valibot, ArkType, or any [Standard Schema](https://standardschema.dev/) library
+- 🚀 **Runtime validation** (opt-in) validates config when the server starts
+- ✨ **Auto-generated types** — `useSafeRuntimeConfig()` is fully typed without manual generics
+- 🛠 **ESLint plugin** warns when using `useRuntimeConfig()` instead of the type-safe composable
+- ⚡ **Zero runtime overhead** by default — validation happens at build time only
 
 ## Quick Setup
 
-Install the module to your Nuxt application with one command:
+Install the module:
 
 ```bash
 npx nuxi module add nuxt-safe-runtime-config
@@ -46,15 +46,9 @@ npx nuxi module add nuxt-safe-runtime-config
 
 ## Usage
 
-1. Add the module to your `nuxt.config.ts`:
+### 1. Define your schema
 
-```typescript
-export default defineNuxtConfig({
-  modules: ['nuxt-safe-runtime-config']
-})
-```
-
-2. Define your runtime config schema using **Valibot**, **Zod**, **ArkType**, or any other Standard Schema compatible library:
+Use Zod, Valibot, ArkType, or any Standard Schema compatible library:
 
 <details>
 <summary>With Valibot</summary>
@@ -113,13 +107,12 @@ const runtimeConfigSchema = type({
 
 </details>
 
-3. Configure your Nuxt app:
+### 2. Configure in nuxt.config.ts
 
 ```typescript
 export default defineNuxtConfig({
   modules: ['nuxt-safe-runtime-config'],
 
-  // Your regular runtime config
   runtimeConfig: {
     databaseUrl: process.env.DATABASE_URL || 'postgresql://localhost:5432/mydb',
     secretKey: process.env.SECRET_KEY || 'default-secret-key',
@@ -130,45 +123,120 @@ export default defineNuxtConfig({
     },
   },
 
-  // Add your schema for validation
   safeRuntimeConfig: {
     $schema: runtimeConfigSchema,
   },
 })
 ```
 
-The module validates your runtime config **after environment variables are merged** during:
+### 3. Use the type-safe composable
 
-- `nuxi dev` (development mode)
-- `nuxi build`
-- `nuxi generate`
+Access your validated config with full type safety — types are auto-generated from your schema:
 
-This means validation happens at **runtime initialization**, after all `NUXT_*` environment variables from `.env` files have been merged into your runtime config. If validation fails, the build process will stop with detailed error messages.
+```vue
+<script setup lang="ts">
+const config = useSafeRuntimeConfig()
+// config.public.apiBase is typed as string
+// config.secretKey is typed as string
+</script>
+```
 
-## Important Notes
+## Configuration Options
 
-**This module only validates your runtime config - it does not modify it.** Your native `runtimeConfig` remains unchanged, and no TypeScript types are modified. The module simply ensures that your runtime configuration matches your schema at build time, helping you catch configuration errors early in the development process.
+| Option              | Type                            | Default           | Description                                |
+| ------------------- | ------------------------------- | ----------------- | ------------------------------------------ |
+| `$schema`           | `StandardSchemaV1`              | —                 | Your validation schema (required)          |
+| `validateAtBuild`   | `boolean`                       | `true`            | Validate during dev/build                  |
+| `validateAtRuntime` | `boolean`                       | `false`           | Validate when server starts                |
+| `onBuildError`      | `'throw' \| 'warn' \| 'ignore'` | `'throw'`         | How to handle build validation errors      |
+| `onRuntimeError`    | `'throw' \| 'warn' \| 'ignore'` | `'throw'`         | How to handle runtime validation errors    |
+| `logSuccess`        | `boolean`                       | `true`            | Log successful validation                  |
+| `logFallback`       | `boolean`                       | `true`            | Log when using JSON Schema fallback        |
+| `jsonSchemaTarget`  | `string`                        | `'draft-2020-12'` | JSON Schema version for runtime validation |
+
+## Runtime Validation
+
+By default, validation only runs at build time. Enable runtime validation to catch environment variable issues when the server starts:
+
+```ts
+export default defineNuxtConfig({
+  safeRuntimeConfig: {
+    $schema: runtimeConfigSchema,
+    validateAtRuntime: true,
+  },
+})
+```
+
+Runtime validation uses [@cfworker/json-schema](https://github.com/cfworker/cfworker/tree/main/packages/json-schema) to validate the config after environment variables are merged. This lightweight validator (~8KB) works on all runtimes including edge (Cloudflare Workers, Vercel Edge, Netlify Edge). It catches issues like:
+
+- Environment variables with wrong types (e.g., `NUXT_PORT=abc` when expecting a number)
+- Missing required environment variables in production
+- Invalid values that pass build-time checks but fail at runtime
+
+## ESLint Integration
+
+The module includes an ESLint plugin that warns when using `useRuntimeConfig()` instead of `useSafeRuntimeConfig()`.
+
+### Setup
+
+Add to your `eslint.config.mjs`:
+
+```javascript
+import safeRuntimeConfig from 'nuxt-safe-runtime-config/eslint'
+
+export default [
+  safeRuntimeConfig.configs.recommended,
+  // ... your other configs
+]
+```
+
+Or configure manually:
+
+```javascript
+import safeRuntimeConfig from 'nuxt-safe-runtime-config/eslint'
+
+export default [
+  {
+    plugins: { 'safe-runtime-config': safeRuntimeConfig },
+    rules: { 'safe-runtime-config/prefer-safe-runtime-config': 'warn' },
+  },
+]
+```
+
+The rule includes auto-fix support — run `eslint --fix` to automatically replace `useRuntimeConfig()` calls.
+
+## Type Safety
+
+Types are auto-generated at build time from your schema's JSON Schema representation. The `useSafeRuntimeConfig()` composable returns a fully typed object — no manual generics needed:
+
+```ts
+const config = useSafeRuntimeConfig()
+// config is fully typed based on your schema
+```
+
+Generated types are stored in `.nuxt/types/safe-runtime-config.d.ts` and automatically included in your project.
 
 ## Error Messages
 
-When validation fails, you'll see detailed error messages like:
+When validation fails, you see detailed error messages:
 
 ```
-Safe Runtime Config: Validation failed!
-  1. databaseUrl: This field is required
-  2. public.apiBase: Expected string, received undefined
-  3. port: Expected number, received string
+[safe-runtime-config] Validation failed!
+  1. databaseUrl: Invalid type: Expected string but received undefined
+  2. public.apiBase: Invalid type: Expected string but received undefined
+  3. port: Invalid type: Expected number but received string
 ```
 
-The module will stop the build process until all validation errors are resolved.
+The module stops the build process until all validation errors are resolved.
 
 ## Why This Module?
 
-I wanted to use **Valibot** for runtime config validation, but Nuxt doesn't currently support Standard Schema. While Nuxt has its own schema validation system, it's primarily designed for module authors and broader Nuxt configuration.
+Nuxt's built-in schema validation is designed for module authors and broader configuration. This module focuses specifically on **runtime config validation** using Standard Schema, allowing you to:
 
-This module focuses specifically on **runtime config validation** using the Standard Schema specification, allowing you to use your preferred validation library (Valibot, Zod, ArkType, etc.).
-
-The goal is to eventually make Standard Schema a first-class citizen in Nuxt. If this module gains enough adoption, I plan to create a PR to add `standardSchema` support to Nuxt core.
+- Use your preferred validation library (Valibot, Zod, ArkType)
+- Catch configuration errors at build time
+- Optionally validate at runtime for environment variable issues
+- Get full type safety in your components
 
 ## Contribution
 

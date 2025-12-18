@@ -24,7 +24,6 @@ export default defineNuxtConfig({
     },
   },
 
-  // @ts-expect-error you need to run `prepare` to generate the types
   safeRuntimeConfig: {
     $schema: runtimeConfigSchema,
   },

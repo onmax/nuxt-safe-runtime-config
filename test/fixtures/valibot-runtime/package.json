@@ -1,0 +1,14 @@
+{
+  "name": "nuxt-safe-runtime-config-test-valibot-runtime",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "prepare": "nuxt prepare"
+  },
+  "dependencies": {
+    "valibot": "catalog:"
+  },
+  "devDependencies": {
+    "nuxt": "catalog:"
+  }
+}

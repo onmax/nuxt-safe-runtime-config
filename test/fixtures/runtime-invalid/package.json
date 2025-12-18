@@ -1,0 +1,14 @@
+{
+  "name": "nuxt-safe-runtime-config-test-runtime-invalid",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "prepare": "nuxt prepare"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "nuxt": "catalog:"
+  }
+}

@@ -21,24 +21,21 @@
     "build-time"
   ],
   "exports": {
-    ".": {
-      "types": "./dist/types.d.mts",
-      "import": "./dist/module.mjs"
-    }
+    ".": { "types": "./dist/types.d.mts", "import": "./dist/module.mjs" },
+    "./eslint": { "types": "./dist/eslint.d.mts", "import": "./dist/eslint.mjs" }
   },
   "main": "./dist/module.mjs",
   "typesVersions": {
     "*": {
-      ".": [
-        "./dist/types.d.mts"
-      ]
+      ".": ["./dist/types.d.mts"],
+      "eslint": ["./dist/eslint.d.mts"]
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "prepack": "nuxt-module-build build",
+    "prepack": "nuxt-module-build build && unbuild",
     "dev": "nuxi dev playground",
     "dev:build": "nuxi build playground",
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground && pnpm -C test/fixtures/validation-failure prepare && pnpm -C test/fixtures/validation-success prepare",
@@ -50,11 +47,18 @@
     "test:watch": "vitest watch",
     "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
   },
+  "peerDependencies": {
+    "eslint": "^9.0.0"
+  },
+  "peerDependenciesMeta": {
+    "eslint": { "optional": true }
+  },
   "dependencies": {
+    "@cfworker/json-schema": "catalog:",
     "@nuxt/kit": "catalog:",
     "@standard-community/standard-json": "catalog:",
     "@standard-schema/spec": "catalog:",
-    "ajv": "catalog:"
+    "consola": "catalog:"
   },
   "devDependencies": {
     "@antfu/eslint-config": "catalog:",
@@ -66,6 +70,7 @@
     "@nuxt/schema": "catalog:",
     "@nuxt/test-utils": "catalog:",
     "@types/node": "catalog:",
+    "@typescript-eslint/utils": "catalog:",
     "bumpp": "catalog:",
     "changelogen": "catalog:",
     "eslint": "catalog:",
@@ -74,6 +79,7 @@
     "nuxt": "catalog:",
     "simple-git-hooks": "catalog:",
     "typescript": "catalog:",
+    "unbuild": "catalog:",
     "valibot": "catalog:",
     "vitest": "catalog:",
     "vue-tsc": "catalog:"
