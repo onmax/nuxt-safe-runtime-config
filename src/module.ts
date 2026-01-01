@@ -86,7 +86,7 @@ export default defineNuxtModule<ModuleOptions>({
         write: true,
         getContents: () => `
 import { Validator } from '@cfworker/json-schema'
-import { useRuntimeConfig } from '#imports'
+import { defineNitroPlugin, useRuntimeConfig } from '#imports'
 import { consola } from 'consola'
 
 const logger = consola.withTag('safe-runtime-config')
