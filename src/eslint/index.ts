@@ -5,10 +5,12 @@ const plugin = {
   rules: { 'prefer-safe-runtime-config': preferSafeRuntimeConfig },
 }
 
-export default plugin
 export const configs = {
   recommended: {
     plugins: { 'safe-runtime-config': plugin },
     rules: { 'safe-runtime-config/prefer-safe-runtime-config': 'warn' },
   },
 }
+
+// Default export with configs for @nuxt/eslint integration
+export default { ...plugin, configs }
