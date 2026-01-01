@@ -64,5 +64,5 @@ jobs:
 
       - name: Publish to npm
         run: |
-          TARBALL=$(pnpm pack)
-          npm publish "$TARBALL" --provenance --access public --tag ${{ steps.npm-tag.outputs.tag }}
+          pnpm pack
+          npm publish *.tgz --provenance --access public --tag ${{ steps.npm-tag.outputs.tag }}
