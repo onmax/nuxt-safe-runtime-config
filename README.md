@@ -186,10 +186,10 @@ If you use [@nuxt/eslint](https://eslint.nuxt.com), the rule is auto-registered.
 Add to your `eslint.config.mjs`:
 
 ```javascript
-import safeRuntimeConfig from 'nuxt-safe-runtime-config/eslint'
+import { configs } from 'nuxt-safe-runtime-config/eslint'
 
 export default [
-  safeRuntimeConfig.configs.recommended,
+  configs.recommended,
   // ... your other configs
 ]
 ```
@@ -197,11 +197,11 @@ export default [
 Or configure manually:
 
 ```javascript
-import safeRuntimeConfig from 'nuxt-safe-runtime-config/eslint'
+import plugin from 'nuxt-safe-runtime-config/eslint'
 
 export default [
   {
-    plugins: { 'safe-runtime-config': safeRuntimeConfig },
+    plugins: { 'safe-runtime-config': plugin },
     rules: { 'safe-runtime-config/prefer-safe-runtime-config': 'warn' },
   },
 ]
