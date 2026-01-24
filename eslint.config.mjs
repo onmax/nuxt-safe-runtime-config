@@ -7,4 +7,5 @@ export default antfu({
   vue: true,
   formatters: true,
   pnpm: true,
+  ignores: ['docs/**'],
 })

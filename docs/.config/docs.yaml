@@ -1,0 +1,8 @@
+name: "nuxt-safe-runtime-config"
+shortDescription: "Type-safe runtime config for Nuxt"
+description: "Validate Nuxt runtime config at build or runtime using Zod, Valibot, ArkType, or any Standard Schema compatible library."
+github: "onmax/nuxt-safe-runtime-config"
+url: "https://nuxt-safe-runtime-config.vercel.app"
+themeColor: "green"
+landing:
+  contributors: true
