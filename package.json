@@ -18,8 +18,11 @@
     "valibot",
     "zod",
     "arktype",
-    "build-time"
+    "build-time",
+    "shelve",
+    "secrets"
   ],
+  "sideEffects": false,
   "exports": {
     ".": { "types": "./dist/types.d.mts", "import": "./dist/module.mjs" },
     "./eslint": { "types": "./dist/eslint.d.mts", "import": "./dist/eslint.mjs" }
@@ -48,17 +51,21 @@
     "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
   },
   "peerDependencies": {
+    "@nuxt/kit": "^3.0.0 || ^4.0.0",
     "eslint": "^9.0.0"
   },
   "peerDependenciesMeta": {
     "eslint": { "optional": true }
   },
   "dependencies": {
-    "@cfworker/json-schema": "^4.1.1",
-    "@nuxt/kit": "^3.17.4",
-    "@standard-community/standard-json": "^0.3.0",
-    "@standard-schema/spec": "^1.1.0",
-    "consola": "^3.4.0"
+    "@cfworker/json-schema": "catalog:",
+    "@standard-community/standard-json": "catalog:",
+    "@standard-schema/spec": "catalog:",
+    "consola": "catalog:",
+    "defu": "catalog:",
+    "magicast": "catalog:",
+    "ofetch": "catalog:",
+    "std-env": "catalog:"
   },
   "devDependencies": {
     "@antfu/eslint-config": "catalog:",
