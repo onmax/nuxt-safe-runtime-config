@@ -1,0 +1,1 @@
+{ "name": "shelve-integration-test", "type": "module", "private": true, "scripts": { "prepare": "nuxt prepare" }, "devDependencies": { "nuxt": "catalog:" } }
