@@ -1,0 +1,8 @@
+{
+  "framework": null,
+  "buildCommand": "npm run build",
+  "outputDirectory": ".docs/.output/public",
+  "installCommand": "npm install",
+  "cleanUrls": true,
+  "trailingSlash": false
+}
