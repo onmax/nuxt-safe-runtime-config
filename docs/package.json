@@ -1,1 +1,1 @@
-{ "type": "module", "private": true, "scripts": { "build": "undocs build", "dev": "undocs dev" }, "devDependencies": { "undocs": "catalog:" } }
+{ "type": "module", "private": true, "scripts": { "build": "undocs build", "dev": "undocs dev" }, "devDependencies": { "undocs": "^0.4.10" } }
