@@ -54,11 +54,11 @@
     "eslint": { "optional": true }
   },
   "dependencies": {
-    "@cfworker/json-schema": "catalog:",
-    "@nuxt/kit": "catalog:",
-    "@standard-community/standard-json": "catalog:",
-    "@standard-schema/spec": "catalog:",
-    "consola": "catalog:"
+    "@cfworker/json-schema": "^4.1.1",
+    "@nuxt/kit": "^3.17.4",
+    "@standard-community/standard-json": "^0.3.0",
+    "@standard-schema/spec": "^1.1.0",
+    "consola": "^3.4.0"
   },
   "devDependencies": {
     "@antfu/eslint-config": "catalog:",
