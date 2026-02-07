@@ -248,6 +248,8 @@ export default defineNitroPlugin(() => {
       registerNitroPlugin(nuxt, pluginPath.dst)
     }
 
+    // Ensure server/Nitro bundles can resolve auto-imported composables.
+    addServerImportsDir(resolver.resolve('./runtime/composables'))
     addImportsDir(resolver.resolve('./runtime/composables'))
 
     nuxt.hook('eslint:config:addons', (addons) => {
