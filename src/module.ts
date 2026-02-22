@@ -1,7 +1,7 @@
 import type { Nuxt } from '@nuxt/schema'
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 import type { ErrorBehavior, ModuleOptions } from './types'
-import { addImportsDir, addServerImportsDir, addTemplate, addTypeTemplate, createResolver, defineNuxtModule, useLogger } from '@nuxt/kit'
+import { addImports, addServerImports, addServerImportsDir, addTemplate, addTypeTemplate, createResolver, defineNuxtModule, useLogger } from '@nuxt/kit'
 import { toJsonSchema } from '@standard-community/standard-json'
 import defu from 'defu'
 import { isCI, isTest } from 'std-env'
@@ -190,6 +190,26 @@ export default defineNitroPlugin(async () => {
       getContents: () => generateTypeDeclaration(jsonSchema),
     })
 
+    addTemplate({
+      filename: 'safe-runtime-config/use-safe-runtime-config.ts',
+      getContents: () => `
+import { useSafeRuntimeConfig as _useSafeRuntimeConfig } from '${resolver.resolve('./runtime/composables/useSafeRuntimeConfig')}'
+import type { SafeRuntimeConfig } from '#build/types/safe-runtime-config'
+
+export function useSafeRuntimeConfig(): SafeRuntimeConfig {
+  return _useSafeRuntimeConfig() as SafeRuntimeConfig
+}
+`,
+    })
+
+    const safeRuntimeConfigImport = {
+      name: 'useSafeRuntimeConfig',
+      from: '#build/safe-runtime-config/use-safe-runtime-config',
+    }
+
+    addImports([safeRuntimeConfigImport])
+    addServerImports([safeRuntimeConfigImport])
+
     if (options.validateAtBuild) {
       const validateOpts = { onError: options.onBuildError!, logSuccess: options.logSuccess! }
       nuxt.hook('ready', async () => {
@@ -247,8 +267,6 @@ export default defineNitroPlugin(() => {
 
       registerNitroPlugin(nuxt, pluginPath.dst)
     }
-
-    addImportsDir(resolver.resolve('./runtime/composables'))
 
     nuxt.hook('eslint:config:addons', (addons) => {
       addons.push({

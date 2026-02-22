@@ -142,6 +142,19 @@ const config = useSafeRuntimeConfig()
 </script>
 ```
 
+You can also use the same composable in server code:
+
+```ts
+// server/utils/config.ts
+export function getPrivateConfig() {
+  const config = useSafeRuntimeConfig()
+  return {
+    secretKey: config.secretKey,
+    apiBase: config.public.apiBase,
+  }
+}
+```
+
 ## Configuration Options
 
 | Option              | Type                            | Default           | Description                                |
@@ -289,7 +302,7 @@ The rule includes auto-fix support — run `eslint --fix` to automatically repla
 
 ## Type Safety
 
-Types are auto-generated at build time from your schema's JSON Schema representation. The `useSafeRuntimeConfig()` composable returns a fully typed object — no manual generics needed:
+Types are auto-generated at build time from your schema's JSON Schema representation. The `useSafeRuntimeConfig()` composable returns a fully typed object in both app and server contexts (`app.vue`, `server/api`, `server/utils`) — no manual generics needed:
 
 ```ts
 const config = useSafeRuntimeConfig()
