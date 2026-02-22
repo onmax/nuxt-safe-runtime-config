@@ -125,6 +125,10 @@ export function generateTypeDeclaration(schema: Record<string, unknown>): string
 
 export type SafeRuntimeConfig = ${tsType}
 
+declare global {
+  interface NuxtSafeRuntimeConfig extends SafeRuntimeConfig {}
+}
+
 declare module '#imports' {
   export function useSafeRuntimeConfig(): SafeRuntimeConfig
 }
