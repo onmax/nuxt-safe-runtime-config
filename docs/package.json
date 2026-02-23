@@ -1,1 +1,12 @@
-{ "type": "module", "private": true, "scripts": { "build": "undocs build", "dev": "undocs dev" }, "devDependencies": { "undocs": "catalog:default" } }
+{
+  "type": "module",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "build": "undocs build",
+    "dev": "undocs dev"
+  },
+  "devDependencies": {
+    "undocs": "catalog:default"
+  }
+}
