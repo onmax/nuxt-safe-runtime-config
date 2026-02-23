@@ -243,7 +243,7 @@ importers:
     devDependencies:
       nuxt:
         specifier: 'catalog:'
-        version: 3.17.5(@netlify/blobs@9.1.2)(@parcel/watcher@2.5.1)(@types/node@24.10.1)(cac@6.7.14)(db0@0.3.4)(eslint@9.28.0(jiti@2.6.1))(ioredis@5.9.2)(lightningcss@1.31.1)(magicast@0.3.5)(optionator@0.9.4)(rollup@4.56.0)(terser@5.40.0)(typescript@5.9.3)(vite@6.3.5(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.40.0)(yaml@2.8.2))(vue-tsc@2.2.10(typescript@5.9.3))(yaml@2.8.2)
+        version: 3.17.5(@netlify/blobs@9.1.2)(@parcel/watcher@2.5.1)(@types/node@24.10.1)(cac@6.7.14)(db0@0.3.4)(eslint@9.28.0(jiti@2.6.1))(ioredis@5.9.2)(lightningcss@1.31.1)(magicast@0.3.5)(optionator@0.9.4)(rollup@4.56.0)(terser@5.40.0)(typescript@5.9.3)(vite@7.3.1(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.40.0)(yaml@2.8.2))(vue-tsc@2.2.10(typescript@5.9.3))(yaml@2.8.2)
 
   test/fixtures/no-config:
     devDependencies:
@@ -260,6 +260,16 @@ importers:
       nuxt:
         specifier: 'catalog:'
         version: 3.17.5(@netlify/blobs@9.1.2)(@parcel/watcher@2.5.1)(@types/node@24.10.1)(cac@6.7.14)(db0@0.3.4)(eslint@9.28.0(jiti@2.6.1))(ioredis@5.9.2)(lightningcss@1.31.1)(magicast@0.3.5)(optionator@0.9.4)(rollup@4.56.0)(terser@5.40.0)(typescript@5.9.3)(vite@7.3.1(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.40.0)(yaml@2.8.2))(vue-tsc@2.2.10(typescript@5.9.3))(yaml@2.8.2)
+
+  test/fixtures/server-typing:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.2.1
+    devDependencies:
+      nuxt:
+        specifier: 'catalog:'
+        version: 3.17.5(@netlify/blobs@9.1.2)(@parcel/watcher@2.5.1)(@types/node@24.10.1)(cac@6.7.14)(db0@0.3.4)(eslint@9.28.0(jiti@2.6.1))(ioredis@5.9.2)(lightningcss@1.31.1)(magicast@0.3.5)(optionator@0.9.4)(rollup@4.56.0)(terser@5.40.0)(typescript@5.9.3)(vite@6.3.5(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.40.0)(yaml@2.8.2))(vue-tsc@2.2.10(typescript@5.9.3))(yaml@2.8.2)
 
   test/fixtures/shelve-integration:
     devDependencies:
