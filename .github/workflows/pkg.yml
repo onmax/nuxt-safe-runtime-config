@@ -20,4 +20,9 @@ jobs:
       - run: pnpm install
       - run: pnpm dev:prepare
       - run: pnpm prepack
+      - name: verify packed runtime files
+        run: |
+          test ! -L dist/runtime
+          test -f dist/runtime/composables/useSafeRuntimeConfig.js
+          test -f dist/runtime/utils/transform.js
       - run: pnpm dlx pkg-pr-new publish --pnpm
