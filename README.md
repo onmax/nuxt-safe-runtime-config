@@ -155,6 +155,12 @@ export function getPrivateConfig() {
 }
 ```
 
+If your editor runs type-checking outside Nuxt's auto-import context, import it explicitly:
+
+```ts
+import { useSafeRuntimeConfig } from '#imports'
+```
+
 ## Configuration Options
 
 | Option              | Type                            | Default           | Description                                |
