@@ -5,7 +5,6 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearSecretsCache, normalizeShelveOptions, resolveShelveConfig, shouldEnableShelve } from '../src/providers/shelve'
 
-// Mock homedir to return a temp directory that doesn't have .shelve
 const mockHomeDir = join(tmpdir(), `shelve-home-${randomUUID()}`)
 vi.mock('node:os', async (importOriginal) => {
   const mod = await importOriginal<typeof import('node:os')>()
@@ -86,7 +85,6 @@ describe('resolveShelveConfig', () => {
   beforeEach(() => {
     testDir = join(tmpdir(), `shelve-test-${randomUUID()}`)
     mkdirSync(testDir, { recursive: true })
-    // Ensure mock home dir exists but has no .shelve file
     mkdirSync(mockHomeDir, { recursive: true })
     vi.stubEnv('SHELVE_TOKEN', 'test-token')
     vi.stubEnv('SHELVE_PROJECT', '')
@@ -223,12 +221,8 @@ describe('resolveShelveConfig', () => {
   it('priority: options > env > package.json', () => {
     vi.stubEnv('SHELVE_PROJECT', 'env-project')
     writeFileSync(join(testDir, 'package.json'), '{"name": "pkg-project"}')
-
-    // Options takes priority
     let config = resolveShelveConfig({ project: 'opt-project', slug: 'team' }, testDir, true)
     expect(config.project).toBe('opt-project')
-
-    // Env takes priority over pkg
     config = resolveShelveConfig({ slug: 'team' }, testDir, true)
     expect(config.project).toBe('env-project')
   })

@@ -89,7 +89,7 @@ function detectValidationLibrary(rootDir: string): ValidationLibrary | null {
       return 'valibot'
     if (hasZod && !hasValibot)
       return 'zod'
-    return null // 0 or 2+ installed → ask user
+    return null
   }
   catch { return null }
 }
@@ -132,7 +132,6 @@ function countPrefixes(keys: string[]): Map<string, number> {
   return counts
 }
 
-/** Strip Nuxt-specific prefixes from env var keys */
 function stripNuxtPrefix(key: string): { key: string, isPublic: boolean } {
   if (key.startsWith('NUXT_PUBLIC_'))
     return { key: key.slice(12), isPublic: true }
@@ -143,15 +142,11 @@ function stripNuxtPrefix(key: string): { key: string, isPublic: boolean } {
   return { key, isPublic: false }
 }
 
-/** Transform env var keys into nested runtimeConfig structure */
 function transformKeysToStructure(keys: string[]): Record<string, Record<string, true> | true> {
-  // First, normalize keys by stripping NUXT_ prefixes
   const normalizedKeys = keys.map((k) => {
     const { key, isPublic } = stripNuxtPrefix(k)
     return { original: k, normalized: key, isPublic }
   })
-
-  // Count prefixes on normalized keys
   const prefixCounts = countPrefixes(normalizedKeys.map(k => k.normalized))
   const result: Record<string, Record<string, true> | true> = {}
 
@@ -197,7 +192,6 @@ function generateSchemaCode(keys: string[] | null, library: ValidationLibrary): 
   const imports = library === 'valibot' ? `import * as v from 'valibot'` : `import { z } from 'zod'`
 
   if (!keys || keys.length === 0) {
-    // Placeholder schema
     return { imports, schemaExpr: `${o}({})` }
   }
 
@@ -212,7 +206,6 @@ function generateSchemaCode(keys: string[] | null, library: ValidationLibrary): 
     const lines = entries.map(([k, v]) => {
       if (v === true)
         return `${pad}${k}: ${s},`
-      // Nested object - render inline if small, multiline if large
       const nestedKeys = Object.keys(v)
       if (nestedKeys.length <= 2) {
         return `${pad}${k}: ${o}({ ${nestedKeys.map(nk => `${nk}: ${s}`).join(', ')} }),`
@@ -252,45 +245,33 @@ async function updateNuxtConfig(rootDir: string, options: UpdateNuxtConfigOption
   }
 
   try {
-    // If we have a schema, add imports at the top of the file
     if (options.schema) {
       let content = readFileSync(configPath, 'utf-8')
-
-      // Check if $schema already exists
       if (content.includes('$schema')) {
         logger.info('Schema already exists in nuxt.config, skipping schema generation')
       }
       else {
-        // Check if import already exists
         const importStatement = options.schema.imports
         if (!content.includes(importStatement)) {
-          // Add imports at the top (after any existing imports)
           const importMatch = content.match(/^(import[\s\S]*?(?:\n(?!import)|\n$))/m)
           if (importMatch) {
             const lastImportEnd = importMatch.index! + importMatch[0].length
             content = `${content.slice(0, lastImportEnd)}${importStatement}\n${content.slice(lastImportEnd)}`
           }
           else {
-            // No imports, add at the very top
             content = `${importStatement}\n\n${content}`
           }
           writeFileSync(configPath, content)
         }
       }
     }
-
-    // Use magicast to update the config object
     const mod = await loadFile(configPath)
     const config = getDefaultExportOptions(mod)
-
-    // Add $schema as inline expression
     if (options.schema && !config.safeRuntimeConfig?.$schema) {
       if (!config.safeRuntimeConfig)
         config.safeRuntimeConfig = {}
       ;(config.safeRuntimeConfig as any).$schema = builders.raw(options.schema.schemaExpr)
     }
-
-    // Set shelve config if provided
     if (options.shelve) {
       if (!config.safeRuntimeConfig)
         config.safeRuntimeConfig = {}
@@ -313,8 +294,6 @@ interface ShelveAuthResult {
 
 async function authenticateShelve(url: string, logger: ConsolaInstance): Promise<ShelveAuthResult | null> {
   const rc = readShelveRc()
-
-  // Check for existing token
   if (rc.token) {
     const user = await validateToken(rc.token, url)
     if (user) {
@@ -322,8 +301,6 @@ async function authenticateShelve(url: string, logger: ConsolaInstance): Promise
       return { token: rc.token, rc }
     }
   }
-
-  // Prompt for token
   logger.info(`Generate a token at ${url}/user/tokens`)
   const inputToken = await consola.prompt('Enter your Shelve API token:', { type: 'text' })
   if (!inputToken || typeof inputToken !== 'string') {
@@ -349,7 +326,6 @@ interface ShelveSelectionResult {
 }
 
 async function selectTeamAndProject(token: string, url: string, logger: ConsolaInstance): Promise<ShelveSelectionResult | null> {
-  // Select team
   const teams = await fetchTeams(token, url)
   if (!teams.length) {
     logger.error('No teams found. Create a team at Shelve first.')
@@ -373,8 +349,6 @@ async function selectTeamAndProject(token: string, url: string, logger: ConsolaI
 
   if (!selectedTeam)
     return null
-
-  // Fetch and select project
   const projects = await fetchProjects(token, url, selectedTeam.slug)
   if (!projects.length) {
     logger.warn(`No projects in team "${selectedTeam.name}". Create one at Shelve first.`)
@@ -404,14 +378,10 @@ async function selectTeamAndProject(token: string, url: string, logger: ConsolaI
 
 export async function runShelveWizard(nuxt: Nuxt): Promise<void> {
   const logger = consola.withTag('shelve-setup')
-
-  // Check if already configured
   const existingConfig = (nuxt.options as any).safeRuntimeConfig
   if (existingConfig?.shelve && typeof existingConfig.shelve === 'object' && (existingConfig.shelve.project || existingConfig.shelve.slug)) {
-    return // Already configured
+    return
   }
-
-  // 1. Detect or ask for validation library
   let library: ValidationLibrary | null = detectValidationLibrary(nuxt.options.rootDir)
   let needsInstall = false
   if (library) {
@@ -434,8 +404,6 @@ export async function runShelveWizard(nuxt: Nuxt): Promise<void> {
       needsInstall = true
     }
   }
-
-  // 2. Ask about Shelve integration
   const enableShelve = await consola.prompt('Enable Shelve secrets integration?', { type: 'confirm', initial: false })
 
   let variables: ShelveVariable[] = []
@@ -450,8 +418,6 @@ export async function runShelveWizard(nuxt: Nuxt): Promise<void> {
 
       if (selection) {
         shelveConfig = { project: selection.project.name, slug: selection.team.slug }
-
-        // Fetch variables for schema generation
         try {
           const env = await fetchEnvironment(auth.token, url, selection.team.slug, 'development')
           variables = await fetchVariables(auth.token, url, selection.team.slug, selection.project.id, env.id)
@@ -468,20 +434,14 @@ export async function runShelveWizard(nuxt: Nuxt): Promise<void> {
       }
     }
   }
-
-  // 3. Install validation library if needed
   if (library && needsInstall) {
     await installValidationLibrary(nuxt.options.rootDir, library, logger)
   }
-
-  // 4. Generate schema (only if library selected)
   let schemaCode: { imports: string, schemaExpr: string } | null = null
   if (library) {
     const keys = variables.length > 0 ? variables.map(v => v.key) : null
     schemaCode = generateSchemaCode(keys, library)
   }
-
-  // 5. Only update config if we have something to add
   if (!schemaCode && !shelveConfig) {
     logger.info('No configuration changes needed')
     return
