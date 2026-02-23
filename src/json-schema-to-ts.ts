@@ -1,16 +1,9 @@
-/**
- * Converts a JSON Schema to a TypeScript type string.
- * Handles common JSON Schema patterns used by Zod, Valibot, and ArkType.
- */
 export function jsonSchemaToTs(schema: Record<string, unknown>, indent = 0): string {
   const spaces = '  '.repeat(indent)
 
-  // Handle $ref (not supported, return unknown)
-  if ('$ref' in schema) {
+  if ('$ref' in schema)
     return 'unknown'
-  }
 
-  // Handle anyOf/oneOf (union types)
   if ('anyOf' in schema && Array.isArray(schema.anyOf)) {
     const types = schema.anyOf.map((s: Record<string, unknown>) => jsonSchemaToTs(s, indent))
     return types.join(' | ')
@@ -20,46 +13,35 @@ export function jsonSchemaToTs(schema: Record<string, unknown>, indent = 0): str
     return types.join(' | ')
   }
 
-  // Handle allOf (intersection types)
   if ('allOf' in schema && Array.isArray(schema.allOf)) {
     const types = schema.allOf.map((s: Record<string, unknown>) => jsonSchemaToTs(s, indent))
     return types.join(' & ')
   }
 
-  // Handle const
-  if ('const' in schema) {
+  if ('const' in schema)
     return JSON.stringify(schema.const)
-  }
 
-  // Handle enum
-  if ('enum' in schema && Array.isArray(schema.enum)) {
+  if ('enum' in schema && Array.isArray(schema.enum))
     return schema.enum.map((v: unknown) => JSON.stringify(v)).join(' | ')
-  }
 
-  // Handle type
   const type = schema.type
 
-  if (type === 'string') {
+  if (type === 'string')
     return 'string'
-  }
 
-  if (type === 'number' || type === 'integer') {
+  if (type === 'number' || type === 'integer')
     return 'number'
-  }
 
-  if (type === 'boolean') {
+  if (type === 'boolean')
     return 'boolean'
-  }
 
-  if (type === 'null') {
+  if (type === 'null')
     return 'null'
-  }
 
   if (type === 'array') {
     const items = schema.items as Record<string, unknown> | undefined
-    if (items) {
+    if (items)
       return `${jsonSchemaToTs(items, indent)}[]`
-    }
     return 'unknown[]'
   }
 
@@ -93,7 +75,6 @@ export function jsonSchemaToTs(schema: Record<string, unknown>, indent = 0): str
     return lines.join('\n')
   }
 
-  // Handle multiple types (e.g., ["string", "null"])
   if (Array.isArray(type)) {
     const types = type.map((t: string) => {
       switch (t) {
@@ -110,13 +91,9 @@ export function jsonSchemaToTs(schema: Record<string, unknown>, indent = 0): str
     return types.join(' | ')
   }
 
-  // Fallback
   return 'unknown'
 }
 
-/**
- * Generates a complete TypeScript declaration file content for the composable.
- */
 export function generateTypeDeclaration(schema: Record<string, unknown>): string {
   const tsType = jsonSchemaToTs(schema)
 

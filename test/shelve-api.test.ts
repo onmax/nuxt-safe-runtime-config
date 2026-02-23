@@ -87,7 +87,6 @@ describe('fetchShelveSecrets', () => {
     const callsAfterFirst = mockFetch.mock.calls.length
 
     const result2 = await fetchShelveSecrets(baseConfig, true)
-    // Should not make additional calls if cache is hit
     expect(mockFetch.mock.calls.length).toBe(callsAfterFirst)
     expect(result2).toEqual(result1)
   })
@@ -143,7 +142,6 @@ describe('fetchShelveSecrets', () => {
     const result1 = await fetchShelveSecrets(config1, true)
     const result2 = await fetchShelveSecrets(config2, true)
 
-    // Both should make API calls (different cache keys)
     expect(mockFetch).toHaveBeenCalledTimes(6)
     expect(result1).toEqual({ key: 'value1' })
     expect(result2).toEqual({ key: 'value2' })

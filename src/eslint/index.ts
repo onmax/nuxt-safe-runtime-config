@@ -12,5 +12,4 @@ export const configs = {
   },
 }
 
-// Default export with configs for @nuxt/eslint integration
 export default { ...plugin, configs }

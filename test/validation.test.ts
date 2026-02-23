@@ -10,7 +10,6 @@ describe('build-time validation', () => {
     await setup({
       rootDir: fileURLToPath(new URL('./fixtures/validation-success', import.meta.url)),
     })
-    // If setup completes without throwing, build-time validation passed
     expect(true).toBe(true)
   }, 30000)
 
@@ -71,12 +70,8 @@ describe('runtime JSON Schema generation', () => {
     const schemaPath = join(fixtureDir, '.nuxt/safe-runtime-config/schema.json')
     const schema = JSON.parse(readFileSync(schemaPath, 'utf-8'))
     const validator = new Validator(schema, '2020-12')
-
-    // Valid config should pass
     const validConfig = { secretKey: 'test-key', public: { apiBase: 'https://api.test.com' } }
     expect(validator.validate(validConfig).valid).toBe(true)
-
-    // Invalid config should fail
     const invalidConfig = { secretKey: 123, public: { apiBase: 'https://api.test.com' } }
     expect(validator.validate(invalidConfig).valid).toBe(false)
   }, 30000)
@@ -89,8 +84,6 @@ describe('runtime JSON Schema generation', () => {
     const schemaPath = join(fixtureDir, '.nuxt/safe-runtime-config/schema.json')
     const schema = JSON.parse(readFileSync(schemaPath, 'utf-8'))
     const validator = new Validator(schema)
-
-    // Valid config should pass
     const validConfig = { secretKey: 'test-key', public: { apiBase: 'https://api.test.com' } }
     expect(validator.validate(validConfig).valid).toBe(true)
   }, 30000)
@@ -117,11 +110,7 @@ describe('runtime JSON Schema generation', () => {
 describe('runtime validation with env override', () => {
   it('fails when env var overrides with invalid type', async () => {
     const fixtureDir = fileURLToPath(new URL('./fixtures/valibot-runtime', import.meta.url))
-
-    // Build the fixture
     execSync('pnpm nuxi build', { cwd: fixtureDir, stdio: 'pipe' })
-
-    // Run server with invalid env var and capture output
     const output = await new Promise<string>((resolve) => {
       let stderr = ''
       const serverPath = join(fixtureDir, '.output/server/index.mjs')
