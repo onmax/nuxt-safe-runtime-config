@@ -1,7 +1,7 @@
 import { useRuntimeConfig } from '#imports'
 
 declare global {
-  interface NuxtSafeRuntimeConfig extends Record<string, unknown> {}
+  interface NuxtSafeRuntimeConfig {}
 }
 
 /**
