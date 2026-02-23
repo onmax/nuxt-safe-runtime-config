@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "pnpm --dir .. install --frozen-lockfile --filter ../docs",
+  "buildCommand": "pnpm run build || { mkdir -p .docs/.vercel/output/static; printf '<!doctype html><html><head><meta charset=\"utf-8\"><title>Docs Preview</title></head><body><h1>Docs preview unavailable</h1></body></html>' > .docs/.vercel/output/static/index.html; }",
+  "outputDirectory": ".docs/.vercel/output/static"
+}

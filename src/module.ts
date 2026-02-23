@@ -189,6 +189,12 @@ export default defineNitroPlugin(async () => {
       filename: 'types/safe-runtime-config.d.ts',
       getContents: () => generateTypeDeclaration(jsonSchema),
     })
+    nuxt.hook('nitro:config', (nitroConfig) => {
+      nitroConfig.typescript = nitroConfig.typescript || {}
+      nitroConfig.typescript.tsConfig = nitroConfig.typescript.tsConfig || {}
+      nitroConfig.typescript.tsConfig.include = nitroConfig.typescript.tsConfig.include || []
+      nitroConfig.typescript.tsConfig.include.push('./types/safe-runtime-config.d.ts')
+    })
 
     if (options.validateAtBuild) {
       const validateOpts = { onError: options.onBuildError!, logSuccess: options.logSuccess! }
@@ -248,7 +254,7 @@ export default defineNitroPlugin(() => {
       registerNitroPlugin(nuxt, pluginPath.dst)
     }
 
-    // Ensure server/Nitro bundles can resolve auto-imported composables.
+    // Ensure app and server/Nitro bundles can resolve auto-imported composables.
     addServerImportsDir(resolver.resolve('./runtime/composables'))
     addImportsDir(resolver.resolve('./runtime/composables'))
 
