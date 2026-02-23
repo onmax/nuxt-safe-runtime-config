@@ -38,7 +38,7 @@
     "dist"
   ],
   "scripts": {
-    "clean:dist": "rm -rf dist",
+    "clean:dist": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "prepack": "pnpm clean:dist && nuxt-module-build build && unbuild",
     "dev": "nuxi dev playground",
     "dev:build": "nuxi build playground",
