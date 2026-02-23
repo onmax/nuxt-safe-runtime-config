@@ -24,6 +24,7 @@ describe('fetchShelveSecrets', () => {
     mockFetch.mockReset()
     clearSecretsCache()
     vi.useFakeTimers()
+    vi.setSystemTime(new Date('2024-01-01T00:00:00.000Z'))
   })
 
   afterEach(() => {
@@ -90,9 +91,7 @@ describe('fetchShelveSecrets', () => {
     expect(result2).toEqual(result1)
   })
 
-  it.skip('refetches after cache expires', async () => {
-    // Skipped: vi.useFakeTimers doesn't affect the module's internal Date.now() calls
-    // Cache expiration is implicitly tested by 'bypasses cache when useCache is false'
+  it('refetches after cache expires', async () => {
     mockFetch
       .mockResolvedValueOnce({ id: 1, name: 'my-project' })
       .mockResolvedValueOnce({ id: 1, name: 'development' })
@@ -105,6 +104,7 @@ describe('fetchShelveSecrets', () => {
     const callsAfterFirst = mockFetch.mock.calls.length
 
     vi.advanceTimersByTime(31_000)
+    vi.setSystemTime(new Date('2024-01-01T00:00:31.000Z'))
 
     const result2 = await fetchShelveSecrets(baseConfig, true)
     expect(mockFetch.mock.calls.length).toBeGreaterThan(callsAfterFirst)

@@ -87,6 +87,24 @@ describe('runtime JSON Schema generation', () => {
     const validConfig = { secretKey: 'test-key', public: { apiBase: 'https://api.test.com' } }
     expect(validator.validate(validConfig).valid).toBe(true)
   }, 30000)
+
+  it('registers typed useSafeRuntimeConfig in server context', async () => {
+    const fixtureDir = fileURLToPath(new URL('./fixtures/server-typing', import.meta.url))
+
+    await setup({ rootDir: fixtureDir })
+    execSync('pnpm nuxi prepare', { cwd: fixtureDir, stdio: 'pipe' })
+
+    const nitroImportsPath = join(fixtureDir, '.nuxt/types/nitro-imports.d.ts')
+    expect(existsSync(nitroImportsPath)).toBe(true)
+
+    const nitroImports = readFileSync(nitroImportsPath, 'utf-8')
+    expect(nitroImports).toContain('useSafeRuntimeConfig')
+
+    execSync('pnpm exec vue-tsc --noEmit --skipLibCheck -p .nuxt/tsconfig.server.json', {
+      cwd: fixtureDir,
+      stdio: 'pipe',
+    })
+  }, 60000)
 })
 
 describe('runtime validation with env override', () => {

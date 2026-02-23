@@ -1,0 +1,14 @@
+{
+  "name": "nuxt-safe-runtime-config-test-cloudflare-auto-import",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "prepare": "nuxt prepare"
+  },
+  "dependencies": {
+    "valibot": "catalog:"
+  },
+  "devDependencies": {
+    "nuxt": "catalog:"
+  }
+}

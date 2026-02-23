@@ -1,6 +1,7 @@
 import type { Nuxt } from '@nuxt/schema'
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 import type { ErrorBehavior, ModuleOptions } from './types'
+import process from 'node:process'
 import { addImportsDir, addServerImportsDir, addTemplate, addTypeTemplate, createResolver, defineNuxtModule, useLogger } from '@nuxt/kit'
 import { toJsonSchema } from '@standard-community/standard-json'
 import defu from 'defu'
@@ -61,7 +62,7 @@ export default defineNuxtModule<ModuleOptions>({
   // onInstall requires Nuxt 4.1+ - ignored on older versions
   // @ts-expect-error onInstall is Nuxt 4.1+ feature
   async onInstall(nuxt: Nuxt) {
-    if (isCI || isTest)
+    if (isCI || isTest || !process.stdin.isTTY || !process.stdout.isTTY)
       return
     await runShelveWizard(nuxt)
   },
@@ -189,6 +190,12 @@ export default defineNitroPlugin(async () => {
       filename: 'types/safe-runtime-config.d.ts',
       getContents: () => generateTypeDeclaration(jsonSchema),
     })
+    nuxt.hook('nitro:config', (nitroConfig) => {
+      nitroConfig.typescript = nitroConfig.typescript || {}
+      nitroConfig.typescript.tsConfig = nitroConfig.typescript.tsConfig || {}
+      nitroConfig.typescript.tsConfig.include = nitroConfig.typescript.tsConfig.include || []
+      nitroConfig.typescript.tsConfig.include.push('./types/safe-runtime-config.d.ts')
+    })
 
     if (options.validateAtBuild) {
       const validateOpts = { onError: options.onBuildError!, logSuccess: options.logSuccess! }
@@ -248,6 +255,8 @@ export default defineNitroPlugin(() => {
       registerNitroPlugin(nuxt, pluginPath.dst)
     }
 
+    // Ensure app and server/Nitro bundles can resolve auto-imported composables.
+    addServerImportsDir(resolver.resolve('./runtime/composables'))
     addImportsDir(resolver.resolve('./runtime/composables'))
 
     nuxt.hook('eslint:config:addons', (addons) => {

@@ -142,6 +142,19 @@ const config = useSafeRuntimeConfig()
 </script>
 ```
 
+You can also use the same composable in server code:
+
+```ts
+// server/utils/config.ts
+export function getPrivateConfig() {
+  const config = useSafeRuntimeConfig()
+  return {
+    secretKey: config.secretKey,
+    apiBase: config.public.apiBase,
+  }
+}
+```
+
 ## Configuration Options
 
 | Option              | Type                            | Default           | Description                                |
@@ -160,27 +173,31 @@ const config = useSafeRuntimeConfig()
 
 [Shelve](https://shelve.cloud) is a secrets management service. This module fetches secrets from Shelve at build time and merges them into your runtime config before validation.
 
-### Zero-Config Setup
+### Configure Shelve
 
-If you have a `shelve.json` file in your project root, the integration enables automatically:
+Configure Shelve directly in your Nuxt config:
 
 ```ts
 export default defineNuxtConfig({
   safeRuntimeConfig: {
     $schema: runtimeConfigSchema,
-    shelve: true, // Auto-detects project, team, and environment
+    shelve: {
+      project: 'my-app',
+      slug: 'my-team',
+    },
   },
 })
 ```
 
 The module resolves configuration from multiple sources (highest priority first):
 
-| Config      | Sources                                                                |
-| ----------- | ---------------------------------------------------------------------- |
-| project     | `nuxt.config` → `SHELVE_PROJECT` → `shelve.json` → `package.json` name |
-| slug        | `nuxt.config` → `SHELVE_TEAM_SLUG` → `shelve.json`                     |
-| environment | `nuxt.config` → `SHELVE_ENV` → `shelve.json` → dev mode auto           |
-| token       | `SHELVE_TOKEN` → `~/.shelve` file                                      |
+| Config      | Sources                                                      |
+| ----------- | ------------------------------------------------------------ |
+| project     | `nuxt.config` → `SHELVE_PROJECT` → `package.json` name       |
+| slug        | `nuxt.config.slug/team` → `SHELVE_TEAM` → `SHELVE_TEAM_SLUG` |
+| environment | `nuxt.config` → `SHELVE_ENV` → dev mode auto                 |
+| url         | `nuxt.config` → `SHELVE_URL` → `https://app.shelve.cloud`    |
+| token       | `SHELVE_TOKEN` → `~/.shelve`                                 |
 
 ### Explicit Configuration
 
@@ -231,6 +248,14 @@ export default defineNuxtConfig({
 ```
 
 The runtime plugin runs before validation, so freshly fetched secrets are validated against your schema.
+
+### Install Wizard UX
+
+On module install, an interactive setup wizard can help bootstrap validation and Shelve config. The wizard now:
+
+- shows a preview of planned actions first (install deps, write `~/.shelve`, edit `nuxt.config`)
+- asks for a final confirmation before applying any change
+- skips automatically in CI and non-interactive terminals (non-TTY)
 
 ## Runtime Validation
 
@@ -289,7 +314,7 @@ The rule includes auto-fix support — run `eslint --fix` to automatically repla
 
 ## Type Safety
 
-Types are auto-generated at build time from your schema's JSON Schema representation. The `useSafeRuntimeConfig()` composable returns a fully typed object — no manual generics needed:
+Types are auto-generated at build time from your schema's JSON Schema representation. The `useSafeRuntimeConfig()` composable returns a fully typed object in both app and server contexts (`app.vue`, `server/api`, `server/utils`) — no manual generics needed:
 
 ```ts
 const config = useSafeRuntimeConfig()
@@ -310,6 +335,12 @@ When validation fails, you see detailed error messages:
 ```
 
 The module stops the build process until all validation errors are resolved.
+
+## Upcoming Major Release Notes
+
+- Shelve setup no longer documents `shelve.json` auto-enablement; supported sources are `nuxt.config`, env vars, and `package.json` fallback for project name.
+- The install wizard now previews actions and requires explicit confirmation before mutating files or writing credentials.
+- Runtime and wizard key-shaping now use the same env-key mapping rules to avoid schema/runtime drift.
 
 ## Why This Module?
 
