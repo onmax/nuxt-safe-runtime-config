@@ -8,6 +8,6 @@ export default defineNuxtConfig({
     public: { baseUrl: 'https://example.com' },
   },
 
-  // Shelve disabled since no shelve.json exists and not explicitly enabled
+  // Shelve remains disabled when not explicitly configured
   safeRuntimeConfig: {},
 })

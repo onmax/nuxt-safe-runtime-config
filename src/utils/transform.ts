@@ -9,9 +9,9 @@ export function getPrefix(key: string): string | null {
   return parts.length > 1 ? parts[0]! : null
 }
 
-function countPrefixes(vars: EnvVar[]): Map<string, number> {
+function countPrefixes(keys: string[]): Map<string, number> {
   const counts = new Map<string, number>()
-  for (const { key } of vars) {
+  for (const key of keys) {
     const prefix = getPrefix(key)
     if (prefix)
       counts.set(prefix, (counts.get(prefix) || 0) + 1)
@@ -19,49 +19,53 @@ function countPrefixes(vars: EnvVar[]): Map<string, number> {
   return counts
 }
 
-/** Transforms EnvVar[] to camelCase runtimeConfig. Groups repeated prefixes (2+ keys) and routes PUBLIC_* / NUXT_PUBLIC_* to public namespace */
-export function transformEnvVars(vars: EnvVar[]): TransformedConfig {
-  const prefixCounts = countPrefixes(vars)
-  const result: TransformedConfig = {}
+export type ConfigStructure = Record<string, true | Record<string, true>>
 
-  for (const { key, value } of vars) {
-    if (key.startsWith('PUBLIC_')) {
-      result.public ??= {}
-      assignNested(result.public as Record<string, unknown>, key.slice(7), value, prefixCounts)
-      continue
-    }
-    if (key.startsWith('NUXT_PUBLIC_')) {
-      result.public ??= {}
-      assignNested(result.public as Record<string, unknown>, key.slice(12), value, prefixCounts)
-      continue
-    }
+function resolveConfigPath(key: string, prefixCounts: Map<string, number>): string[] {
+  if (key.startsWith('PUBLIC_'))
+    return ['public', toCamelCase(key.slice(7))]
+  if (key.startsWith('NUXT_PUBLIC_'))
+    return ['public', toCamelCase(key.slice(12))]
 
-    const prefix = getPrefix(key)
-    if (prefix && (prefixCounts.get(prefix) || 0) >= 2) {
-      const groupKey = toCamelCase(prefix)
-      result[groupKey] ??= {}
-      const nestedKey = toCamelCase(key.slice(prefix.length + 1))
-        ; (result[groupKey] as Record<string, unknown>)[nestedKey] = value
-    }
-    else {
-      result[toCamelCase(key)] = value
-    }
+  const prefix = getPrefix(key)
+  if (prefix && (prefixCounts.get(prefix) || 0) >= 2) {
+    return [toCamelCase(prefix), toCamelCase(key.slice(prefix.length + 1))]
+  }
+  return [toCamelCase(key)]
+}
+
+function assignPath<TValue>(target: Record<string, TValue | Record<string, TValue>>, path: string[], value: TValue): void {
+  if (path.length === 1) {
+    target[path[0]!] = value
+    return
+  }
+
+  const [head, ...tail] = path
+  target[head!] ??= {}
+  assignPath(target[head!] as Record<string, TValue | Record<string, TValue>>, tail, value)
+}
+
+export function buildConfigStructureFromEnvKeys(keys: string[]): ConfigStructure {
+  const result: ConfigStructure = {}
+  const prefixCounts = countPrefixes(keys)
+
+  for (const key of keys) {
+    const path = resolveConfigPath(key, prefixCounts)
+    assignPath(result, path, true)
   }
 
   return result
 }
 
-/** Applies same grouping rules to PUBLIC_* vars within the public namespace */
-function assignNested(obj: Record<string, unknown>, key: string, value: string, prefixCounts: Map<string, number>): void {
-  const prefix = getPrefix(key)
-  if (prefix && (prefixCounts.get(`PUBLIC_${prefix}`) || prefixCounts.get(`NUXT_PUBLIC_${prefix}`) || 0) >= 2) {
-    const groupKey = toCamelCase(prefix)
-    obj[groupKey] ??= {}
-    const rest = key.slice(prefix.length + 1)
-    const nestedKey = toCamelCase(rest)
-      ; (obj[groupKey] as Record<string, unknown>)[nestedKey] = value
+/** Transforms EnvVar[] to camelCase runtimeConfig. Groups repeated prefixes (2+ keys) and routes PUBLIC_* / NUXT_PUBLIC_* to public namespace */
+export function transformEnvVars(vars: EnvVar[]): TransformedConfig {
+  const result: TransformedConfig = {}
+  const prefixCounts = countPrefixes(vars.map(v => v.key))
+
+  for (const { key, value } of vars) {
+    const path = resolveConfigPath(key, prefixCounts)
+    assignPath(result as Record<string, string | Record<string, string>>, path, value)
   }
-  else {
-    obj[toCamelCase(key)] = value
-  }
+
+  return result
 }
