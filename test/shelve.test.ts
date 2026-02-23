@@ -4,8 +4,7 @@ import { describe, it } from 'vitest'
 
 describe('shelve integration', () => {
   it('does not enable Shelve when not configured', async () => {
-    // Shelve is no longer auto-enabled via shelve.json detection
-    // It requires explicit config in nuxt.config
+    // Shelve requires explicit config in nuxt.config
     // Test passes if setup completes without throwing
     await setup({
       rootDir: fileURLToPath(new URL('./fixtures/shelve-integration', import.meta.url)),

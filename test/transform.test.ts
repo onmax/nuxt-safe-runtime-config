@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { transformEnvVars } from '../src/utils/transform'
+import { buildConfigStructureFromEnvKeys, transformEnvVars } from '../src/utils/transform'
 
 describe('transformEnvVars', () => {
   describe('camelCase conversion', () => {
@@ -132,6 +132,42 @@ describe('transformEnvVars', () => {
         public: { sentryDsn: 'https://sentry.io', sentryEnv: 'production' },
         sentryAuthToken: 'auth_token',
       })
+    })
+  })
+})
+
+describe('buildConfigStructureFromEnvKeys', () => {
+  it('matches runtime transform shape for mixed variables', () => {
+    const vars = [
+      { key: 'GITHUB_CLIENT_ID', value: 'client123' },
+      { key: 'GITHUB_CLIENT_SECRET', value: 'secret456' },
+      { key: 'PUBLIC_API_URL', value: 'https://api.example.com' },
+      { key: 'DATABASE_URL', value: 'postgres://localhost' },
+    ]
+    const shape = buildConfigStructureFromEnvKeys(vars.map(v => v.key))
+    const transformed = transformEnvVars(vars)
+
+    expect(shape).toEqual({
+      github: { clientId: true, clientSecret: true },
+      public: { apiUrl: true },
+      databaseUrl: true,
+    })
+    expect(transformed).toEqual({
+      github: { clientId: 'client123', clientSecret: 'secret456' },
+      public: { apiUrl: 'https://api.example.com' },
+      databaseUrl: 'postgres://localhost',
+    })
+  })
+
+  it('keeps PUBLIC_* keys flattened to mirror runtime behavior', () => {
+    const keys = ['PUBLIC_STRIPE_KEY', 'PUBLIC_STRIPE_SECRET']
+    const shape = buildConfigStructureFromEnvKeys(keys)
+
+    expect(shape).toEqual({
+      public: {
+        stripeKey: true,
+        stripeSecret: true,
+      },
     })
   })
 })

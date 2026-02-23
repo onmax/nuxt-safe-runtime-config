@@ -11,7 +11,7 @@ import { builders, loadFile, writeFile } from 'magicast'
 import { getDefaultExportOptions } from 'magicast/helpers'
 import { $fetch } from 'ofetch'
 import { DEFAULT_URL, getErrorMessage } from '../utils/shared'
-import { getPrefix, toCamelCase } from '../utils/transform'
+import { buildConfigStructureFromEnvKeys } from '../utils/transform'
 
 const execAsync = promisify(exec)
 
@@ -122,75 +122,6 @@ async function installValidationLibrary(rootDir: string, library: ValidationLibr
   }
 }
 
-function countPrefixes(keys: string[]): Map<string, number> {
-  const counts = new Map<string, number>()
-  for (const key of keys) {
-    const prefix = getPrefix(key)
-    if (prefix)
-      counts.set(prefix, (counts.get(prefix) || 0) + 1)
-  }
-  return counts
-}
-
-/** Strip Nuxt-specific prefixes from env var keys */
-function stripNuxtPrefix(key: string): { key: string, isPublic: boolean } {
-  if (key.startsWith('NUXT_PUBLIC_'))
-    return { key: key.slice(12), isPublic: true }
-  if (key.startsWith('PUBLIC_'))
-    return { key: key.slice(7), isPublic: true }
-  if (key.startsWith('NUXT_'))
-    return { key: key.slice(5), isPublic: false }
-  return { key, isPublic: false }
-}
-
-/** Transform env var keys into nested runtimeConfig structure */
-function transformKeysToStructure(keys: string[]): Record<string, Record<string, true> | true> {
-  // First, normalize keys by stripping NUXT_ prefixes
-  const normalizedKeys = keys.map((k) => {
-    const { key, isPublic } = stripNuxtPrefix(k)
-    return { original: k, normalized: key, isPublic }
-  })
-
-  // Count prefixes on normalized keys
-  const prefixCounts = countPrefixes(normalizedKeys.map(k => k.normalized))
-  const result: Record<string, Record<string, true> | true> = {}
-
-  for (const { normalized, isPublic } of normalizedKeys) {
-    if (isPublic) {
-      result.public ??= {}
-      assignNestedKey(result.public as Record<string, true>, normalized, prefixCounts)
-      continue
-    }
-
-    const prefix = getPrefix(normalized)
-    if (prefix && (prefixCounts.get(prefix) || 0) >= 2) {
-      const groupKey = toCamelCase(prefix)
-      result[groupKey] ??= {}
-      const nestedKey = toCamelCase(normalized.slice(prefix.length + 1))
-      ;(result[groupKey] as Record<string, true>)[nestedKey] = true
-    }
-    else {
-      result[toCamelCase(normalized)] = true
-    }
-  }
-
-  return result
-}
-
-function assignNestedKey(obj: Record<string, true | Record<string, true>>, key: string, prefixCounts: Map<string, number>): void {
-  const prefix = getPrefix(key)
-  if (prefix && (prefixCounts.get(prefix) || 0) >= 2) {
-    const groupKey = toCamelCase(prefix)
-    obj[groupKey] ??= {}
-    const rest = key.slice(prefix.length + 1)
-    const nestedKey = toCamelCase(rest)
-    ;(obj[groupKey] as Record<string, true>)[nestedKey] = true
-  }
-  else {
-    obj[toCamelCase(key)] = true
-  }
-}
-
 function generateSchemaCode(keys: string[] | null, library: ValidationLibrary): { imports: string, schemaExpr: string } {
   const s = library === 'valibot' ? 'v.string()' : 'z.string()'
   const o = library === 'valibot' ? 'v.object' : 'z.object'
@@ -201,7 +132,7 @@ function generateSchemaCode(keys: string[] | null, library: ValidationLibrary): 
     return { imports, schemaExpr: `${o}({})` }
   }
 
-  const structure = transformKeysToStructure(keys)
+  const structure = buildConfigStructureFromEnvKeys(keys)
 
   function renderObject(obj: Record<string, true | Record<string, true>>, indent = 2): string {
     const entries = Object.entries(obj)
@@ -308,7 +239,9 @@ async function updateNuxtConfig(rootDir: string, options: UpdateNuxtConfigOption
 
 interface ShelveAuthResult {
   token: string
-  rc: Record<string, string>
+  user: ShelveUser
+  shouldPersistToken: boolean
+  nextRc: Record<string, string>
 }
 
 async function authenticateShelve(url: string, logger: ConsolaInstance): Promise<ShelveAuthResult | null> {
@@ -319,7 +252,12 @@ async function authenticateShelve(url: string, logger: ConsolaInstance): Promise
     const user = await validateToken(rc.token, url)
     if (user) {
       logger.info(`Logged in as ${user.username}`)
-      return { token: rc.token, rc }
+      return {
+        token: rc.token,
+        user,
+        shouldPersistToken: false,
+        nextRc: rc,
+      }
     }
   }
 
@@ -338,14 +276,38 @@ async function authenticateShelve(url: string, logger: ConsolaInstance): Promise
   }
 
   const token = inputToken.trim()
-  writeShelveRc({ ...rc, token, email: user.email, username: user.username })
-  logger.success('Token saved to ~/.shelve')
-  return { token, rc }
+  return {
+    token,
+    user,
+    shouldPersistToken: true,
+    nextRc: { ...rc, token, email: user.email, username: user.username },
+  }
 }
 
 interface ShelveSelectionResult {
   team: ShelveTeam
   project: ShelveProject
+}
+
+interface WizardPlan {
+  installLibrary: ValidationLibrary | null
+  persistToken: ShelveAuthResult | null
+  updateNuxtConfig: boolean
+}
+
+function summarizePlannedActions(plan: WizardPlan): string[] {
+  const actions: string[] = []
+  if (plan.installLibrary) {
+    const packages = plan.installLibrary === 'valibot'
+      ? 'valibot, @valibot/to-json-schema'
+      : 'zod'
+    actions.push(`Install dependencies: ${packages}`)
+  }
+  if (plan.persistToken?.shouldPersistToken)
+    actions.push(`Write Shelve auth token to ${SHELVE_RC_PATH}`)
+  if (plan.updateNuxtConfig)
+    actions.push('Update nuxt.config with safeRuntimeConfig setup')
+  return actions
 }
 
 async function selectTeamAndProject(token: string, url: string, logger: ConsolaInstance): Promise<ShelveSelectionResult | null> {
@@ -440,21 +402,22 @@ export async function runShelveWizard(nuxt: Nuxt): Promise<void> {
 
   let variables: ShelveVariable[] = []
   let shelveConfig: { project: string, slug: string } | null = null
+  let authResult: ShelveAuthResult | null = null
 
   if (enableShelve) {
     const url = process.env.SHELVE_URL || DEFAULT_URL
-    const auth = await authenticateShelve(url, logger)
+    authResult = await authenticateShelve(url, logger)
 
-    if (auth) {
-      const selection = await selectTeamAndProject(auth.token, url, logger)
+    if (authResult) {
+      const selection = await selectTeamAndProject(authResult.token, url, logger)
 
       if (selection) {
         shelveConfig = { project: selection.project.name, slug: selection.team.slug }
 
         // Fetch variables for schema generation
         try {
-          const env = await fetchEnvironment(auth.token, url, selection.team.slug, 'development')
-          variables = await fetchVariables(auth.token, url, selection.team.slug, selection.project.id, env.id)
+          const env = await fetchEnvironment(authResult.token, url, selection.team.slug, 'development')
+          variables = await fetchVariables(authResult.token, url, selection.team.slug, selection.project.id, env.id)
           if (variables.length === 0) {
             logger.warn('No variables found in Shelve project, generating placeholder schema')
           }
@@ -469,23 +432,47 @@ export async function runShelveWizard(nuxt: Nuxt): Promise<void> {
     }
   }
 
-  // 3. Install validation library if needed
-  if (library && needsInstall) {
-    await installValidationLibrary(nuxt.options.rootDir, library, logger)
-  }
-
-  // 4. Generate schema (only if library selected)
+  // 3. Generate schema (only if library selected)
   let schemaCode: { imports: string, schemaExpr: string } | null = null
   if (library) {
     const keys = variables.length > 0 ? variables.map(v => v.key) : null
     schemaCode = generateSchemaCode(keys, library)
   }
 
-  // 5. Only update config if we have something to add
-  if (!schemaCode && !shelveConfig) {
+  const wizardPlan: WizardPlan = {
+    installLibrary: library && needsInstall ? library : null,
+    persistToken: authResult,
+    updateNuxtConfig: Boolean(schemaCode || shelveConfig),
+  }
+  const actions = summarizePlannedActions(wizardPlan)
+  if (actions.length === 0) {
     logger.info('No configuration changes needed')
     return
   }
+
+  logger.info('Planned changes:')
+  for (const action of actions)
+    logger.info(`  - ${action}`)
+
+  const applyChanges = await consola.prompt('Apply these changes?', { type: 'confirm', initial: true })
+  if (!applyChanges) {
+    logger.info('Setup cancelled. No changes were made.')
+    return
+  }
+
+  // 4. Apply planned changes
+  if (wizardPlan.persistToken?.shouldPersistToken) {
+    writeShelveRc(wizardPlan.persistToken.nextRc)
+    logger.success(`Token saved to ${SHELVE_RC_PATH}`)
+    logger.info(`Logged in as ${wizardPlan.persistToken.user.username}`)
+  }
+
+  if (wizardPlan.installLibrary) {
+    await installValidationLibrary(nuxt.options.rootDir, wizardPlan.installLibrary, logger)
+  }
+
+  if (!wizardPlan.updateNuxtConfig)
+    return
 
   const updated = await updateNuxtConfig(nuxt.options.rootDir, { schema: schemaCode, shelve: shelveConfig, logger })
 
