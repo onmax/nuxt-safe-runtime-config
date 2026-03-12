@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "build": "undocs build",
+    "build": "undocs build && node ./scripts/expand-static-routes.mjs",
     "dev": "undocs dev"
   },
   "devDependencies": {
