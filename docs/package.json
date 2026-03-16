@@ -3,10 +3,14 @@
   "private": true,
   "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "build": "undocs build && node ./scripts/expand-static-routes.mjs",
-    "dev": "undocs dev"
+    "dev": "nuxt dev --extends docus",
+    "build": "nuxt build --extends docus"
   },
   "devDependencies": {
-    "undocs": "catalog:default"
+    "better-sqlite3": "catalog:default",
+    "docus": "catalog:default",
+    "nuxt": "catalog:default",
+    "zod": "^3.25.76",
+    "zod-to-json-schema": "^3.25.1"
   }
 }

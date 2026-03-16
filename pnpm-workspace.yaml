@@ -20,25 +20,27 @@ catalog:
   '@typescript-eslint/rule-tester': ^8.50.0
   '@typescript-eslint/utils': ^8.50.0
   '@valibot/to-json-schema': ^1.0.0
+  better-sqlite3: ^12.5.0
   bumpp: ^10.1.1
   changelogen: ^0.6.1
   consola: ^3.4.0
   defu: ^6.1.4
+  docus: ^5.8.1
   eslint: ^9.28.0
   eslint-plugin-format: ^1.0.1
   lint-staged: ^16.1.0
   magicast: ^0.3.5
-  nuxt: ^3.17.4
+  nuxt: ^4.0.0
   ofetch: ^1.4.1
   simple-git-hooks: ^2.13.0
   std-env: ^3.9.0
   typescript: ~5.8.3
   unbuild: ^3.5.0
-  undocs: ^0.4.10
   valibot: ^1.1.0
   vitest: ^3.2.0
   vue-tsc: ^2.2.10
   zod: ^4.2.0
 onlyBuiltDependencies:
   - '@parcel/watcher'
+  - better-sqlite3
   - esbuild
