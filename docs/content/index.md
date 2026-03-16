@@ -19,4 +19,9 @@ links:
     color: neutral
     size: xl
 ---
+
+```bash [Terminal]
+npx nuxi module add nuxt-safe-runtime-config
+```
+
 ::
