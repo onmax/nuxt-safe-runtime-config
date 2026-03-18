@@ -54,7 +54,7 @@
   },
   "peerDependencies": {
     "@nuxt/kit": "^3.0.0 || ^4.0.0",
-    "eslint": "^9.0.0"
+    "eslint": ">=9.0.0"
   },
   "peerDependenciesMeta": {
     "eslint": { "optional": true }
