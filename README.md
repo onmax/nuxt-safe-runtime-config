@@ -174,10 +174,7 @@ import { useSafeRuntimeConfig } from '#imports'
 | `$schema`           | `StandardSchemaV1`              | —                 | Your validation schema (required)          |
 | `validateAtBuild`   | `boolean`                       | `true`            | Validate during dev/build                  |
 | `validateAtRuntime` | `boolean`                       | `false`           | Validate when server starts                |
-| `onBuildError`      | `'throw' \| 'warn' \| 'ignore'` | `'throw'`         | How to handle build validation errors      |
-| `onRuntimeError`    | `'throw' \| 'warn' \| 'ignore'` | `'throw'`         | How to handle runtime validation errors    |
-| `logSuccess`        | `boolean`                       | `true`            | Log successful validation                  |
-| `logFallback`       | `boolean`                       | `true`            | Log when using JSON Schema fallback        |
+| `onError`           | `'throw' \| 'warn' \| 'ignore'` | `'throw'`         | How to handle validation errors            |
 | `jsonSchemaTarget`  | `string`                        | `'draft-2020-12'` | JSON Schema version for runtime validation |
 | `shelve`            | `boolean \| ShelveOptions`      | `undefined`       | Shelve secrets integration (see below)     |
 
@@ -278,6 +275,7 @@ export default defineNuxtConfig({
   safeRuntimeConfig: {
     $schema: runtimeConfigSchema,
     validateAtRuntime: true,
+    onError: 'throw',
   },
 })
 ```

@@ -2,6 +2,8 @@
 import type { Nuxt } from '@nuxt/schema'
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { ErrorBehavior, ModuleOptions } from './types'
+import { createRequire } from 'node:module'
+import { join } from 'node:path'
 import process from 'node:process'
 import { addImports, addServerImports, addServerPlugin, addTemplate, addTypeTemplate, createResolver, defineNuxtModule, useLogger } from '@nuxt/kit'
 import defu from 'defu'
@@ -35,6 +37,99 @@ function addNitroAlias(nuxt: Nuxt, name: string, dst: string): void {
   })
 }
 
+function resolveRuntimeConfigImport(rootDir: string): string {
+  const require = createRequire(join(rootDir, 'package.json'))
+  try {
+    require.resolve('nitro/package.json')
+    return 'nitro/runtime-config'
+  }
+  catch {
+    return 'nitropack/runtime'
+  }
+}
+
+function getRuntimeValidationPluginContents(runtimeConfigImport: string): string {
+  return `import { Validator } from '@cfworker/json-schema'
+import { consola } from 'consola'
+import { draft, onError, schema } from '#safe-runtime-config/validate'
+import { useRuntimeConfig } from ${JSON.stringify(runtimeConfigImport)}
+
+const logger = consola.withTag('safe-runtime-config')
+
+export default () => {
+  const config = useRuntimeConfig()
+  const validator = new Validator(schema, draft)
+  const result = validator.validate(config)
+
+  if (!result.valid) {
+    const errors = result.errors.map(e => \`\${e.instanceLocation}: \${e.error}\`).join(', ')
+    const msg = \`Runtime validation failed: \${errors}\`
+
+    if (onError === 'throw') {
+      logger.error(msg)
+      throw new Error(msg)
+    }
+    else if (onError === 'warn') {
+      logger.warn(msg)
+    }
+    return
+  }
+
+  logger.success('Runtime config validated (server start)')
+}
+`
+}
+
+function getShelveRuntimePluginContents(
+  shelveClientPath: string,
+  transformPath: string,
+  runtimeConfigImport: string,
+): string {
+  return `import process from 'node:process'
+import { shelveRuntimeConfig } from '#safe-runtime-config/shelve'
+import { consola } from 'consola'
+import defu from 'defu'
+import { createShelveClient } from ${JSON.stringify(shelveClientPath)}
+import { transformEnvVars } from ${JSON.stringify(transformPath)}
+import { useRuntimeConfig } from ${JSON.stringify(runtimeConfigImport)}
+
+const logger = consola.withTag('safe-runtime-config')
+
+export default async () => {
+  const cfg = shelveRuntimeConfig
+  const token = process.env.SHELVE_TOKEN
+  if (!token) {
+    logger.warn('SHELVE_TOKEN not set, skipping runtime secrets fetch')
+    return
+  }
+
+  const client = createShelveClient({ token, url: cfg.url })
+
+  try {
+    const [project, environment] = await Promise.all([
+      client.getProjectByName(cfg.slug, cfg.project),
+      client.getEnvironment(cfg.slug, cfg.environment),
+    ])
+    const variables = await client.getVariables(cfg.slug, project.id, environment.id)
+
+    if (variables.length === 0) {
+      logger.info('No Shelve variables found')
+      return
+    }
+
+    const secrets = transformEnvVars(variables)
+    const config = useRuntimeConfig()
+    Object.assign(config, defu(secrets, config))
+    logger.success(\`Loaded \${variables.length} secrets from Shelve (runtime)\`)
+  }
+  catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    logger.error(\`Failed to fetch Shelve secrets: \${msg}\`)
+  }
+}
+`
+}
+
 export default defineNuxtModule<ModuleOptions>({
   meta: {
     name: 'nuxt-safe-runtime-config',
@@ -59,6 +154,7 @@ export default defineNuxtModule<ModuleOptions>({
   async setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
     const onError = options.onError!
+    const runtimeConfigImport = resolveRuntimeConfigImport(nuxt.options.rootDir)
 
     const shelveOpts = resolveShelveOptions(options.shelve)
     if (shelveOpts) {
@@ -105,7 +201,16 @@ export default defineNuxtModule<ModuleOptions>({
 
         nuxt.options.alias['#safe-runtime-config/shelve'] = tpl.dst
         addNitroAlias(nuxt, '#safe-runtime-config/shelve', tpl.dst)
-        addServerPlugin(resolver.resolve('./runtime/nitro/shelve-plugin'))
+        const shelvePlugin = addTemplate({
+          filename: 'safe-runtime-config/shelve-plugin.mjs',
+          write: true,
+          getContents: () => getShelveRuntimePluginContents(
+            resolver.resolve('./runtime/shelve-client'),
+            resolver.resolve('./runtime/utils/transform'),
+            runtimeConfigImport,
+          ),
+        })
+        addServerPlugin(shelvePlugin.dst)
       }
     }
 
@@ -151,7 +256,12 @@ export default defineNuxtModule<ModuleOptions>({
 
       nuxt.options.alias['#safe-runtime-config/validate'] = tpl.dst
       addNitroAlias(nuxt, '#safe-runtime-config/validate', tpl.dst)
-      addServerPlugin(resolver.resolve('./runtime/nitro/validate-plugin'))
+      const validatePlugin = addTemplate({
+        filename: 'safe-runtime-config/validate-plugin.mjs',
+        write: true,
+        getContents: () => getRuntimeValidationPluginContents(runtimeConfigImport),
+      })
+      addServerPlugin(validatePlugin.dst)
     }
 
     const composable = {
@@ -211,7 +321,7 @@ async function validateRuntimeConfig(config: any, schema: StandardSchemaV1, onEr
 
 function isStandardSchema(schema: any): schema is StandardSchemaV1 {
   return schema
-    && typeof schema === 'object'
+    && (typeof schema === 'object' || typeof schema === 'function')
     && '~standard' in schema
     && typeof schema['~standard'] === 'object'
     && typeof schema['~standard'].validate === 'function'

@@ -1,4 +1,5 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
+import { type } from 'arktype'
 import { object, optional, string } from 'valibot'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
@@ -54,5 +55,14 @@ describe('json-schema detection', () => {
     expect(jsonSchema).toHaveProperty('type', 'object')
     expect(jsonSchema).toHaveProperty('properties')
     expect((jsonSchema.properties as Record<string, unknown>)).toHaveProperty('name')
+  })
+
+  it('detects native JSON Schema on callable ArkType schemas', async () => {
+    const schema = type({ name: 'string' })
+    expect(hasNativeJSONSchema(schema as any)).toBe(true)
+
+    const jsonSchema = await getJSONSchema(schema as any, 'draft-2020-12')
+    expect(jsonSchema).toHaveProperty('type', 'object')
+    expect(jsonSchema).toHaveProperty('properties')
   })
 })

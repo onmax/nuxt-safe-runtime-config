@@ -52,6 +52,13 @@ describe('build-time validation', () => {
     })
     expect(true).toBe(true)
   }, 30000)
+
+  it('validates with ArkType callable Standard Schema', async () => {
+    await setup({
+      rootDir: fileURLToPath(new URL('./fixtures/arktype', import.meta.url)),
+    })
+    expect(true).toBe(true)
+  }, 30000)
 })
 
 describe('runtime JSON Schema generation', () => {

@@ -1,0 +1,14 @@
+{
+  "name": "nuxt-safe-runtime-config-test-arktype",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "prepare": "nuxt prepare"
+  },
+  "dependencies": {
+    "arktype": "catalog:"
+  },
+  "devDependencies": {
+    "nuxt": "catalog:"
+  }
+}
