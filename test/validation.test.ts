@@ -1,9 +1,28 @@
 import { execSync, spawn } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { setup } from '@nuxt/test-utils/e2e'
 import { describe, expect, it } from 'vitest'
+
+async function loadRuntimeValidationTemplate(fixtureDir: string) {
+  rmSync(join(fixtureDir, '.nuxt/safe-runtime-config'), { recursive: true, force: true })
+  execSync('pnpm nuxi prepare', { cwd: fixtureDir, stdio: 'pipe' })
+
+  const templatePath = join(fixtureDir, '.nuxt/safe-runtime-config/validate.mjs')
+  const declarationPath = join(fixtureDir, '.nuxt/safe-runtime-config/validate.d.ts')
+
+  expect(existsSync(templatePath)).toBe(true)
+  expect(existsSync(declarationPath)).toBe(true)
+
+  const template = await import(`${pathToFileURL(templatePath).href}?t=${Date.now()}-${Math.random()}`)
+
+  return template as {
+    schema: Record<string, any>
+    onError: 'throw' | 'warn' | 'ignore'
+    draft: string
+  }
+}
 
 describe('build-time validation', () => {
   it('validates successfully with valid hardcoded config (Valibot)', async () => {
@@ -36,40 +55,34 @@ describe('build-time validation', () => {
 })
 
 describe('runtime JSON Schema generation', () => {
-  it('generates valid JSON Schema file (Zod native)', async () => {
+  it('generates runtime validation template (Zod native)', async () => {
     const fixtureDir = fileURLToPath(new URL('./fixtures/zod-native', import.meta.url))
-    await setup({ rootDir: fixtureDir })
+    const { draft, onError, schema } = await loadRuntimeValidationTemplate(fixtureDir)
 
-    const schemaPath = join(fixtureDir, '.nuxt/safe-runtime-config/schema.json')
-    expect(existsSync(schemaPath)).toBe(true)
-
-    const schema = JSON.parse(readFileSync(schemaPath, 'utf-8'))
     expect(schema).toHaveProperty('type', 'object')
     expect(schema).toHaveProperty('properties')
     expect(schema.properties).toHaveProperty('secretKey')
     expect(schema.properties).toHaveProperty('public')
+    expect(draft).toBe('2020-12')
+    expect(onError).toBe('throw')
   }, 30000)
 
-  it('generates valid JSON Schema file (Valibot fallback)', async () => {
+  it('generates runtime validation template (Valibot fallback)', async () => {
     const fixtureDir = fileURLToPath(new URL('./fixtures/valibot-runtime', import.meta.url))
-    await setup({ rootDir: fixtureDir })
+    const { draft, onError, schema } = await loadRuntimeValidationTemplate(fixtureDir)
 
-    const schemaPath = join(fixtureDir, '.nuxt/safe-runtime-config/schema.json')
-    expect(existsSync(schemaPath)).toBe(true)
-
-    const schema = JSON.parse(readFileSync(schemaPath, 'utf-8'))
     expect(schema).toHaveProperty('type', 'object')
     expect(schema).toHaveProperty('properties')
+    expect(draft).toBe('7')
+    expect(onError).toBe('throw')
   }, 30000)
 
   it('zod native JSON Schema validates correctly', async () => {
     const { Validator } = await import('@cfworker/json-schema')
     const fixtureDir = fileURLToPath(new URL('./fixtures/zod-native', import.meta.url))
-    await setup({ rootDir: fixtureDir })
+    const { draft, schema } = await loadRuntimeValidationTemplate(fixtureDir)
 
-    const schemaPath = join(fixtureDir, '.nuxt/safe-runtime-config/schema.json')
-    const schema = JSON.parse(readFileSync(schemaPath, 'utf-8'))
-    const validator = new Validator(schema, '2020-12')
+    const validator = new Validator(schema, draft as any)
     const validConfig = { secretKey: 'test-key', public: { apiBase: 'https://api.test.com' } }
     expect(validator.validate(validConfig).valid).toBe(true)
     const invalidConfig = { secretKey: 123, public: { apiBase: 'https://api.test.com' } }
@@ -79,13 +92,13 @@ describe('runtime JSON Schema generation', () => {
   it('valibot fallback JSON Schema validates correctly', async () => {
     const { Validator } = await import('@cfworker/json-schema')
     const fixtureDir = fileURLToPath(new URL('./fixtures/valibot-runtime', import.meta.url))
-    await setup({ rootDir: fixtureDir })
+    const { draft, schema } = await loadRuntimeValidationTemplate(fixtureDir)
 
-    const schemaPath = join(fixtureDir, '.nuxt/safe-runtime-config/schema.json')
-    const schema = JSON.parse(readFileSync(schemaPath, 'utf-8'))
-    const validator = new Validator(schema)
+    const validator = new Validator(schema, draft as any)
     const validConfig = { secretKey: 'test-key', public: { apiBase: 'https://api.test.com' } }
     expect(validator.validate(validConfig).valid).toBe(true)
+    const invalidConfig = { secretKey: 123, public: { apiBase: 'https://api.test.com' } }
+    expect(validator.validate(invalidConfig).valid).toBe(false)
   }, 30000)
 
   it('registers typed useSafeRuntimeConfig in server context', async () => {

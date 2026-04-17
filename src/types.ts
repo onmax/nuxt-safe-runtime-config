@@ -30,14 +30,8 @@ export interface ModuleOptions {
   validateAtRuntime?: boolean
   /** JSON Schema target version. Default: 'draft-2020-12' */
   jsonSchemaTarget?: StandardJSONSchemaV1.Target
-  /** Behavior when build-time validation fails. Default: 'throw' */
-  onBuildError?: ErrorBehavior
-  /** Behavior when runtime validation fails. Default: 'throw' */
-  onRuntimeError?: ErrorBehavior
-  /** Log success message after validation. Default: true */
-  logSuccess?: boolean
-  /** Log fallback warning for JSON Schema conversion. Default: true */
-  logFallback?: boolean
+  /** Behavior when validation fails. Default: 'throw' */
+  onError?: ErrorBehavior
   /** Shelve integration options */
   shelve?: boolean | ShelveProviderOptions
 }
