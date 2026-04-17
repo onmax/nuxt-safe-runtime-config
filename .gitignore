@@ -15,10 +15,12 @@ node_modules
 
 # Generated dirs
 dist
+*.tgz
 
 # Nuxt
 .nuxt
 .output
+.nuxtrc
 .data
 .vercel
 .vercel_build_output
@@ -28,6 +30,8 @@ dist
 # Env
 .env
 .env.local
+playground/.env.shelve-demo
+playground/shelve.json
 
 # Testing
 reports

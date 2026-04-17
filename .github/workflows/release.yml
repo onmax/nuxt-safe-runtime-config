@@ -21,7 +21,7 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - run: pnpm install
+      - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm prepack
       - run: pnpm test
@@ -40,7 +40,7 @@ jobs:
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
 
-      - run: pnpm install
+      - run: pnpm install --frozen-lockfile
       - run: pnpm prepack
 
       - name: Determine npm tag

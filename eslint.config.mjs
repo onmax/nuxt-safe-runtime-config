@@ -7,5 +7,11 @@ export default antfu({
   vue: true,
   formatters: true,
   pnpm: true,
-  ignores: ['docs/**'],
+  ignores: [
+    'docs/**',
+    'playground/.env.shelve-demo',
+    'playground/shelve.json',
+    'src/runtime/**/*.d.ts',
+    'src/runtime/**/*.js',
+  ],
 })

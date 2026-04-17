@@ -50,10 +50,11 @@
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
     "test:watch": "vitest watch",
-    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
+    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit",
+    "test:nuxt5-nightly": "node scripts/smoke-nuxt5-nightly.mjs"
   },
   "peerDependencies": {
-    "@nuxt/kit": "^3.0.0 || ^4.0.0",
+    "@nuxt/kit": "^3.0.0 || ^4.0.0 || ^5.0.0-0",
     "eslint": ">=9.0.0"
   },
   "peerDependenciesMeta": {
@@ -63,11 +64,13 @@
     "@cfworker/json-schema": "catalog:",
     "@standard-community/standard-json": "catalog:",
     "@standard-schema/spec": "catalog:",
+    "@valibot/to-json-schema": "catalog:",
     "consola": "catalog:",
     "defu": "catalog:",
     "magicast": "catalog:",
     "ofetch": "catalog:",
-    "std-env": "catalog:"
+    "std-env": "catalog:",
+    "zod-to-json-schema": "catalog:"
   },
   "devDependencies": {
     "@antfu/eslint-config": "catalog:",
@@ -93,7 +96,8 @@
     "unbuild": "catalog:",
     "valibot": "catalog:",
     "vitest": "catalog:",
-    "vue-tsc": "catalog:"
+    "vue-tsc": "catalog:",
+    "zod": "catalog:"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm lint-staged"
