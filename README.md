@@ -18,7 +18,7 @@ Validate Nuxt runtime config at build time using <b>Zod</b>, <b>Valibot</b>, <b>
     <img src="https://img.shields.io/github/license/onmax/nuxt-safe-runtime-config.svg" alt="License" />
   </a>
   <a href="https://nuxt.com">
-    <img src="https://img.shields.io/badge/Nuxt-3.0+-00DC82.svg" alt="Nuxt" />
+    <img src="https://img.shields.io/badge/Nuxt-3%20%7C%204%20%7C%205%20nightly-00DC82.svg" alt="Nuxt compatibility" />
   </a>
 
   <p align="center">
@@ -44,6 +44,12 @@ Install the module:
 ```bash
 npx nuxi module add nuxt-safe-runtime-config
 ```
+
+## Compatibility
+
+This module supports Nuxt 3 and Nuxt 4. It is also tested against Nuxt 4.2+ with `future.compatibilityVersion: 5` and against the Nuxt 5 nightly channel (`nuxt-nightly@5x`).
+
+Runtime validation converts your Standard Schema to JSON Schema. Valibot and Zod converter dependencies are included by the module, so consumers do not need to install `@valibot/to-json-schema` or `zod-to-json-schema` separately.
 
 ## Usage
 

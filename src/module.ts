@@ -1,14 +1,14 @@
 import type { Nuxt } from '@nuxt/schema'
-import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { ErrorBehavior, ModuleOptions } from './types'
 import process from 'node:process'
-import { addImportsDir, addServerImportsDir, addTemplate, addTypeTemplate, createResolver, defineNuxtModule, useLogger } from '@nuxt/kit'
-import { toJsonSchema } from '@standard-community/standard-json'
+import { addImports, addServerImports, addTemplate, addTypeTemplate, createResolver, defineNuxtModule, getNuxtVersion, useLogger } from '@nuxt/kit'
 import defu from 'defu'
 import { isCI, isTest } from 'std-env'
 import { version } from '../package.json'
 import { generateTypeDeclaration } from './json-schema-to-ts'
 import { fetchShelveSecrets, normalizeShelveOptions, resolveShelveConfig, shouldEnableShelve } from './providers/shelve'
+import { getJSONSchema } from './utils/json-schema'
 import { getErrorMessage } from './utils/shared'
 import { runShelveWizard } from './wizard/shelve-setup'
 
@@ -23,7 +23,8 @@ function countConfigKeys(secrets: Record<string, unknown>): number {
 }
 
 function registerNitroPlugin(nuxt: Nuxt, pluginPath: string): void {
-  nuxt.hook('nitro:config', (nitroConfig) => {
+  const hook = nuxt.hook as any
+  hook('nitro:config', (nitroConfig: any) => {
     nitroConfig.plugins = nitroConfig.plugins || []
     nitroConfig.plugins.push(pluginPath)
   })
@@ -37,6 +38,22 @@ function detectJsonSchemaDraft(schemaUri: string | undefined): string {
   if (schemaUri?.includes('draft-07'))
     return '7'
   return '2020-12'
+}
+
+function getNitroRuntimeImports(nuxt: Nuxt): { definePluginImport: string, runtimeConfigImport: string } {
+  const major = Number.parseInt(getNuxtVersion(nuxt).split('.')[0] || '0', 10)
+
+  if (major >= 5) {
+    return {
+      definePluginImport: 'import { definePlugin as defineNitroPlugin } from \'nitro\'',
+      runtimeConfigImport: 'import { useRuntimeConfig } from \'nitro/runtime-config\'',
+    }
+  }
+
+  return {
+    definePluginImport: 'import { defineNitroPlugin } from \'nitropack/runtime/plugin\'',
+    runtimeConfigImport: 'import { useRuntimeConfig } from \'nitropack/runtime/config\'',
+  }
 }
 
 const logger = useLogger('safe-runtime-config')
@@ -59,8 +76,6 @@ export default defineNuxtModule<ModuleOptions>({
     logFallback: true,
     shelve: undefined,
   },
-  // onInstall requires Nuxt 4.1+ - ignored on older versions
-  // @ts-expect-error onInstall is Nuxt 4.1+ feature
   async onInstall(nuxt: Nuxt) {
     if (isCI || isTest || !process.stdin.isTTY || !process.stdout.isTTY)
       return
@@ -70,12 +85,18 @@ export default defineNuxtModule<ModuleOptions>({
     const resolver = createResolver(import.meta.url)
     const cwd = nuxt.options.rootDir
     const isDev = nuxt.options.dev
+    const nitroImports = getNitroRuntimeImports(nuxt)
+    const hook = nuxt.hook as any
 
     let cachedJsonSchema: Record<string, unknown> | null = null
     const getOrCreateJsonSchema = async (): Promise<Record<string, unknown>> => {
       if (cachedJsonSchema)
         return cachedJsonSchema
-      cachedJsonSchema = await getJSONSchema(options.$schema!, options.jsonSchemaTarget, options.logFallback!)
+      cachedJsonSchema = await getJSONSchema(
+        options.$schema!,
+        options.jsonSchemaTarget,
+        options.logFallback ? message => logger.warn(message) : undefined,
+      )
       return cachedJsonSchema
     }
 
@@ -90,8 +111,9 @@ export default defineNuxtModule<ModuleOptions>({
           const secrets = await fetchShelveSecrets(shelveConfig)
           const varCount = countConfigKeys(secrets)
 
+          const nitroOptions = (nuxt.options as any).nitro
           nuxt.options.runtimeConfig = defu(secrets, nuxt.options.runtimeConfig) as typeof nuxt.options.runtimeConfig
-          nuxt.options.nitro.runtimeConfig = defu(secrets, nuxt.options.nitro.runtimeConfig)
+          nitroOptions.runtimeConfig = defu(secrets, nitroOptions.runtimeConfig)
           logger.success(`Loaded ${varCount} secrets from Shelve (${shelveConfig.environment})`)
         }
         catch (error: unknown) {
@@ -110,8 +132,6 @@ export default defineNuxtModule<ModuleOptions>({
       }
 
       if (shelveOpts.fetchAtRuntime && shelveConfig) {
-        addServerImportsDir(resolver.resolve('./runtime/utils'))
-
         const configJson = JSON.stringify({
           url: shelveConfig.url,
           slug: shelveConfig.slug,
@@ -125,8 +145,9 @@ export default defineNuxtModule<ModuleOptions>({
           getContents: () => `
 import { $fetch } from 'ofetch'
 import defu from 'defu'
-import { defineNitroPlugin, useRuntimeConfig } from '#imports'
-import { transformEnvVars } from '#imports'
+${nitroImports.definePluginImport}
+${nitroImports.runtimeConfigImport}
+import { transformEnvVars } from '${resolver.resolve('./runtime/utils/transform')}'
 import { consola } from 'consola'
 
 const logger = consola.withTag('safe-runtime-config')
@@ -190,7 +211,7 @@ export default defineNitroPlugin(async () => {
       filename: 'types/safe-runtime-config.d.ts',
       getContents: () => generateTypeDeclaration(jsonSchema),
     })
-    nuxt.hook('nitro:config', (nitroConfig) => {
+    hook('nitro:config', (nitroConfig: any) => {
       nitroConfig.typescript = nitroConfig.typescript || {}
       nitroConfig.typescript.tsConfig = nitroConfig.typescript.tsConfig || {}
       nitroConfig.typescript.tsConfig.include = nitroConfig.typescript.tsConfig.include || []
@@ -202,10 +223,10 @@ export default defineNitroPlugin(async () => {
       nuxt.hook('ready', async () => {
         if ((nuxt.options as any)._prepare)
           return
-        await validateRuntimeConfig(nuxt.options.nitro.runtimeConfig, schema, validateOpts)
+        await validateRuntimeConfig((nuxt.options as any).nitro.runtimeConfig, schema, validateOpts)
       })
       nuxt.hook('build:done', async () => {
-        await validateRuntimeConfig(nuxt.options.nitro.runtimeConfig, schema, validateOpts)
+        await validateRuntimeConfig((nuxt.options as any).nitro.runtimeConfig, schema, validateOpts)
       })
     }
 
@@ -223,7 +244,8 @@ export default defineNitroPlugin(async () => {
         write: true,
         getContents: () => `
 import { Validator } from '@cfworker/json-schema'
-import { defineNitroPlugin, useRuntimeConfig } from '#imports'
+${nitroImports.definePluginImport}
+${nitroImports.runtimeConfigImport}
 import { consola } from 'consola'
 
 const logger = consola.withTag('safe-runtime-config')
@@ -255,11 +277,47 @@ export default defineNitroPlugin(() => {
       registerNitroPlugin(nuxt, pluginPath.dst)
     }
 
-    // Ensure app and server/Nitro bundles can resolve auto-imported composables.
-    addServerImportsDir(resolver.resolve('./runtime/composables'))
-    addImportsDir(resolver.resolve('./runtime/composables'))
+    addImports({
+      name: 'useSafeRuntimeConfig',
+      from: resolver.resolve('./runtime/composables/useSafeRuntimeConfig'),
+    })
 
-    nuxt.hook('eslint:config:addons', (addons) => {
+    const serverComposable = addTemplate({
+      filename: 'safe-runtime-config/useSafeRuntimeConfig.server.mjs',
+      write: true,
+      getContents: () => `
+${nitroImports.runtimeConfigImport}
+
+/**
+ * @returns {NuxtSafeRuntimeConfig}
+ */
+export function useSafeRuntimeConfig() {
+  return useRuntimeConfig()
+}
+`,
+    })
+
+    addTemplate({
+      filename: 'safe-runtime-config/useSafeRuntimeConfig.server.d.ts',
+      write: true,
+      getContents: () => `
+declare global {
+  interface NuxtSafeRuntimeConfig {}
+}
+
+export declare function useSafeRuntimeConfig(): NuxtSafeRuntimeConfig
+`,
+    })
+
+    addServerImports({
+      name: 'useSafeRuntimeConfig',
+      from: serverComposable.dst,
+    })
+
+    hook('eslint:config:addons', (addons: Array<{
+      name: string
+      getConfigs: () => { imports?: Array<{ from: string, name: string, as: string }>, configs?: string[] }
+    }>) => {
       addons.push({
         name: 'nuxt-safe-runtime-config',
         getConfigs: () => ({
@@ -270,25 +328,6 @@ export default defineNitroPlugin(() => {
     })
   },
 })
-
-function hasNativeJSONSchema(schema: StandardSchemaV1): boolean {
-  return typeof (schema?.['~standard'] as any)?.jsonSchema?.output === 'function'
-}
-
-async function getJSONSchema(schema: StandardSchemaV1, target: StandardJSONSchemaV1.Target = 'draft-2020-12', logFallback = true): Promise<Record<string, unknown>> {
-  if (hasNativeJSONSchema(schema)) {
-    try {
-      return (schema['~standard'] as any).jsonSchema.output({ target })
-    }
-    catch {
-      if (logFallback)
-        logger.warn(`Native JSON Schema failed for target "${target}", using fallback`)
-    }
-  }
-  if (logFallback)
-    logger.warn('Schema does not support native JSON Schema, using @standard-community/standard-json fallback')
-  return await toJsonSchema(schema as any) as Record<string, unknown>
-}
 
 interface ValidateOptions {
   onError: ErrorBehavior
@@ -340,13 +379,4 @@ function formatIssue(issue: any): string {
     ? issue.path.map((p: any) => p && typeof p === 'object' && 'key' in p ? p.key : p).join('.')
     : 'root'
   return `${path}: ${issue.message || 'Validation error'}`
-}
-
-declare module '@nuxt/schema' {
-  interface NuxtHooks {
-    'eslint:config:addons': (addons: Array<{
-      name: string
-      getConfigs: () => { imports?: Array<{ from: string, name: string, as: string }>, configs?: string[] }
-    }>) => void
-  }
 }
