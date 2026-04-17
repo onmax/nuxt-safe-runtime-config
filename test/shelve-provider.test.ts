@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearSecretsCache, normalizeShelveOptions, resolveShelveConfig, shouldEnableShelve } from '../src/providers/shelve'
+import { clearSecretsCache, resolveShelveConfig, resolveShelveOptions } from '../src/providers/shelve'
 
 const mockHomeDir = join(tmpdir(), `shelve-home-${randomUUID()}`)
 vi.mock('node:os', async (importOriginal) => {
@@ -11,71 +11,41 @@ vi.mock('node:os', async (importOriginal) => {
   return { ...mod, homedir: () => mockHomeDir }
 })
 
-describe('normalizeShelveOptions', () => {
+describe('resolveShelveOptions', () => {
+  it('returns null for false', () => {
+    expect(resolveShelveOptions(false)).toBeNull()
+  })
+
+  it('returns null for undefined', () => {
+    expect(resolveShelveOptions(undefined)).toBeNull()
+  })
+
   it('returns empty object for true', () => {
-    expect(normalizeShelveOptions(true)).toEqual({})
+    expect(resolveShelveOptions(true)).toEqual({})
   })
 
-  it('returns empty object for undefined', () => {
-    expect(normalizeShelveOptions(undefined)).toEqual({})
+  it('returns null when enabled is explicitly false', () => {
+    expect(resolveShelveOptions({ enabled: false, project: 'test', slug: 'team' })).toBeNull()
   })
 
-  it('returns { enabled: false } for false', () => {
-    expect(normalizeShelveOptions(false)).toEqual({ enabled: false })
+  it('returns object when enabled is true', () => {
+    expect(resolveShelveOptions({ enabled: true })).toEqual({ enabled: true })
   })
 
-  it('returns object as-is', () => {
-    const options = { project: 'my-project', slug: 'my-team' }
-    expect(normalizeShelveOptions(options)).toEqual(options)
-  })
-})
-
-describe('shouldEnableShelve', () => {
-  let testDir: string
-
-  beforeEach(() => {
-    testDir = join(tmpdir(), `shelve-test-${randomUUID()}`)
-    mkdirSync(testDir, { recursive: true })
+  it('returns object when project is set (implies enabled)', () => {
+    expect(resolveShelveOptions({ project: 'my-project' })).toEqual({ project: 'my-project' })
   })
 
-  afterEach(() => {
-    rmSync(testDir, { recursive: true, force: true })
+  it('returns object when slug is set (implies enabled)', () => {
+    expect(resolveShelveOptions({ slug: 'my-team' })).toEqual({ slug: 'my-team' })
   })
 
-  it('returns false when options is false', () => {
-    expect(shouldEnableShelve(false, testDir)).toBe(false)
+  it('returns object when team is set (implies enabled)', () => {
+    expect(resolveShelveOptions({ team: 'my-team' })).toEqual({ team: 'my-team' })
   })
 
-  it('returns false when options is undefined', () => {
-    expect(shouldEnableShelve(undefined, testDir)).toBe(false)
-  })
-
-  it('returns true when options is true', () => {
-    expect(shouldEnableShelve(true, testDir)).toBe(true)
-  })
-
-  it('returns false when enabled is explicitly false', () => {
-    expect(shouldEnableShelve({ enabled: false, project: 'test', slug: 'team' }, testDir)).toBe(false)
-  })
-
-  it('returns true when enabled is true', () => {
-    expect(shouldEnableShelve({ enabled: true }, testDir)).toBe(true)
-  })
-
-  it('returns true when project is set (implies enabled)', () => {
-    expect(shouldEnableShelve({ project: 'my-project' }, testDir)).toBe(true)
-  })
-
-  it('returns true when slug is set (implies enabled)', () => {
-    expect(shouldEnableShelve({ slug: 'my-team' }, testDir)).toBe(true)
-  })
-
-  it('returns true when team is set (implies enabled)', () => {
-    expect(shouldEnableShelve({ team: 'my-team' }, testDir)).toBe(true)
-  })
-
-  it('returns false for empty object', () => {
-    expect(shouldEnableShelve({}, testDir)).toBe(false)
+  it('returns null for empty object', () => {
+    expect(resolveShelveOptions({})).toBeNull()
   })
 })
 

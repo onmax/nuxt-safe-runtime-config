@@ -1,11 +1,16 @@
-interface EnvVar { key: string, value: string }
-type TransformedConfig = Record<string, string | Record<string, unknown>>
+export interface EnvVarLike {
+  key: string
+  value: string
+}
 
-function toCamelCase(str: string): string {
+export type ConfigStructure = Record<string, true | Record<string, true>>
+export type TransformedConfig = Record<string, string | Record<string, unknown>>
+
+export function toCamelCase(str: string): string {
   return str.toLowerCase().replace(/_([a-z])/g, (_, c) => c.toUpperCase())
 }
 
-function getPrefix(key: string): string | null {
+export function getPrefix(key: string): string | null {
   const parts = key.split('_')
   return parts.length > 1 ? parts[0]! : null
 }
@@ -46,7 +51,19 @@ function assignPath<TValue>(target: Record<string, TValue | Record<string, TValu
   assignPath(target[head!] as Record<string, TValue | Record<string, TValue>>, tail, value)
 }
 
-export function transformEnvVars(vars: EnvVar[]): TransformedConfig {
+export function buildConfigStructureFromEnvKeys(keys: string[]): ConfigStructure {
+  const result: ConfigStructure = {}
+  const prefixCounts = countPrefixes(keys)
+
+  for (const key of keys) {
+    const path = resolveConfigPath(key, prefixCounts)
+    assignPath(result, path, true)
+  }
+
+  return result
+}
+
+export function transformEnvVars(vars: readonly EnvVarLike[]): TransformedConfig {
   const result: TransformedConfig = {}
   const prefixCounts = countPrefixes(vars.map(v => v.key))
 

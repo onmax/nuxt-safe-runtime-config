@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildConfigStructureFromEnvKeys, transformEnvVars } from '../src/utils/transform'
+import { buildConfigStructureFromEnvKeys, transformEnvVars } from '../src/runtime/utils/transform'
 
 describe('transformEnvVars', () => {
   describe('camelCase conversion', () => {

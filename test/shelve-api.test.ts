@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mockFetch = vi.fn()
 
 vi.mock('ofetch', () => ({
-  $fetch: (...args: unknown[]) => mockFetch(...args),
+  $fetch: async (...args: unknown[]) => mockFetch(...args),
 }))
 
 // Must use dynamic import after mock setup
