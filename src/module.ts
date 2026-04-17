@@ -1,3 +1,4 @@
+/// <reference types="@nuxt/nitro-server" />
 import type { Nuxt } from '@nuxt/schema'
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { ErrorBehavior, ModuleOptions } from './types'
@@ -8,6 +9,7 @@ import { isCI, isTest } from 'std-env'
 import { version } from '../package.json'
 import { generateTypeDeclaration } from './json-schema-to-ts'
 import { fetchShelveSecrets, resolveShelveConfig, resolveShelveOptions } from './providers/shelve'
+import { errorMessage } from './utils/error'
 import { getJSONSchema } from './utils/json-schema'
 import { runShelveWizard } from './wizard/shelve-setup'
 
@@ -26,12 +28,8 @@ function detectJsonSchemaDraft(schemaUri: string | undefined): string {
   return '2020-12'
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
-
 function addNitroAlias(nuxt: Nuxt, name: string, dst: string): void {
-  ;(nuxt.hook as (event: string, cb: (nitroConfig: { alias?: Record<string, string> }) => void) => void)('nitro:config', (nitroConfig) => {
+  nuxt.hook('nitro:config', (nitroConfig) => {
     nitroConfig.alias ||= {}
     nitroConfig.alias[name] = dst
   })
@@ -52,6 +50,7 @@ export default defineNuxtModule<ModuleOptions>({
     onError: 'throw',
     shelve: undefined,
   },
+  // onInstall: Nuxt 4.1+, ignored on older versions
   async onInstall(nuxt: Nuxt) {
     if (isCI || isTest || !process.stdin.isTTY || !process.stdout.isTTY)
       return
@@ -77,7 +76,7 @@ export default defineNuxtModule<ModuleOptions>({
         try {
           const secrets = await fetchShelveSecrets(shelveConfig)
           nuxt.options.runtimeConfig = defu(secrets, nuxt.options.runtimeConfig) as typeof nuxt.options.runtimeConfig
-          ;(nuxt.options as any).nitro.runtimeConfig = defu(secrets, (nuxt.options as any).nitro.runtimeConfig)
+          nuxt.options.nitro!.runtimeConfig = defu(secrets, nuxt.options.nitro!.runtimeConfig)
           logger.success(`Loaded ${Object.keys(secrets).length} secrets from Shelve (${shelveConfig.environment})`)
         }
         catch (error) {
@@ -120,7 +119,7 @@ export default defineNuxtModule<ModuleOptions>({
       filename: 'types/safe-runtime-config.d.ts',
       getContents: () => generateTypeDeclaration(jsonSchema),
     })
-    ;(nuxt.hook as (event: string, cb: (nitroConfig: { typescript?: { tsConfig?: { include?: string[] } } }) => void) => void)('nitro:config', (nitroConfig) => {
+    nuxt.hook('nitro:config', (nitroConfig) => {
       nitroConfig.typescript ||= {}
       nitroConfig.typescript.tsConfig ||= {}
       nitroConfig.typescript.tsConfig.include ||= []
@@ -128,9 +127,9 @@ export default defineNuxtModule<ModuleOptions>({
     })
 
     if (options.validateAtBuild) {
-      const run = async (): Promise<void> => validateRuntimeConfig((nuxt.options as any).nitro.runtimeConfig, schema, onError)
+      const run = async (): Promise<void> => validateRuntimeConfig(nuxt.options.nitro!.runtimeConfig, schema, onError)
       nuxt.hook('ready', async () => {
-        if ((nuxt.options as any)._prepare)
+        if (nuxt.options._prepare)
           return
         await run()
       })
@@ -155,17 +154,14 @@ export default defineNuxtModule<ModuleOptions>({
       addServerPlugin(resolver.resolve('./runtime/nitro/validate-plugin'))
     }
 
-    addImports({
+    const composable = {
       name: 'useSafeRuntimeConfig',
       from: resolver.resolve('./runtime/composables/useSafeRuntimeConfig'),
-    })
+    }
+    addImports(composable)
+    addServerImports(composable)
 
-    addServerImports({
-      name: 'useSafeRuntimeConfig',
-      from: resolver.resolve('./runtime/server/useSafeRuntimeConfig'),
-    })
-
-    nuxt.hook('eslint:config:addons' as any, (addons: Array<{ name: string, getConfigs: () => { imports?: Array<{ from: string, name: string, as: string }>, configs?: string[] } }>) => {
+    nuxt.hook('eslint:config:addons' as any, (addons: Array<{ name: string, getConfigs: () => unknown }>) => {
       addons.push({
         name: 'nuxt-safe-runtime-config',
         getConfigs: () => ({
@@ -176,6 +172,12 @@ export default defineNuxtModule<ModuleOptions>({
     })
   },
 })
+
+declare module '@nuxt/schema' {
+  interface NuxtOptions {
+    _prepare?: boolean
+  }
+}
 
 async function validateRuntimeConfig(config: any, schema: StandardSchemaV1, onError: ErrorBehavior): Promise<void> {
   if (!isStandardSchema(schema)) {

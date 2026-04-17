@@ -27,6 +27,7 @@ jobs:
       - run: pnpm test
 
   nuxt5-nightly:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:

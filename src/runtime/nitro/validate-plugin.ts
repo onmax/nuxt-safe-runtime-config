@@ -1,7 +1,6 @@
 import { draft, onError, schema } from '#safe-runtime-config/validate'
 import { Validator } from '@cfworker/json-schema'
 import { consola } from 'consola'
-import { defineNitroPlugin, useRuntimeConfig } from 'nitropack/runtime'
 
 const logger = consola.withTag('safe-runtime-config')
 

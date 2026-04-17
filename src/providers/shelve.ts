@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import process from 'node:process'
 import { createShelveClient, DEFAULT_URL } from '../runtime/shelve-client'
 import { transformEnvVars } from '../runtime/utils/transform'
+import { errorMessage } from '../utils/error'
 
 const secretsCache = new Map<string, { data: TransformedConfig, expires: number }>()
 const CACHE_TTL = 30_000
@@ -107,8 +108,4 @@ export async function fetchShelveSecrets(config: ResolvedShelveConfig, useCache 
   const transformed = transformEnvVars(variables)
   secretsCache.set(cacheKey, { data: transformed, expires: Date.now() + CACHE_TTL })
   return transformed
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }

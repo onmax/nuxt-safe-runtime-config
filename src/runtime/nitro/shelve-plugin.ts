@@ -3,7 +3,6 @@ import process from 'node:process'
 import { shelveRuntimeConfig } from '#safe-runtime-config/shelve'
 import { consola } from 'consola'
 import defu from 'defu'
-import { defineNitroPlugin, useRuntimeConfig } from 'nitropack/runtime'
 import { createShelveClient } from '../shelve-client'
 import { transformEnvVars } from '../utils/transform'
 

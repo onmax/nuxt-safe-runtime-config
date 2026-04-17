@@ -12,6 +12,7 @@ import { builders, loadFile, writeFile } from 'magicast'
 import { getDefaultExportOptions } from 'magicast/helpers'
 import { createShelveClient, DEFAULT_URL } from '../runtime/shelve-client'
 import { buildConfigStructureFromEnvKeys } from '../runtime/utils/transform'
+import { errorMessage } from '../utils/error'
 
 const execAsync = promisify(exec)
 
@@ -345,8 +346,7 @@ export async function runShelveWizard(nuxt: Nuxt): Promise<void> {
             logger.info(`Found ${variables.length} variable(s) in Shelve`)
         }
         catch (error) {
-          const msg = error instanceof Error ? error.message : String(error)
-          logger.warn(`Could not fetch variables: ${msg}`)
+          logger.warn(`Could not fetch variables: ${errorMessage(error)}`)
         }
       }
     }
