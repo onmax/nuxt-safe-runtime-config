@@ -51,6 +51,7 @@
     "test": "vitest run",
     "test:watch": "vitest watch",
     "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit",
+    "test:packed-release": "node scripts/smoke-packed-release.mjs",
     "test:nuxt5-nightly": "node scripts/smoke-nuxt5-nightly.mjs"
   },
   "peerDependencies": {
@@ -64,6 +65,7 @@
     "@cfworker/json-schema": "catalog:",
     "@standard-community/standard-json": "catalog:",
     "@standard-schema/spec": "catalog:",
+    "@typescript-eslint/utils": "catalog:",
     "@valibot/to-json-schema": "catalog:",
     "consola": "catalog:",
     "defu": "catalog:",
@@ -84,7 +86,7 @@
     "@types/node": "catalog:",
     "@typescript-eslint/parser": "catalog:",
     "@typescript-eslint/rule-tester": "catalog:",
-    "@typescript-eslint/utils": "catalog:",
+    "arktype": "catalog:",
     "bumpp": "catalog:",
     "changelogen": "catalog:",
     "eslint": "catalog:",
