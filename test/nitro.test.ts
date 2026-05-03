@@ -15,6 +15,10 @@ function runNitroBuild(fixtureDir: string) {
   return spawnSync(nitroBin, ['build'], { cwd: fixtureDir, encoding: 'utf8', env: process.env })
 }
 
+function firstExisting(paths: string[]): string | undefined {
+  return paths.find(path => existsSync(path))
+}
+
 function waitForOutputMatching(child: ReturnType<typeof spawn>, pattern: RegExp, timeoutMs: number): Promise<string> {
   return new Promise((resolve) => {
     let logs = ''
@@ -40,10 +44,19 @@ describe('nitro module', () => {
     const result = runNitroBuild(fixtureDir)
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
-    expect(existsSync(join(fixtureDir, '.nitro/safe-runtime-config/validate.mjs'))).toBe(true)
-    expect(existsSync(join(fixtureDir, '.nitro/types/safe-runtime-config.d.ts'))).toBe(true)
+    const validateModulePath = firstExisting([
+      join(fixtureDir, '.nitro/safe-runtime-config/validate.mjs'),
+      join(fixtureDir, 'node_modules/.nitro/safe-runtime-config/validate.mjs'),
+    ])
+    const typeDeclarationPath = firstExisting([
+      join(fixtureDir, '.nitro/types/safe-runtime-config.d.ts'),
+      join(fixtureDir, 'node_modules/.nitro/types/safe-runtime-config.d.ts'),
+    ])
 
-    const validateModule = readFileSync(join(fixtureDir, '.nitro/safe-runtime-config/validate.mjs'), 'utf8')
+    expect(validateModulePath).toBeDefined()
+    expect(typeDeclarationPath).toBeDefined()
+
+    const validateModule = readFileSync(validateModulePath!, 'utf8')
     expect(validateModule).toContain('export const schema')
     expect(validateModule).toContain('export const onError')
   }, 60000)
