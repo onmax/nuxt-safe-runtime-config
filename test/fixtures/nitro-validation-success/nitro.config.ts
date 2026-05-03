@@ -1,4 +1,4 @@
-import { defineNitroConfig } from 'nitropack/config'
+import { defineNitroConfig } from 'nitro/config'
 import SafeRuntimeConfig from '../../../src/nitro'
 import { runtimeConfigSchema, validRuntimeConfig } from '../_shared/nitro-runtime-config-schema'
 

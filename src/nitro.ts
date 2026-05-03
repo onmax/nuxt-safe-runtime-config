@@ -1,8 +1,7 @@
-import type { Nitro, NitroModule } from 'nitropack/types'
+import type { Nitro, NitroModule } from 'nitro/types'
 import type { ResolvedValidationOptions, RuntimeValidationArtifacts } from './validation'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { consola } from 'consola'
@@ -33,24 +32,8 @@ function resolveRuntimePlugin(): string {
 
 export const RUNTIME_PLUGIN_PATH = resolveRuntimePlugin()
 
-const runtimeConfigImportCache = new Map<string, string>()
-
-export function resolveRuntimeConfigImport(rootDir: string): string {
-  const cached = runtimeConfigImportCache.get(rootDir)
-  if (cached)
-    return cached
-
-  const require = createRequire(join(rootDir, 'package.json'))
-  let resolved: string
-  try {
-    require.resolve('nitro/package.json')
-    resolved = 'nitro/runtime-config'
-  }
-  catch {
-    resolved = 'nitropack/runtime'
-  }
-  runtimeConfigImportCache.set(rootDir, resolved)
-  return resolved
+export function resolveRuntimeConfigImport(): string {
+  return 'nitro/runtime-config'
 }
 
 async function writeFileIfChanged(file: string, contents: string): Promise<void> {
@@ -90,7 +73,7 @@ function configureNitro(nitro: Nitro, options: ResolvedValidationOptions, valida
   pushUnique(ts.tsConfig.include, `./${relative(nitro.options.buildDir, typeDeclaration)}`)
 
   if (options.validateAtRuntime) {
-    nitro.options.alias['#safe-runtime-config/nitro-runtime-config'] = resolveRuntimeConfigImport(nitro.options.rootDir)
+    nitro.options.alias['#safe-runtime-config/nitro-runtime-config'] = resolveRuntimeConfigImport()
     nitro.options.plugins ||= []
     pushUnique(nitro.options.plugins, RUNTIME_PLUGIN_PATH)
   }

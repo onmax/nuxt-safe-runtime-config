@@ -39,7 +39,7 @@ export interface ModuleOptions extends ValidationOptions {
   shelve?: boolean | ShelveProviderOptions
 }
 
-declare module 'nitropack/types' {
+declare module 'nitro/types' {
   interface NitroConfig {
     safeRuntimeConfig?: ValidationOptions
   }

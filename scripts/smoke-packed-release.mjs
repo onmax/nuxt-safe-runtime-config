@@ -37,58 +37,6 @@ function run(name, command, args, options = {}) {
   return { ...result, output, logPath }
 }
 
-function createRuntimeValidationConsumer(appDir, tarballPath) {
-  rmSync(appDir, { recursive: true, force: true })
-  mkdirSync(join(appDir, 'server/api'), { recursive: true })
-  writeJson(join(appDir, 'package.json'), {
-    type: 'module',
-    private: true,
-    scripts: {
-      build: 'nuxt build',
-    },
-    dependencies: {
-      'nuxt-safe-runtime-config': `file:${tarballPath}`,
-      'nuxt': '^4',
-      'typescript': '^5.8.3',
-      'valibot': '^1.1.0',
-    },
-  })
-  writeFileSync(join(appDir, 'app.vue'), `<template>
-  <div>{{ config.public.apiBase }}</div>
-</template>
-
-<script setup lang="ts">
-const config = useSafeRuntimeConfig()
-</script>
-`)
-  writeFileSync(join(appDir, 'server/api/config.get.ts'), `export default defineEventHandler(() => {
-  const config = useSafeRuntimeConfig()
-  return { port: config.port }
-})
-`)
-  writeFileSync(join(appDir, 'nuxt.config.ts'), `import { number, object, string } from 'valibot'
-
-const runtimeConfigSchema = object({
-  port: number(),
-  secretKey: string(),
-  public: object({ apiBase: string() }),
-})
-
-export default defineNuxtConfig({
-  modules: ['nuxt-safe-runtime-config'],
-  runtimeConfig: {
-    port: 3000,
-    secretKey: 'test-secret',
-    public: { apiBase: 'https://api.example.com' },
-  },
-  safeRuntimeConfig: {
-    $schema: runtimeConfigSchema,
-    validateAtRuntime: true,
-  },
-})
-`)
-}
-
 function createEslintConsumer(appDir, tarballPath) {
   rmSync(appDir, { recursive: true, force: true })
   mkdirSync(appDir, { recursive: true })
@@ -177,7 +125,7 @@ function createNitroConsumer(appDir, tarballPath) {
       build: 'nitro build',
     },
     dependencies: {
-      'nitropack': '^2.13.1',
+      'nitro': '3.0.260429-beta',
       'nuxt-safe-runtime-config': `file:${tarballPath}`,
       'typescript': '^5.8.3',
       'valibot': '^1.1.0',
@@ -189,7 +137,7 @@ function createNitroConsumer(appDir, tarballPath) {
 })
 `)
   writeFileSync(join(appDir, 'nitro.config.ts'), `import { number, object, string } from 'valibot'
-import { defineNitroConfig } from 'nitropack/config'
+import { defineNitroConfig } from 'nitro/config'
 import SafeRuntimeConfig from 'nuxt-safe-runtime-config/nitro'
 
 const runtimeConfigSchema = object({
@@ -223,26 +171,6 @@ try {
 
   const tarballPath = join(packDir, tarball)
 
-  const runtimeDir = join(tempRoot, 'runtime-validation')
-  createRuntimeValidationConsumer(runtimeDir, tarballPath)
-  run('runtime-install', 'pnpm', ['install', '--ignore-workspace', '--no-frozen-lockfile'], { cwd: runtimeDir, timeout: 240_000 })
-  run('runtime-build', 'pnpm', ['build'], { cwd: runtimeDir, timeout: 240_000 })
-  const runtimeServer = run('runtime-server-invalid-env', 'node', ['.output/server/index.mjs'], {
-    cwd: runtimeDir,
-    env: {
-      NUXT_PORT: 'not-a-number',
-      PORT: '48765',
-    },
-    allowFailure: true,
-    timeout: 8_000,
-  })
-  if (runtimeServer.status === 0)
-    throw new Error(`runtime validation server unexpectedly succeeded\nLog: ${runtimeServer.logPath}`)
-  if (runtimeServer.output.includes('ReferenceError: defineNitroPlugin is not defined'))
-    throw new Error(`runtime validation server still has an unbound defineNitroPlugin\nLog: ${runtimeServer.logPath}`)
-  if (!runtimeServer.output.includes('Runtime validation failed') || !runtimeServer.output.includes('port'))
-    throw new Error(`runtime validation server did not report the invalid port\nLog: ${runtimeServer.logPath}\n${tail(runtimeServer.output)}`)
-
   const eslintDir = join(tempRoot, 'eslint-consumer')
   createEslintConsumer(eslintDir, tarballPath)
   run('eslint-install', 'pnpm', ['install', '--ignore-workspace', '--no-frozen-lockfile'], { cwd: eslintDir, timeout: 240_000 })
@@ -269,6 +197,21 @@ try {
   if (existsSync(join(nitroDir, 'node_modules/@nuxt/kit')))
     throw new Error('Nitro-only consumer unexpectedly installed @nuxt/kit')
   run('nitro-build', 'pnpm', ['build'], { cwd: nitroDir, timeout: 240_000 })
+  const nitroServer = run('nitro-server-invalid-env', 'node', ['.output/server/index.mjs'], {
+    cwd: nitroDir,
+    env: {
+      NITRO_PORT: 'not-a-number',
+      PORT: '48765',
+    },
+    allowFailure: true,
+    timeout: 8_000,
+  })
+  if (nitroServer.status === 0)
+    throw new Error(`Nitro runtime validation server unexpectedly succeeded\nLog: ${nitroServer.logPath}`)
+  if (nitroServer.output.includes('ReferenceError: defineNitroPlugin is not defined'))
+    throw new Error(`Nitro runtime validation server still has an unbound defineNitroPlugin\nLog: ${nitroServer.logPath}`)
+  if (!nitroServer.output.includes('Runtime validation failed') || !nitroServer.output.includes('port'))
+    throw new Error(`Nitro runtime validation server did not report the invalid port\nLog: ${nitroServer.logPath}\n${tail(nitroServer.output)}`)
 
   console.log(`Packed release smoke test passed in ${tempRoot}`)
 }
