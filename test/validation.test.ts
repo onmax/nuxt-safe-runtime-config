@@ -59,6 +59,14 @@ describe('build-time validation', () => {
     })
     expect(true).toBe(true)
   }, 30000)
+
+  it('does not validate during prepare', () => {
+    const fixtureDir = fileURLToPath(new URL('./fixtures/validation-failure', import.meta.url))
+
+    execSync('pnpm nuxi prepare', { cwd: fixtureDir, stdio: 'pipe' })
+
+    expect(existsSync(join(fixtureDir, '.nuxt'))).toBe(true)
+  }, 30000)
 })
 
 describe('runtime JSON Schema generation', () => {

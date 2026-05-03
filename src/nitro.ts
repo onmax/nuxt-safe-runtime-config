@@ -29,6 +29,10 @@ interface NitroLike {
   }
 }
 
+interface InternalValidationOptions extends ValidationOptions {
+  _skipInitialValidation?: boolean
+}
+
 export interface NitroModuleLike {
   name?: string
   setup: (nitro: NitroLike) => void | Promise<void>
@@ -123,14 +127,18 @@ async function registerRuntimeValidation(nitro: NitroLike, options: ReturnType<t
 const safeRuntimeConfigNitroModule: NitroModuleLike = {
   name: 'nuxt-safe-runtime-config/nitro',
   async setup(nitro) {
-    const options = resolveValidationOptions(nitro.options.safeRuntimeConfig)
+    const rawOptions = nitro.options.safeRuntimeConfig as InternalValidationOptions | undefined
+    const options = resolveValidationOptions(rawOptions)
     if (!options.$schema)
       return
 
     await registerRuntimeValidation(nitro, options)
 
-    if (options.validateAtBuild) {
+    if (options.validateAtBuild && !rawOptions?._skipInitialValidation) {
       await validateRuntimeConfig(nitro.options.runtimeConfig, options.$schema, options.onError, logger)
+    }
+
+    if (options.validateAtBuild) {
       nitro.hooks?.hook?.('build:before', async () => {
         await validateRuntimeConfig(nitro.options.runtimeConfig, options.$schema!, options.onError, logger)
       })

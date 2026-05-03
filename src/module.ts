@@ -202,7 +202,10 @@ export default defineNuxtModule<ModuleOptions>({
       nitroConfig.typescript.tsConfig ||= {}
       nitroConfig.typescript.tsConfig.include ||= []
       nitroConfig.typescript.tsConfig.include.push('./types/safe-runtime-config.d.ts')
-      ;(nitroConfig as any).safeRuntimeConfig = validationOptions
+      ;(nitroConfig as any).safeRuntimeConfig = {
+        ...validationOptions,
+        _skipInitialValidation: Boolean(nuxt.options._prepare),
+      }
       nitroConfig.modules ||= []
       if (!nitroConfig.modules.includes(safeRuntimeConfigNitroModule as any))
         nitroConfig.modules.push(safeRuntimeConfigNitroModule as any)
