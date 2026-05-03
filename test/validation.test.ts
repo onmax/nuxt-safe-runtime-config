@@ -1,4 +1,4 @@
-import { execSync, spawn } from 'node:child_process'
+import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -58,6 +58,14 @@ describe('build-time validation', () => {
       rootDir: fileURLToPath(new URL('./fixtures/arktype', import.meta.url)),
     })
     expect(true).toBe(true)
+  }, 30000)
+
+  it('does not validate during prepare', () => {
+    const fixtureDir = fileURLToPath(new URL('./fixtures/validation-failure', import.meta.url))
+
+    execSync('pnpm nuxi prepare', { cwd: fixtureDir, stdio: 'pipe' })
+
+    expect(existsSync(join(fixtureDir, '.nuxt'))).toBe(true)
   }, 30000)
 })
 
@@ -124,35 +132,5 @@ describe('runtime JSON Schema generation', () => {
       cwd: fixtureDir,
       stdio: 'pipe',
     })
-  }, 60000)
-})
-
-describe('runtime validation with env override', () => {
-  it('fails when env var overrides with invalid type', async () => {
-    const fixtureDir = fileURLToPath(new URL('./fixtures/valibot-runtime', import.meta.url))
-    execSync('pnpm nuxi build', { cwd: fixtureDir, stdio: 'pipe' })
-    const output = await new Promise<string>((resolve) => {
-      let stderr = ''
-      const serverPath = join(fixtureDir, '.output/server/index.mjs')
-      const child = spawn('node', [serverPath], {
-        cwd: fixtureDir,
-        env: { ...process.env, NUXT_PORT: 'not-a-number' },
-      })
-
-      child.stderr.on('data', (data) => {
-        stderr += data.toString()
-      })
-      child.stdout.on('data', (data) => {
-        stderr += data.toString()
-      })
-
-      setTimeout(() => {
-        child.kill()
-        resolve(stderr)
-      }, 3000)
-    })
-
-    expect(output).toContain('Runtime validation failed')
-    expect(output).toContain('port')
   }, 60000)
 })

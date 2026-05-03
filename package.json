@@ -24,14 +24,38 @@
   ],
   "sideEffects": false,
   "exports": {
-    ".": { "types": "./dist/types.d.mts", "import": "./dist/module.mjs" },
-    "./eslint": { "types": "./dist/eslint.d.mts", "import": "./dist/eslint.mjs" }
+    ".": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    },
+    "./nuxt": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    },
+    "./nitro": {
+      "types": "./dist/nitro.d.mts",
+      "import": "./dist/nitro.mjs"
+    },
+    "./eslint": {
+      "types": "./dist/eslint.d.mts",
+      "import": "./dist/eslint.mjs"
+    }
   },
   "main": "./dist/module.mjs",
   "typesVersions": {
     "*": {
-      ".": ["./dist/types.d.mts"],
-      "eslint": ["./dist/eslint.d.mts"]
+      ".": [
+        "./dist/types.d.mts"
+      ],
+      "nuxt": [
+        "./dist/types.d.mts"
+      ],
+      "nitro": [
+        "./dist/nitro.d.mts"
+      ],
+      "eslint": [
+        "./dist/eslint.d.mts"
+      ]
     }
   },
   "files": [
@@ -56,10 +80,19 @@
   },
   "peerDependencies": {
     "@nuxt/kit": "^3.0.0 || ^4.0.0 || ^5.0.0-0",
-    "eslint": ">=9.0.0"
+    "eslint": ">=9.0.0",
+    "nitro": "^3.0.0-beta"
   },
   "peerDependenciesMeta": {
-    "eslint": { "optional": true }
+    "@nuxt/kit": {
+      "optional": true
+    },
+    "eslint": {
+      "optional": true
+    },
+    "nitro": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@cfworker/json-schema": "catalog:",
@@ -92,6 +125,7 @@
     "eslint": "catalog:",
     "eslint-plugin-format": "catalog:",
     "lint-staged": "catalog:",
+    "nitro": "catalog:",
     "nuxt": "catalog:",
     "simple-git-hooks": "catalog:",
     "typescript": "catalog:",
