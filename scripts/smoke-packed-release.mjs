@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -167,6 +167,52 @@ export default defineNuxtConfig({
 `)
 }
 
+function createNitroConsumer(appDir, tarballPath) {
+  rmSync(appDir, { recursive: true, force: true })
+  mkdirSync(join(appDir, 'server/api'), { recursive: true })
+  writeJson(join(appDir, 'package.json'), {
+    type: 'module',
+    private: true,
+    scripts: {
+      build: 'nitro build',
+    },
+    dependencies: {
+      'nitropack': '^2.13.1',
+      'nuxt-safe-runtime-config': `file:${tarballPath}`,
+      'typescript': '^5.8.3',
+      'valibot': '^1.1.0',
+    },
+  })
+  writeFileSync(join(appDir, 'server/api/config.get.ts'), `export default defineEventHandler(() => {
+  const config = useRuntimeConfig()
+  return { port: config.port }
+})
+`)
+  writeFileSync(join(appDir, 'nitro.config.ts'), `import { number, object, string } from 'valibot'
+import { defineNitroConfig } from 'nitropack/config'
+import SafeRuntimeConfig from 'nuxt-safe-runtime-config/nitro'
+
+const runtimeConfigSchema = object({
+  port: number(),
+  secretKey: string(),
+  public: object({ apiBase: string() }),
+})
+
+export default defineNitroConfig({
+  modules: [SafeRuntimeConfig],
+  runtimeConfig: {
+    port: 3000,
+    secretKey: 'test-secret',
+    public: { apiBase: 'https://api.example.com' },
+  },
+  safeRuntimeConfig: {
+    $schema: runtimeConfigSchema,
+    validateAtRuntime: true,
+  },
+})
+`)
+}
+
 try {
   mkdirSync(packDir, { recursive: true })
   run('pack', 'pnpm', ['pack', '--pack-destination', packDir], { cwd: repoRoot })
@@ -215,6 +261,14 @@ try {
   const arktypeBuild = run('arktype-build', 'pnpm', ['build'], { cwd: arktypeDir, timeout: 240_000 })
   if (arktypeBuild.output.includes('Schema is not Standard Schema compatible'))
     throw new Error(`ArkType build still rejected the callable Standard Schema\nLog: ${arktypeBuild.logPath}`)
+
+  const nitroDir = join(tempRoot, 'nitro-consumer')
+  createNitroConsumer(nitroDir, tarballPath)
+  run('nitro-install', 'pnpm', ['install', '--ignore-workspace', '--no-frozen-lockfile'], { cwd: nitroDir, timeout: 240_000 })
+  run('nitro-import', 'node', ['-e', 'await import("nuxt-safe-runtime-config/nitro")'], { cwd: nitroDir })
+  if (existsSync(join(nitroDir, 'node_modules/@nuxt/kit')))
+    throw new Error('Nitro-only consumer unexpectedly installed @nuxt/kit')
+  run('nitro-build', 'pnpm', ['build'], { cwd: nitroDir, timeout: 240_000 })
 
   console.log(`Packed release smoke test passed in ${tempRoot}`)
 }

@@ -25,12 +25,16 @@
   "sideEffects": false,
   "exports": {
     ".": { "types": "./dist/types.d.mts", "import": "./dist/module.mjs" },
+    "./nuxt": { "types": "./dist/types.d.mts", "import": "./dist/module.mjs" },
+    "./nitro": { "types": "./dist/nitro.d.mts", "import": "./dist/nitro.mjs" },
     "./eslint": { "types": "./dist/eslint.d.mts", "import": "./dist/eslint.mjs" }
   },
   "main": "./dist/module.mjs",
   "typesVersions": {
     "*": {
       ".": ["./dist/types.d.mts"],
+      "nuxt": ["./dist/types.d.mts"],
+      "nitro": ["./dist/nitro.d.mts"],
       "eslint": ["./dist/eslint.d.mts"]
     }
   },
@@ -56,10 +60,13 @@
   },
   "peerDependencies": {
     "@nuxt/kit": "^3.0.0 || ^4.0.0 || ^5.0.0-0",
-    "eslint": ">=9.0.0"
+    "eslint": ">=9.0.0",
+    "nitropack": "^2.0.0"
   },
   "peerDependenciesMeta": {
-    "eslint": { "optional": true }
+    "@nuxt/kit": { "optional": true },
+    "eslint": { "optional": true },
+    "nitropack": { "optional": true }
   },
   "dependencies": {
     "@cfworker/json-schema": "catalog:",

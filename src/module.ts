@@ -1,7 +1,6 @@
 /// <reference types="@nuxt/nitro-server" />
 import type { Nuxt } from '@nuxt/schema'
-import type { StandardSchemaV1 } from '@standard-schema/spec'
-import type { ErrorBehavior, ModuleOptions } from './types'
+import type { ModuleOptions } from './types'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import process from 'node:process'
@@ -9,26 +8,16 @@ import { addImports, addServerImports, addServerPlugin, addTemplate, addTypeTemp
 import defu from 'defu'
 import { isCI, isTest } from 'std-env'
 import { version } from '../package.json'
-import { generateTypeDeclaration } from './json-schema-to-ts'
+import safeRuntimeConfigNitroModule from './nitro'
 import { fetchShelveSecrets, resolveShelveConfig, resolveShelveOptions } from './providers/shelve'
 import { errorMessage } from './utils/error'
-import { getJSONSchema } from './utils/json-schema'
+import { createRuntimeValidationArtifacts, resolveValidationOptions } from './validation'
 import { runShelveWizard } from './wizard/shelve-setup'
 
 export { transformEnvVars } from './runtime/utils/transform'
-export type { ErrorBehavior, ModuleOptions, ShelveProviderOptions } from './types'
+export type { ErrorBehavior, ModuleOptions, ShelveProviderOptions, ValidationOptions } from './types'
 
 const logger = useLogger('safe-runtime-config')
-
-function detectJsonSchemaDraft(schemaUri: string | undefined): string {
-  if (schemaUri?.includes('2020-12'))
-    return '2020-12'
-  if (schemaUri?.includes('2019-09'))
-    return '2019-09'
-  if (schemaUri?.includes('draft-07'))
-    return '7'
-  return '2020-12'
-}
 
 function addNitroAlias(nuxt: Nuxt, name: string, dst: string): void {
   nuxt.hook('nitro:config', (nitroConfig) => {
@@ -46,38 +35,6 @@ function resolveRuntimeConfigImport(rootDir: string): string {
   catch {
     return 'nitropack/runtime'
   }
-}
-
-function getRuntimeValidationPluginContents(runtimeConfigImport: string): string {
-  return `import { Validator } from '@cfworker/json-schema'
-import { consola } from 'consola'
-import { draft, onError, schema } from '#safe-runtime-config/validate'
-import { useRuntimeConfig } from ${JSON.stringify(runtimeConfigImport)}
-
-const logger = consola.withTag('safe-runtime-config')
-
-export default () => {
-  const config = useRuntimeConfig()
-  const validator = new Validator(schema, draft)
-  const result = validator.validate(config)
-
-  if (!result.valid) {
-    const errors = result.errors.map(e => \`\${e.instanceLocation}: \${e.error}\`).join(', ')
-    const msg = \`Runtime validation failed: \${errors}\`
-
-    if (onError === 'throw') {
-      logger.error(msg)
-      throw new Error(msg)
-    }
-    else if (onError === 'warn') {
-      logger.warn(msg)
-    }
-    return
-  }
-
-  logger.success('Runtime config validated (server start)')
-}
-`
 }
 
 function getShelveRuntimePluginContents(
@@ -217,52 +174,39 @@ export default defineNuxtModule<ModuleOptions>({
     if (!options.$schema)
       return
 
-    const schema = options.$schema
-    const jsonSchema = await getJSONSchema(schema, options.jsonSchemaTarget, msg => logger.warn(msg))
+    const validationOptions = resolveValidationOptions(options)
+    const artifacts = await createRuntimeValidationArtifacts(validationOptions, msg => logger.warn(msg))
+    if (!artifacts)
+      return
 
     addTypeTemplate({
       filename: 'types/safe-runtime-config.d.ts',
-      getContents: () => generateTypeDeclaration(jsonSchema),
+      getContents: () => artifacts.typeDeclaration,
     })
+    if (validationOptions.validateAtRuntime) {
+      const tpl = addTemplate({
+        filename: 'safe-runtime-config/validate.mjs',
+        write: true,
+        getContents: () => artifacts.validateTemplate,
+      })
+      addTemplate({
+        filename: 'safe-runtime-config/validate.d.ts',
+        write: true,
+        getContents: () => artifacts.validateTemplateDeclaration,
+      })
+      nuxt.options.alias['#safe-runtime-config/validate'] = tpl.dst
+      addNitroAlias(nuxt, '#safe-runtime-config/validate', tpl.dst)
+    }
     nuxt.hook('nitro:config', (nitroConfig) => {
       nitroConfig.typescript ||= {}
       nitroConfig.typescript.tsConfig ||= {}
       nitroConfig.typescript.tsConfig.include ||= []
       nitroConfig.typescript.tsConfig.include.push('./types/safe-runtime-config.d.ts')
+      ;(nitroConfig as any).safeRuntimeConfig = validationOptions
+      nitroConfig.modules ||= []
+      if (!nitroConfig.modules.includes(safeRuntimeConfigNitroModule as any))
+        nitroConfig.modules.push(safeRuntimeConfigNitroModule as any)
     })
-
-    if (options.validateAtBuild) {
-      const run = async (): Promise<void> => validateRuntimeConfig(nuxt.options.nitro!.runtimeConfig, schema, onError)
-      nuxt.hook('ready', async () => {
-        if (nuxt.options._prepare)
-          return
-        await run()
-      })
-      nuxt.hook('build:done', run)
-    }
-
-    if (options.validateAtRuntime) {
-      const draft = detectJsonSchemaDraft(jsonSchema.$schema as string | undefined)
-      const tpl = addTemplate({
-        filename: 'safe-runtime-config/validate.mjs',
-        write: true,
-        getContents: () => `export const schema = ${JSON.stringify(jsonSchema)}\nexport const onError = ${JSON.stringify(onError)}\nexport const draft = ${JSON.stringify(draft)}\n`,
-      })
-      addTemplate({
-        filename: 'safe-runtime-config/validate.d.ts',
-        write: true,
-        getContents: () => `export declare const schema: Record<string, unknown>\nexport declare const onError: 'throw' | 'warn' | 'ignore'\nexport declare const draft: string\n`,
-      })
-
-      nuxt.options.alias['#safe-runtime-config/validate'] = tpl.dst
-      addNitroAlias(nuxt, '#safe-runtime-config/validate', tpl.dst)
-      const validatePlugin = addTemplate({
-        filename: 'safe-runtime-config/validate-plugin.mjs',
-        write: true,
-        getContents: () => getRuntimeValidationPluginContents(runtimeConfigImport),
-      })
-      addServerPlugin(validatePlugin.dst)
-    }
 
     const composable = {
       name: 'useSafeRuntimeConfig',
@@ -287,49 +231,4 @@ declare module '@nuxt/schema' {
   interface NuxtOptions {
     _prepare?: boolean
   }
-}
-
-async function validateRuntimeConfig(config: any, schema: StandardSchemaV1, onError: ErrorBehavior): Promise<void> {
-  if (!isStandardSchema(schema)) {
-    const msg = 'Schema is not Standard Schema compatible'
-    if (onError === 'throw') {
-      logger.error(msg)
-      throw new Error('Invalid schema format')
-    }
-    else if (onError === 'warn') {
-      logger.warn(msg)
-    }
-    return
-  }
-
-  const result = await schema['~standard'].validate(config)
-
-  if ('issues' in result && result.issues && result.issues.length > 0) {
-    const errorLines = result.issues.map((issue, index) => `  ${index + 1}. ${formatIssue(issue)}`)
-    if (onError === 'throw') {
-      logger.error(`Validation failed!\n${errorLines.join('\n')}`)
-      throw new Error('Runtime config validation failed')
-    }
-    else if (onError === 'warn') {
-      logger.warn(`Validation failed!\n${errorLines.join('\n')}`)
-    }
-    return
-  }
-
-  logger.success('Validated Runtime Config')
-}
-
-function isStandardSchema(schema: any): schema is StandardSchemaV1 {
-  return schema
-    && (typeof schema === 'object' || typeof schema === 'function')
-    && '~standard' in schema
-    && typeof schema['~standard'] === 'object'
-    && typeof schema['~standard'].validate === 'function'
-}
-
-function formatIssue(issue: { path?: ReadonlyArray<PropertyKey | { key: PropertyKey }>, message?: string }): string {
-  const path = issue.path
-    ? issue.path.map(p => typeof p === 'object' && p !== null && 'key' in p ? p.key : p).join('.')
-    : 'root'
-  return `${path}: ${issue.message || 'Validation error'}`
 }

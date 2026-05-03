@@ -152,6 +152,9 @@ importers:
       magicast:
         specifier: 'catalog:'
         version: 0.3.5
+      nitropack:
+        specifier: ^2.0.0
+        version: 2.13.1(@netlify/blobs@9.1.2)(better-sqlite3@12.8.0)
       ofetch:
         specifier: 'catalog:'
         version: 1.4.1
