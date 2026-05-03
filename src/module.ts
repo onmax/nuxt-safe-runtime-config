@@ -1,41 +1,20 @@
 /// <reference types="@nuxt/nitro-server" />
-import type { Nuxt } from '@nuxt/schema'
 import type { ModuleOptions } from './types'
-import { createRequire } from 'node:module'
-import { join } from 'node:path'
 import process from 'node:process'
 import { addImports, addServerImports, addServerPlugin, addTemplate, addTypeTemplate, createResolver, defineNuxtModule, useLogger } from '@nuxt/kit'
 import defu from 'defu'
 import { isCI, isTest } from 'std-env'
 import { version } from '../package.json'
-import safeRuntimeConfigNitroModule from './nitro'
+import { resolveRuntimeConfigImport, RUNTIME_PLUGIN_PATH } from './nitro'
 import { fetchShelveSecrets, resolveShelveConfig, resolveShelveOptions } from './providers/shelve'
 import { errorMessage } from './utils/error'
-import { createRuntimeValidationArtifacts, resolveValidationOptions } from './validation'
+import { createRuntimeValidationArtifacts, resolveValidationOptions, validateRuntimeConfig } from './validation'
 import { runShelveWizard } from './wizard/shelve-setup'
 
 export { transformEnvVars } from './runtime/utils/transform'
 export type { ErrorBehavior, ModuleOptions, ShelveProviderOptions, ValidationOptions } from './types'
 
 const logger = useLogger('safe-runtime-config')
-
-function addNitroAlias(nuxt: Nuxt, name: string, dst: string): void {
-  nuxt.hook('nitro:config', (nitroConfig) => {
-    nitroConfig.alias ||= {}
-    nitroConfig.alias[name] = dst
-  })
-}
-
-function resolveRuntimeConfigImport(rootDir: string): string {
-  const require = createRequire(join(rootDir, 'package.json'))
-  try {
-    require.resolve('nitro/package.json')
-    return 'nitro/runtime-config'
-  }
-  catch {
-    return 'nitropack/runtime'
-  }
-}
 
 function getShelveRuntimePluginContents(
   shelveClientPath: string,
@@ -103,7 +82,7 @@ export default defineNuxtModule<ModuleOptions>({
     shelve: undefined,
   },
   // onInstall: Nuxt 4.1+, ignored on older versions
-  async onInstall(nuxt: Nuxt) {
+  async onInstall(nuxt) {
     if (isCI || isTest || !process.stdin.isTTY || !process.stdout.isTTY)
       return
     await runShelveWizard(nuxt)
@@ -157,7 +136,10 @@ export default defineNuxtModule<ModuleOptions>({
         })
 
         nuxt.options.alias['#safe-runtime-config/shelve'] = tpl.dst
-        addNitroAlias(nuxt, '#safe-runtime-config/shelve', tpl.dst)
+        nuxt.hook('nitro:config', (nitroConfig) => {
+          nitroConfig.alias ||= {}
+          nitroConfig.alias['#safe-runtime-config/shelve'] = tpl.dst
+        })
         const shelvePlugin = addTemplate({
           filename: 'safe-runtime-config/shelve-plugin.mjs',
           write: true,
@@ -183,6 +165,14 @@ export default defineNuxtModule<ModuleOptions>({
       filename: 'types/safe-runtime-config.d.ts',
       getContents: () => artifacts.typeDeclaration,
     })
+
+    nuxt.hook('nitro:config', (nitroConfig) => {
+      nitroConfig.typescript ||= {}
+      nitroConfig.typescript.tsConfig ||= {}
+      nitroConfig.typescript.tsConfig.include ||= []
+      nitroConfig.typescript.tsConfig.include.push('./types/safe-runtime-config.d.ts')
+    })
+
     if (validationOptions.validateAtRuntime) {
       const tpl = addTemplate({
         filename: 'safe-runtime-config/validate.mjs',
@@ -194,22 +184,30 @@ export default defineNuxtModule<ModuleOptions>({
         write: true,
         getContents: () => artifacts.validateTemplateDeclaration,
       })
+
       nuxt.options.alias['#safe-runtime-config/validate'] = tpl.dst
-      addNitroAlias(nuxt, '#safe-runtime-config/validate', tpl.dst)
+      nuxt.hook('nitro:config', (nitroConfig) => {
+        nitroConfig.alias ||= {}
+        nitroConfig.alias['#safe-runtime-config/validate'] = tpl.dst
+        nitroConfig.alias['#safe-runtime-config/nitro-runtime-config'] = runtimeConfigImport
+      })
+      addServerPlugin(RUNTIME_PLUGIN_PATH)
     }
-    nuxt.hook('nitro:config', (nitroConfig) => {
-      nitroConfig.typescript ||= {}
-      nitroConfig.typescript.tsConfig ||= {}
-      nitroConfig.typescript.tsConfig.include ||= []
-      nitroConfig.typescript.tsConfig.include.push('./types/safe-runtime-config.d.ts')
-      ;(nitroConfig as any).safeRuntimeConfig = {
-        ...validationOptions,
-        _skipInitialValidation: Boolean(nuxt.options._prepare),
-      }
-      nitroConfig.modules ||= []
-      if (!nitroConfig.modules.includes(safeRuntimeConfigNitroModule as any))
-        nitroConfig.modules.push(safeRuntimeConfigNitroModule as any)
-    })
+
+    if (validationOptions.validateAtBuild) {
+      const run = async (): Promise<void> => validateRuntimeConfig(
+        nuxt.options.nitro!.runtimeConfig,
+        validationOptions.$schema!,
+        validationOptions.onError,
+        logger,
+      )
+      nuxt.hook('ready', async () => {
+        if (nuxt.options._prepare)
+          return
+        await run()
+      })
+      nuxt.hook('build:done', run)
+    }
 
     const composable = {
       name: 'useSafeRuntimeConfig',

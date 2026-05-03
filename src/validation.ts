@@ -1,3 +1,4 @@
+import type { SchemaDraft } from '@cfworker/json-schema'
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 import type { ErrorBehavior, ValidationOptions } from './types'
 import { generateTypeDeclaration } from './json-schema-to-ts'
@@ -18,7 +19,7 @@ export interface ValidationLogger {
 }
 
 export interface RuntimeValidationArtifacts {
-  draft: string
+  draft: SchemaDraft
   jsonSchema: Record<string, unknown>
   typeDeclaration: string
   validateTemplate: string
@@ -35,9 +36,7 @@ export function resolveValidationOptions(options: ValidationOptions = {}): Resol
   }
 }
 
-export function detectJsonSchemaDraft(schemaUri: string | undefined): string {
-  if (schemaUri?.includes('2020-12'))
-    return '2020-12'
+export function detectJsonSchemaDraft(schemaUri: string | undefined): SchemaDraft {
   if (schemaUri?.includes('2019-09'))
     return '2019-09'
   if (schemaUri?.includes('draft-07'))
@@ -60,8 +59,17 @@ export async function createRuntimeValidationArtifacts(
     jsonSchema,
     typeDeclaration: generateTypeDeclaration(jsonSchema),
     validateTemplate: `export const schema = ${JSON.stringify(jsonSchema)}\nexport const onError = ${JSON.stringify(options.onError)}\nexport const draft = ${JSON.stringify(draft)}\n`,
-    validateTemplateDeclaration: `export declare const schema: Record<string, unknown>\nexport declare const onError: 'throw' | 'warn' | 'ignore'\nexport declare const draft: string\n`,
+    validateTemplateDeclaration: `import type { Schema, SchemaDraft } from '@cfworker/json-schema'\nexport declare const schema: Schema\nexport declare const onError: 'throw' | 'warn' | 'ignore'\nexport declare const draft: SchemaDraft\n`,
   }
+}
+
+function reportError(msg: string, onError: ErrorBehavior, logger: ValidationLogger, throwMsg?: string): void {
+  if (onError === 'throw') {
+    logger.error(msg)
+    throw new Error(throwMsg ?? msg)
+  }
+  if (onError === 'warn')
+    logger.warn(msg)
 }
 
 export async function validateRuntimeConfig(
@@ -71,14 +79,7 @@ export async function validateRuntimeConfig(
   logger: ValidationLogger,
 ): Promise<void> {
   if (!isStandardSchema(schema)) {
-    const msg = 'Schema is not Standard Schema compatible'
-    if (onError === 'throw') {
-      logger.error(msg)
-      throw new Error('Invalid schema format')
-    }
-    else if (onError === 'warn') {
-      logger.warn(msg)
-    }
+    reportError('Schema is not Standard Schema compatible', onError, logger, 'Invalid schema format')
     return
   }
 
@@ -86,13 +87,7 @@ export async function validateRuntimeConfig(
 
   if ('issues' in result && result.issues && result.issues.length > 0) {
     const errorLines = result.issues.map((issue, index) => `  ${index + 1}. ${formatIssue(issue)}`)
-    if (onError === 'throw') {
-      logger.error(`Validation failed!\n${errorLines.join('\n')}`)
-      throw new Error('Runtime config validation failed')
-    }
-    else if (onError === 'warn') {
-      logger.warn(`Validation failed!\n${errorLines.join('\n')}`)
-    }
+    reportError(`Validation failed!\n${errorLines.join('\n')}`, onError, logger, 'Runtime config validation failed')
     return
   }
 

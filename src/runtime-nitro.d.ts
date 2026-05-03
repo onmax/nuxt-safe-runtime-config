@@ -1,10 +1,10 @@
-import type { Schema, SchemaDraft } from '@cfworker/json-schema'
-
 declare module '#safe-runtime-config/nitro-runtime-config' {
   export function useRuntimeConfig(): Record<string, unknown>
 }
 
 declare module '#safe-runtime-config/validate' {
+  import type { Schema, SchemaDraft } from '@cfworker/json-schema'
+
   export const schema: Schema
   export const onError: 'throw' | 'warn' | 'ignore'
   export const draft: SchemaDraft
