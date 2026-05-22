@@ -3,6 +3,14 @@ packages:
   - ./playground
   - ./docs
   - ./test/fixtures/*
+allowBuilds:
+  '@parcel/watcher': true
+  better-sqlite3: true
+  esbuild: true
+  sharp: true
+  simple-git-hooks: true
+  unrs-resolver: true
+  vue-demi: true
 catalog:
   '@antfu/eslint-config': ^4.13.3
   '@antfu/ni': ^25.0.0
@@ -11,6 +19,7 @@ catalog:
   '@nuxt/eslint': ^1.4.1
   '@nuxt/eslint-config': ^1.4.1
   '@nuxt/module-builder': ^1.0.2
+  '@nuxt/nitro-server': ^4.4.2
   '@nuxt/schema': ^4.4.2
   '@nuxt/test-utils': ^3.19.1
   '@standard-community/standard-json': ^0.3.0
