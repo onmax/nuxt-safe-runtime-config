@@ -32,8 +32,8 @@ function resolveRuntimePlugin(): string {
 
 export const RUNTIME_PLUGIN_PATH = resolveRuntimePlugin()
 
-export function resolveRuntimeConfigImport(): string {
-  return 'nitro/runtime-config'
+export function resolveRuntimeConfigImport(frameworkName = 'nitro'): string {
+  return frameworkName === 'nitro' ? 'nitro/runtime-config' : 'nitropack/runtime'
 }
 
 async function writeFileIfChanged(file: string, contents: string): Promise<void> {
@@ -73,7 +73,7 @@ function configureNitro(nitro: Nitro, options: ResolvedValidationOptions, valida
   pushUnique(ts.tsConfig.include, `./${relative(nitro.options.buildDir, typeDeclaration)}`)
 
   if (options.validateAtRuntime) {
-    nitro.options.alias['#safe-runtime-config/nitro-runtime-config'] = resolveRuntimeConfigImport()
+    nitro.options.alias['#safe-runtime-config/nitro-runtime-config'] = resolveRuntimeConfigImport(nitro.options.framework.name)
     nitro.options.plugins ||= []
     pushUnique(nitro.options.plugins, RUNTIME_PLUGIN_PATH)
   }

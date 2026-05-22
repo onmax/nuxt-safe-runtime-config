@@ -95,7 +95,7 @@ export default defineNuxtModule<ModuleOptions>({
   async setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
     const onError = options.onError!
-    const runtimeConfigImport = resolveRuntimeConfigImport()
+    const runtimeConfigImport = resolveRuntimeConfigImport('nuxt')
 
     const shelveOpts = resolveShelveOptions(options.shelve)
     if (shelveOpts) {
