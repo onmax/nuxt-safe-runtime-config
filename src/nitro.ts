@@ -90,14 +90,21 @@ const safeRuntimeConfigNitroModule: NitroModule = {
     if (!artifacts)
       return
 
-    const validateModule = join(nitro.options.buildDir, 'safe-runtime-config/validate.mjs')
-    const typeDeclaration = join(nitro.options.buildDir, 'types/safe-runtime-config.d.ts')
+    const applyArtifacts = async (): Promise<void> => {
+      const validateModule = join(nitro.options.buildDir, 'safe-runtime-config/validate.mjs')
+      const typeDeclaration = join(nitro.options.buildDir, 'types/safe-runtime-config.d.ts')
 
-    await writeArtifacts(nitro, artifacts)
-    configureNitro(nitro, options, validateModule, typeDeclaration)
+      await writeArtifacts(nitro, artifacts)
+      configureNitro(nitro, options, validateModule, typeDeclaration)
+    }
+
+    await applyArtifacts()
+
+    nitro.hooks.hook('rollup:before', applyArtifacts)
 
     if (options.validateAtBuild) {
       nitro.hooks.hook('build:before', async () => {
+        await applyArtifacts()
         await validateRuntimeConfig(nitro.options.runtimeConfig, options.$schema!, options.onError, logger)
       })
     }

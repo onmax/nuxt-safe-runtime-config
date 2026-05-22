@@ -286,6 +286,8 @@ Runtime validation uses [@cfworker/json-schema](https://github.com/cfworker/cfwo
 - Missing required environment variables in production
 - Invalid values that pass build-time checks but fail at runtime
 
+Shelve runtime fetching is separate from validation ownership. If `shelve.fetchAtRuntime` is enabled, the Shelve runtime plugin runs before validation so fetched secrets are included in the validated config.
+
 ## ESLint Integration
 
 The module includes an ESLint plugin that warns when using `useRuntimeConfig()` instead of `useSafeRuntimeConfig()`.
