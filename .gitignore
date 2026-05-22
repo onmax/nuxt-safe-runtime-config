@@ -18,6 +18,7 @@ dist
 *.tgz
 
 # Nuxt
+.nitro
 .nuxt
 .output
 .nuxtrc

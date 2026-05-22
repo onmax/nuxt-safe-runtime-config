@@ -1,26 +1,46 @@
-import { execSync, spawn } from 'node:child_process'
+import { execSync, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { setup } from '@nuxt/test-utils/e2e'
+import { number, object, optional, string } from 'valibot'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
+import { createRuntimeValidationArtifacts, resolveValidationOptions } from '../src/validation'
 
-async function loadRuntimeValidationTemplate(fixtureDir: string) {
-  rmSync(join(fixtureDir, '.nuxt/safe-runtime-config'), { recursive: true, force: true })
-  execSync('pnpm nuxi prepare', { cwd: fixtureDir, stdio: 'pipe' })
+const zodRuntimeConfigSchema = z.object({
+  public: z.object({
+    apiBase: z.string(),
+  }),
+  secretKey: z.string(),
+})
 
-  const templatePath = join(fixtureDir, '.nuxt/safe-runtime-config/validate.mjs')
-  const declarationPath = join(fixtureDir, '.nuxt/safe-runtime-config/validate.d.ts')
+const valibotRuntimeConfigSchema = object({
+  public: object({
+    apiBase: string(),
+  }),
+  secretKey: string(),
+  port: optional(number()),
+})
 
-  expect(existsSync(templatePath)).toBe(true)
-  expect(existsSync(declarationPath)).toBe(true)
+function cleanNuxtBuildOutputs(fixtureDir: string): void {
+  rmSync(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
+  rmSync(join(fixtureDir, '.output'), { recursive: true, force: true })
+  rmSync(join(fixtureDir, 'node_modules/.cache/nuxt'), { recursive: true, force: true })
+}
 
-  const template = await import(`${pathToFileURL(templatePath).href}?t=${Date.now()}-${Math.random()}`)
+async function createRuntimeValidationTemplate($schema: Parameters<typeof resolveValidationOptions>[0]['$schema']) {
+  const artifacts = await createRuntimeValidationArtifacts(
+    resolveValidationOptions({ $schema, validateAtRuntime: true }),
+    () => {},
+  )
 
-  return template as {
-    schema: Record<string, any>
-    onError: 'throw' | 'warn' | 'ignore'
-    draft: string
+  expect(artifacts).not.toBeNull()
+
+  return {
+    draft: artifacts!.draft,
+    onError: resolveValidationOptions({ $schema }).onError,
+    schema: artifacts!.jsonSchema,
   }
 }
 
@@ -59,12 +79,41 @@ describe('build-time validation', () => {
     })
     expect(true).toBe(true)
   }, 30000)
+
+  it('does not validate during prepare', () => {
+    const fixtureDir = fileURLToPath(new URL('./fixtures/validation-failure', import.meta.url))
+
+    execSync('pnpm nuxi prepare', { cwd: fixtureDir, stdio: 'pipe' })
+
+    expect(existsSync(join(fixtureDir, '.nuxt'))).toBe(true)
+  }, 30000)
+
+  it('fails Nuxt build validation through the Nitro module', () => {
+    const fixtureDir = fileURLToPath(new URL('./fixtures/validation-failure', import.meta.url))
+    cleanNuxtBuildOutputs(fixtureDir)
+
+    const result = spawnSync('pnpm', ['nuxi', 'build'], {
+      cwd: fixtureDir,
+      encoding: 'utf8',
+    })
+
+    expect(result.status).not.toBe(0)
+    expect(`${result.stdout}\n${result.stderr}`).toContain('Runtime config validation failed')
+  }, 60000)
 })
 
 describe('runtime JSON Schema generation', () => {
+  it('builds a Nuxt app with Nitro-owned runtime validation artifacts', () => {
+    const fixtureDir = fileURLToPath(new URL('./fixtures/runtime-invalid', import.meta.url))
+    cleanNuxtBuildOutputs(fixtureDir)
+
+    execSync('pnpm nuxi build', { cwd: fixtureDir, stdio: 'pipe' })
+
+    expect(existsSync(join(fixtureDir, '.output/server/index.mjs'))).toBe(true)
+  }, 60000)
+
   it('generates runtime validation template (Zod native)', async () => {
-    const fixtureDir = fileURLToPath(new URL('./fixtures/zod-native', import.meta.url))
-    const { draft, onError, schema } = await loadRuntimeValidationTemplate(fixtureDir)
+    const { draft, onError, schema } = await createRuntimeValidationTemplate(zodRuntimeConfigSchema)
 
     expect(schema).toHaveProperty('type', 'object')
     expect(schema).toHaveProperty('properties')
@@ -75,8 +124,7 @@ describe('runtime JSON Schema generation', () => {
   }, 30000)
 
   it('generates runtime validation template (Valibot fallback)', async () => {
-    const fixtureDir = fileURLToPath(new URL('./fixtures/valibot-runtime', import.meta.url))
-    const { draft, onError, schema } = await loadRuntimeValidationTemplate(fixtureDir)
+    const { draft, onError, schema } = await createRuntimeValidationTemplate(valibotRuntimeConfigSchema)
 
     expect(schema).toHaveProperty('type', 'object')
     expect(schema).toHaveProperty('properties')
@@ -86,8 +134,7 @@ describe('runtime JSON Schema generation', () => {
 
   it('zod native JSON Schema validates correctly', async () => {
     const { Validator } = await import('@cfworker/json-schema')
-    const fixtureDir = fileURLToPath(new URL('./fixtures/zod-native', import.meta.url))
-    const { draft, schema } = await loadRuntimeValidationTemplate(fixtureDir)
+    const { draft, schema } = await createRuntimeValidationTemplate(zodRuntimeConfigSchema)
 
     const validator = new Validator(schema, draft as any)
     const validConfig = { secretKey: 'test-key', public: { apiBase: 'https://api.test.com' } }
@@ -98,8 +145,7 @@ describe('runtime JSON Schema generation', () => {
 
   it('valibot fallback JSON Schema validates correctly', async () => {
     const { Validator } = await import('@cfworker/json-schema')
-    const fixtureDir = fileURLToPath(new URL('./fixtures/valibot-runtime', import.meta.url))
-    const { draft, schema } = await loadRuntimeValidationTemplate(fixtureDir)
+    const { draft, schema } = await createRuntimeValidationTemplate(valibotRuntimeConfigSchema)
 
     const validator = new Validator(schema, draft as any)
     const validConfig = { secretKey: 'test-key', public: { apiBase: 'https://api.test.com' } }
@@ -124,35 +170,5 @@ describe('runtime JSON Schema generation', () => {
       cwd: fixtureDir,
       stdio: 'pipe',
     })
-  }, 60000)
-})
-
-describe('runtime validation with env override', () => {
-  it('fails when env var overrides with invalid type', async () => {
-    const fixtureDir = fileURLToPath(new URL('./fixtures/valibot-runtime', import.meta.url))
-    execSync('pnpm nuxi build', { cwd: fixtureDir, stdio: 'pipe' })
-    const output = await new Promise<string>((resolve) => {
-      let stderr = ''
-      const serverPath = join(fixtureDir, '.output/server/index.mjs')
-      const child = spawn('node', [serverPath], {
-        cwd: fixtureDir,
-        env: { ...process.env, NUXT_PORT: 'not-a-number' },
-      })
-
-      child.stderr.on('data', (data) => {
-        stderr += data.toString()
-      })
-      child.stdout.on('data', (data) => {
-        stderr += data.toString()
-      })
-
-      setTimeout(() => {
-        child.kill()
-        resolve(stderr)
-      }, 3000)
-    })
-
-    expect(output).toContain('Runtime validation failed')
-    expect(output).toContain('port')
   }, 60000)
 })

@@ -2,6 +2,19 @@ import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/sp
 
 export type ErrorBehavior = 'throw' | 'warn' | 'ignore'
 
+export interface ValidationOptions {
+  /** Standard Schema for validation (Zod, Valibot, ArkType, etc.) */
+  $schema?: StandardSchemaV1
+  /** Validate runtime config at build time. Default: true */
+  validateAtBuild?: boolean
+  /** Validate runtime config at runtime via Nitro plugin. Default: false */
+  validateAtRuntime?: boolean
+  /** JSON Schema target version. Default: 'draft-2020-12' */
+  jsonSchemaTarget?: StandardJSONSchemaV1.Target
+  /** Behavior when validation fails. Default: 'throw' */
+  onError?: ErrorBehavior
+}
+
 export interface ShelveProviderOptions {
   /** Enable Shelve integration. Default: false */
   enabled?: boolean
@@ -21,19 +34,18 @@ export interface ShelveProviderOptions {
   fetchAtRuntime?: boolean
 }
 
-export interface ModuleOptions {
-  /** Standard Schema for validation (Zod, Valibot, ArkType, etc.) */
-  $schema?: StandardSchemaV1
-  /** Validate runtime config at build time. Default: true */
-  validateAtBuild?: boolean
-  /** Validate runtime config at runtime via Nitro plugin. Default: false */
-  validateAtRuntime?: boolean
-  /** JSON Schema target version. Default: 'draft-2020-12' */
-  jsonSchemaTarget?: StandardJSONSchemaV1.Target
-  /** Behavior when validation fails. Default: 'throw' */
-  onError?: ErrorBehavior
+export interface ModuleOptions extends ValidationOptions {
   /** Shelve integration options */
   shelve?: boolean | ShelveProviderOptions
+}
+
+declare module 'nitro/types' {
+  interface NitroConfig {
+    safeRuntimeConfig?: ValidationOptions
+  }
+  interface NitroOptions {
+    safeRuntimeConfig?: ValidationOptions
+  }
 }
 
 export interface EnvVar {

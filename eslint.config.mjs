@@ -13,5 +13,8 @@ export default antfu({
     'playground/shelve.json',
     'src/runtime/**/*.d.ts',
     'src/runtime/**/*.js',
+    'test/fixtures/**/.nitro/**',
+    'test/fixtures/**/.nuxt/**',
+    'test/fixtures/**/.output/**',
   ],
 })
