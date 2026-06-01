@@ -51,10 +51,31 @@ describe('json-schema detection', () => {
     const warnings: string[] = []
     const jsonSchema = await getJSONSchema(schema, 'draft-2020-12', message => warnings.push(message))
 
-    expect(warnings).toEqual(['Schema does not support native JSON Schema, using @standard-community/standard-json fallback'])
+    expect(warnings).toEqual([])
     expect(jsonSchema).toHaveProperty('type', 'object')
     expect(jsonSchema).toHaveProperty('properties')
     expect((jsonSchema.properties as Record<string, unknown>)).toHaveProperty('name')
+  })
+
+  it('warns when native JSON Schema output fails before fallback conversion', async () => {
+    const schema = {
+      '~standard': {
+        version: 1,
+        vendor: 'test',
+        validate: () => ({ value: {} }),
+        jsonSchema: {
+          output: () => {
+            throw new Error('native unavailable')
+          },
+        },
+      },
+    } as unknown as StandardSchemaV1
+
+    const warnings: string[] = []
+    await expect(getJSONSchema(schema, 'draft-2020-12', message => warnings.push(message))).rejects.toThrow()
+
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('Native JSON Schema failed for target "draft-2020-12"')
   })
 
   it('detects native JSON Schema on callable ArkType schemas', async () => {

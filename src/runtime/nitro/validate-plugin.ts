@@ -22,8 +22,5 @@ export default (): void => {
     else if (onError === 'warn') {
       logger.warn(msg)
     }
-    return
   }
-
-  logger.success('Runtime config validated (server start)')
 }

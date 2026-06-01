@@ -15,7 +15,6 @@ export interface ResolvedValidationOptions {
 export interface ValidationLogger {
   error: (message: string) => void
   warn: (message: string) => void
-  success: (message: string) => void
 }
 
 export interface RuntimeValidationArtifacts {
@@ -88,10 +87,7 @@ export async function validateRuntimeConfig(
   if ('issues' in result && result.issues && result.issues.length > 0) {
     const errorLines = result.issues.map((issue, index) => `  ${index + 1}. ${formatIssue(issue)}`)
     reportError(`Validation failed!\n${errorLines.join('\n')}`, onError, logger, 'Runtime config validation failed')
-    return
   }
-
-  logger.success('Validated Runtime Config')
 }
 
 function isStandardSchema(schema: unknown): schema is StandardSchemaV1 {
