@@ -1,0 +1,9 @@
+{
+  "skills": [
+    {
+      "name": "nuxt-safe-runtime-config",
+      "description": "Use Nuxt Safe Runtime Config to validate Nuxt runtimeConfig with Standard Schema and consume it through typed generated helpers.",
+      "files": ["SKILL.md"]
+    }
+  ]
+}

@@ -1,8 +1,26 @@
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 import { toJsonSchema } from '@standard-community/standard-json'
+import { errorMessage } from './error'
+
+type NativeJsonSchemaOutput = (options: {
+  target: StandardJSONSchemaV1.Target
+}) => Record<string, unknown> | Promise<Record<string, unknown>>
+
+interface StandardSchemaWithNativeJsonSchema extends StandardSchemaV1 {
+  '~standard': StandardSchemaV1['~standard'] & {
+    jsonSchema?: {
+      output?: NativeJsonSchemaOutput
+    }
+  }
+}
+
+function getNativeJSONSchemaOutput(schema: StandardSchemaV1): NativeJsonSchemaOutput | undefined {
+  const output = (schema as StandardSchemaWithNativeJsonSchema)['~standard']?.jsonSchema?.output
+  return typeof output === 'function' ? output : undefined
+}
 
 export function hasNativeJSONSchema(schema: StandardSchemaV1): boolean {
-  return typeof (schema?.['~standard'] as any)?.jsonSchema?.output === 'function'
+  return Boolean(getNativeJSONSchemaOutput(schema))
 }
 
 export async function getJSONSchema(
@@ -10,17 +28,16 @@ export async function getJSONSchema(
   target: StandardJSONSchemaV1.Target = 'draft-2020-12',
   onFallback?: (message: string) => void,
 ): Promise<Record<string, unknown>> {
-  if (hasNativeJSONSchema(schema)) {
+  const nativeOutput = getNativeJSONSchemaOutput(schema)
+
+  if (nativeOutput) {
     try {
-      return (schema['~standard'] as any).jsonSchema.output({ target })
+      return await nativeOutput({ target })
     }
-    catch {
-      onFallback?.(`Native JSON Schema failed for target "${target}", using fallback`)
+    catch (error) {
+      onFallback?.(`Native JSON Schema failed for target "${target}" (${errorMessage(error)}), using @standard-community/standard-json fallback`)
     }
-  }
-  else {
-    onFallback?.('Schema does not support native JSON Schema, using @standard-community/standard-json fallback')
   }
 
-  return await toJsonSchema(schema as any) as Record<string, unknown>
+  return await toJsonSchema(schema) as Record<string, unknown>
 }

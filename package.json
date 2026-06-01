@@ -8,6 +8,8 @@
     "name": "onmax"
   },
   "license": "MIT",
+  "homepage": "https://nuxt-safe-runtime-config.onmax.me",
+  "docs": "https://nuxt-safe-runtime-config.onmax.me",
   "repository": "onmax/nuxt-safe-runtime-config",
   "keywords": [
     "nuxt",
