@@ -18,12 +18,14 @@ describe('agent context metadata', () => {
 
   it('publishes a well-known skill for module-specific context', () => {
     const indexPath = join(rootDir, 'docs/public/.well-known/skills/index.json')
+    const compatibilitySkillPath = join(rootDir, 'docs/public/.well-known/skills/SKILL.md')
     const skillPath = join(rootDir, 'docs/public/.well-known/skills/nuxt-safe-runtime-config/SKILL.md')
     const index = JSON.parse(readFileSync(indexPath, 'utf8')) as {
       skills?: Array<{ name?: string, description?: string, files?: string[] }>
     }
 
     expect(existsSync(skillPath)).toBe(true)
+    expect(existsSync(compatibilitySkillPath)).toBe(true)
     expect(index.skills).toEqual([
       {
         name: 'nuxt-safe-runtime-config',
@@ -33,6 +35,8 @@ describe('agent context metadata', () => {
     ])
 
     const skill = readFileSync(skillPath, 'utf8')
+    const compatibilitySkill = readFileSync(compatibilitySkillPath, 'utf8')
+    expect(compatibilitySkill).toBe(skill)
     expect(skill).toContain('useSafeRuntimeConfig()')
     expect(skill).toContain('safeRuntimeConfig.$schema')
     expect(skill.toLowerCase()).not.toContain('shelve')
