@@ -33,7 +33,7 @@ function resolveRuntimePlugin(): string {
 export const RUNTIME_PLUGIN_PATH = resolveRuntimePlugin()
 
 export function resolveRuntimeConfigImport(frameworkName = 'nitro'): string {
-  return frameworkName === 'nitro' ? 'nitro/runtime-config' : 'nitropack/runtime'
+  return frameworkName === 'nitro' ? 'nitro/runtime-config' : 'nitropack/runtime/config'
 }
 
 async function writeFileIfChanged(file: string, contents: string): Promise<void> {

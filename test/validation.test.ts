@@ -109,7 +109,13 @@ describe('runtime JSON Schema generation', () => {
 
     execSync('pnpm nuxi build', { cwd: fixtureDir, stdio: 'pipe' })
 
-    expect(existsSync(join(fixtureDir, '.output/server/index.mjs'))).toBe(true)
+    const serverEntry = join(fixtureDir, '.output/server/index.mjs')
+    const nitroChunk = join(fixtureDir, '.output/server/chunks/nitro/nitro.mjs')
+    expect(existsSync(serverEntry)).toBe(true)
+
+    const serverOutput = `${readFileSync(serverEntry, 'utf-8')}\n${readFileSync(nitroChunk, 'utf-8')}`
+    expect(serverOutput).not.toContain('nitropack/runtime')
+    expect(serverOutput).not.toContain('#nitro-internal-virtual')
   }, 60000)
 
   it('generates runtime validation template (Zod native)', async () => {
