@@ -61,7 +61,7 @@ describe('nitro module', () => {
     expect(validateModule).toContain('export const onError')
 
     const serverEntry = readFileSync(join(fixtureDir, '.output/server/index.mjs'), 'utf8')
-    expect(serverEntry).toMatch(/const plugins = \[validate_plugin_default, plugin_default\]/)
+    expect(serverEntry).toMatch(/const plugins = \[\s*shelve_plugin_default,\s*validate_plugin_default,\s*plugin_default\s*\]/)
   }, 60000)
 
   it.concurrent('fails during build when runtime config does not match the schema', () => {

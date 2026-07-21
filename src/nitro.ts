@@ -64,11 +64,11 @@ function pushUnique<T>(list: T[], item: T): void {
     list.push(item)
 }
 
-function unshiftUnique<T>(list: T[], item: T): void {
-  const index = list.indexOf(item)
-  if (index !== -1)
-    list.splice(index, 1)
-  list.unshift(item)
+function orderRuntimePlugins(list: string[]): void {
+  const shelvePluginPattern = /[\\/]safe-runtime-config[\\/]shelve-plugin(?:\.[cm]?[jt]s)?$/
+  const shelvePlugins = list.filter(plugin => shelvePluginPattern.test(plugin))
+  const userPlugins = list.filter(plugin => plugin !== RUNTIME_PLUGIN_PATH && !shelvePluginPattern.test(plugin))
+  list.splice(0, list.length, ...shelvePlugins, RUNTIME_PLUGIN_PATH, ...userPlugins)
 }
 
 function configureNitro(nitro: Nitro, options: ResolvedValidationOptions, validateModule: string, typeDeclaration: string): void {
@@ -85,12 +85,12 @@ function configureNitro(nitro: Nitro, options: ResolvedValidationOptions, valida
   if (options.validateAtRuntime) {
     nitro.options.alias['#safe-runtime-config/nitro-runtime-config'] = resolveRuntimeConfigImport(nitro.options.framework.name)
     nitro.options.plugins ||= []
-    unshiftUnique(nitro.options.plugins, RUNTIME_PLUGIN_PATH)
+    orderRuntimePlugins(nitro.options.plugins)
 
     if (options.schemaPath) {
       nitro.options.handlers ||= []
       if (!nitro.options.handlers.some(handler => handler.handler === RUNTIME_MIDDLEWARE_PATH))
-        nitro.options.handlers.unshift({ handler: RUNTIME_MIDDLEWARE_PATH, middleware: true })
+        nitro.options.handlers.unshift({ route: '/', handler: RUNTIME_MIDDLEWARE_PATH, middleware: true })
     }
   }
 }

@@ -7,8 +7,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   if (!config || !config.public || typeof config.public !== 'object' || Array.isArray(config.public))
     return
 
-  const publicConfig = mergeTransformedRuntimeConfig(nuxtApp.$config, { public: config.public }) as Record<string, unknown>
-  setRuntimeValidationState(nuxtApp.$config as Record<string, unknown>, { status: 'valid', value: publicConfig })
+  setRuntimeValidationState(nuxtApp.$config as Record<string, unknown>, { status: 'valid', value: config })
 
   const ssrConfig = nuxtApp.ssrContext?.config as { public: unknown } | undefined
   if (ssrConfig)
