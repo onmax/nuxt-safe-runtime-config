@@ -268,9 +268,9 @@ On module install, an interactive setup wizard can help bootstrap validation and
 
 ## Runtime Validation
 
-By default, validation only runs at build time. Existing inline schemas can opt into JSON Schema validation when the server starts:
+By default, validation only runs at build time. Inline schemas can opt into JSON Schema validation when the server starts:
 
-```ts
+```ts [nuxt.config.ts]
 export default defineNuxtConfig({
   safeRuntimeConfig: {
     $schema: runtimeConfigSchema,
@@ -280,28 +280,62 @@ export default defineNuxtConfig({
 })
 ```
 
-This path uses [@cfworker/json-schema](https://github.com/cfworker/cfworker/tree/main/packages/json-schema) after environment variables are merged. To execute Standard Schema transformations, default-export the schema from an importable module:
+This path uses [@cfworker/json-schema](https://github.com/cfworker/cfworker/tree/main/packages/json-schema) after Nitro applies environment overrides. JSON Schema validates the resulting shape, but it cannot execute Standard Schema transformations.
+
+### Preserve Runtime Transformations
+
+Runtime environment overrides often arrive as strings. Move the schema into a default-exported module when the validated output must contain canonical booleans, numbers, or other transformed values:
 
 ```ts [runtime-config.schema.ts]
 import * as v from 'valibot'
 
-export default v.pipe(
-  v.object({ enabled: v.union([v.boolean(), v.string()]) }),
-  v.transform(config => ({ enabled: config.enabled === true || config.enabled === 'true' })),
-  v.object({ enabled: v.boolean() }),
+const runtimeBoolean = v.pipe(
+  v.union([v.boolean(), v.picklist(['true', 'false'])]),
+  v.transform(value => value === true || value === 'true'),
+  v.boolean(),
 )
+
+const runtimeNumber = v.union([
+  v.number(),
+  v.pipe(v.string(), v.decimal(), v.transform(Number), v.number()),
+])
+
+export default v.object({
+  perfTrace: v.object({
+    enabled: runtimeBoolean,
+    token: v.string(),
+  }),
+  public: v.object({
+    replaySampleRate: runtimeNumber,
+  }),
+})
 ```
+
+Pass the project-relative module path instead of the inline schema object:
 
 ```ts [nuxt.config.ts]
 export default defineNuxtConfig({
   safeRuntimeConfig: {
     $schema: './runtime-config.schema',
     validateAtRuntime: true,
+    onError: 'throw',
   },
 })
 ```
 
-The server executes that module once after Nitro applies runtime overrides. Request handlers wait for asynchronous schemas, `useSafeRuntimeConfig()` returns the validated output, and transformed `public` values are serialized into the Nuxt client payload. Inline schemas keep the JSON Schema path for compatibility.
+Consumers receive the transformed output and do not need to repeat coercion:
+
+```ts [server/plugins/perf-trace.ts]
+const config = useSafeRuntimeConfig()
+
+if (config.perfTrace.enabled)
+  startTracing()
+```
+
+The server executes the schema once after Nitro applies runtime overrides. Request handlers wait for asynchronous schemas, and transformed `public` values are serialized into the Nuxt client payload.
+
+> [!IMPORTANT]
+> Use a string `$schema` path when runtime behavior depends on transformations. Inline schemas retain the JSON Schema validation path for backward compatibility and do not execute transformations.
 
 Runtime validation catches:
 
