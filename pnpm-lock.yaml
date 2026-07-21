@@ -84,6 +84,9 @@ catalogs:
     eslint-plugin-format:
       specifier: ^1.0.1
       version: 1.0.1
+    jiti:
+      specifier: ^2.6.1
+      version: 2.6.1
     lint-staged:
       specifier: ^16.1.0
       version: 16.1.0
@@ -155,6 +158,9 @@ importers:
       defu:
         specifier: 'catalog:'
         version: 6.1.4
+      jiti:
+        specifier: 'catalog:'
+        version: 2.6.1
       magicast:
         specifier: 'catalog:'
         version: 0.3.5
@@ -311,6 +317,16 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.3.6
+    devDependencies:
+      nuxt:
+        specifier: 'catalog:'
+        version: 4.4.2(@babel/core@7.29.0)(@babel/plugin-syntax-jsx@7.27.1(@babel/core@7.29.0))(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@parcel/watcher@2.5.1)(@types/node@25.9.1)(@vue/compiler-sfc@3.5.30)(better-sqlite3@12.8.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.8.0))(eslint@9.28.0(jiti@2.6.1))(ioredis@5.9.2)(lightningcss@1.31.1)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.0-rc.18)(rollup-plugin-visualizer@6.0.5(rolldown@1.0.0-rc.18)(rollup@4.56.0))(rollup@4.56.0)(terser@5.40.0)(typescript@5.8.3)(vite@7.3.1(@types/node@25.9.1)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.40.0)(yaml@2.8.2))(vue-tsc@2.2.10(typescript@5.8.3))(yaml@2.8.2)
+
+  test/fixtures/runtime-transform:
+    dependencies:
+      valibot:
+        specifier: 'catalog:'
+        version: 1.1.0(typescript@5.8.3)
     devDependencies:
       nuxt:
         specifier: 'catalog:'

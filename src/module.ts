@@ -1,7 +1,7 @@
 /// <reference types="@nuxt/nitro-server" />
 import type { ModuleOptions } from './types'
 import process from 'node:process'
-import { addImports, addServerImports, addServerPlugin, addTemplate, addTypeTemplate, createResolver, defineNuxtModule, useLogger } from '@nuxt/kit'
+import { addImports, addPlugin, addServerImports, addServerPlugin, addTemplate, addTypeTemplate, createResolver, defineNuxtModule, useLogger } from '@nuxt/kit'
 import defu from 'defu'
 import { isCI, isTest } from 'std-env'
 import { version } from '../package.json'
@@ -12,7 +12,7 @@ import { createRuntimeValidationArtifacts, resolveValidationOptions } from './va
 import { runShelveWizard } from './wizard/shelve-setup'
 
 export { transformEnvVars } from './runtime/utils/transform'
-export type { ErrorBehavior, ModuleOptions, ShelveProviderOptions, ValidationOptions } from './types'
+export type { ErrorBehavior, ModuleOptions, SchemaSource, ShelveProviderOptions, ValidationOptions } from './types'
 
 const logger = useLogger('safe-runtime-config')
 
@@ -161,7 +161,7 @@ export default defineNuxtModule<ModuleOptions>({
     if (!options.$schema)
       return
 
-    const validationOptions = resolveValidationOptions(options)
+    const validationOptions = await resolveValidationOptions(options, nuxt.options.rootDir)
     const artifacts = await createRuntimeValidationArtifacts(validationOptions, msg => logger.warn(msg))
     if (!artifacts)
       return
@@ -170,6 +170,9 @@ export default defineNuxtModule<ModuleOptions>({
       filename: 'types/safe-runtime-config.d.ts',
       getContents: () => artifacts.typeDeclaration,
     })
+
+    if (validationOptions.schemaPath && validationOptions.validateAtRuntime)
+      addPlugin({ src: resolver.resolve('./runtime/plugins/validated-public.server'), mode: 'server' })
 
     nuxt.hook('nitro:config', (nitroConfig) => {
       ;(nitroConfig as typeof nitroConfig & { safeRuntimeConfig: typeof validationOptions }).safeRuntimeConfig = validationOptions

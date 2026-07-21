@@ -30,8 +30,9 @@ function cleanNuxtBuildOutputs(fixtureDir: string): void {
 }
 
 async function createRuntimeValidationTemplate($schema: Parameters<typeof resolveValidationOptions>[0]['$schema']) {
+  const options = await resolveValidationOptions({ $schema, validateAtRuntime: true })
   const artifacts = await createRuntimeValidationArtifacts(
-    resolveValidationOptions({ $schema, validateAtRuntime: true }),
+    options,
     () => {},
   )
 
@@ -39,7 +40,7 @@ async function createRuntimeValidationTemplate($schema: Parameters<typeof resolv
 
   return {
     draft: artifacts!.draft,
-    onError: resolveValidationOptions({ $schema }).onError,
+    onError: options.onError,
     schema: artifacts!.jsonSchema,
   }
 }

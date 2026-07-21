@@ -49,7 +49,7 @@ npx nuxi module add nuxt-safe-runtime-config
 
 This module supports Nuxt 3 and Nuxt 4. It is also tested against Nuxt 4.2+ with `future.compatibilityVersion: 5` and against the Nuxt 5 nightly channel (`nuxt-nightly@5x`).
 
-Runtime validation converts your Standard Schema to JSON Schema. Valibot and Zod converter dependencies are included by the module, so consumers do not need to install `@valibot/to-json-schema` or `zod-to-json-schema` separately.
+Inline runtime schemas are converted to JSON Schema. Importable schema modules can instead execute the original Standard Schema at runtime, including transformations.
 
 ## Usage
 
@@ -169,14 +169,14 @@ import { useSafeRuntimeConfig } from '#imports'
 
 ## Configuration Options
 
-| Option              | Type                            | Default           | Description                                |
-| ------------------- | ------------------------------- | ----------------- | ------------------------------------------ |
-| `$schema`           | `StandardSchemaV1`              | —                 | Your validation schema (required)          |
-| `validateAtBuild`   | `boolean`                       | `true`            | Validate during dev/build                  |
-| `validateAtRuntime` | `boolean`                       | `false`           | Validate when server starts                |
-| `onError`           | `'throw' \| 'warn' \| 'ignore'` | `'throw'`         | How to handle validation errors            |
-| `jsonSchemaTarget`  | `string`                        | `'draft-2020-12'` | JSON Schema version for runtime validation |
-| `shelve`            | `boolean \| ShelveOptions`      | `undefined`       | Shelve secrets integration (see below)     |
+| Option              | Type                            | Default           | Description                                 |
+| ------------------- | ------------------------------- | ----------------- | ------------------------------------------- |
+| `$schema`           | `StandardSchemaV1 \| string`    | —                 | Schema or path to its default-export module |
+| `validateAtBuild`   | `boolean`                       | `true`            | Validate during dev/build                   |
+| `validateAtRuntime` | `boolean`                       | `false`           | Validate when server starts                 |
+| `onError`           | `'throw' \| 'warn' \| 'ignore'` | `'throw'`         | How to handle validation errors             |
+| `jsonSchemaTarget`  | `string`                        | `'draft-2020-12'` | JSON Schema version for runtime validation  |
+| `shelve`            | `boolean \| ShelveOptions`      | `undefined`       | Shelve secrets integration (see below)      |
 
 ## Shelve Integration
 
@@ -268,7 +268,7 @@ On module install, an interactive setup wizard can help bootstrap validation and
 
 ## Runtime Validation
 
-By default, validation only runs at build time. Enable runtime validation to catch environment variable issues when the server starts:
+By default, validation only runs at build time. Existing inline schemas can opt into JSON Schema validation when the server starts:
 
 ```ts
 export default defineNuxtConfig({
@@ -280,7 +280,30 @@ export default defineNuxtConfig({
 })
 ```
 
-Runtime validation uses [@cfworker/json-schema](https://github.com/cfworker/cfworker/tree/main/packages/json-schema) to validate the config after environment variables are merged. This lightweight validator (~8KB) works on all runtimes including edge (Cloudflare Workers, Vercel Edge, Netlify Edge). It catches issues like:
+This path uses [@cfworker/json-schema](https://github.com/cfworker/cfworker/tree/main/packages/json-schema) after environment variables are merged. To execute Standard Schema transformations, default-export the schema from an importable module:
+
+```ts [runtime-config.schema.ts]
+import * as v from 'valibot'
+
+export default v.pipe(
+  v.object({ enabled: v.union([v.boolean(), v.string()]) }),
+  v.transform(config => ({ enabled: config.enabled === true || config.enabled === 'true' })),
+  v.object({ enabled: v.boolean() }),
+)
+```
+
+```ts [nuxt.config.ts]
+export default defineNuxtConfig({
+  safeRuntimeConfig: {
+    $schema: './runtime-config.schema',
+    validateAtRuntime: true,
+  },
+})
+```
+
+The server executes that module once after Nitro applies runtime overrides. Request handlers wait for asynchronous schemas, `useSafeRuntimeConfig()` returns the validated output, and transformed `public` values are serialized into the Nuxt client payload. Inline schemas keep the JSON Schema path for compatibility.
+
+Runtime validation catches:
 
 - Environment variables with wrong types (e.g., `NUXT_PORT=abc` when expecting a number)
 - Missing required environment variables in production
@@ -326,7 +349,7 @@ The rule includes auto-fix support — run `eslint --fix` to automatically repla
 
 ## Type Safety
 
-Types are auto-generated at build time from your schema's JSON Schema representation. The `useSafeRuntimeConfig()` composable returns a fully typed object in both app and server contexts (`app.vue`, `server/api`, `server/utils`) — no manual generics needed:
+Types are generated from JSON Schema for inline schemas and from Standard Schema's output type for schema modules. The `useSafeRuntimeConfig()` composable returns a fully typed object in both app and server contexts (`app.vue`, `server/api`, `server/utils`) — no manual generics needed:
 
 ```ts
 const config = useSafeRuntimeConfig()

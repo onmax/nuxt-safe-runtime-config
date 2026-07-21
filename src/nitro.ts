@@ -8,19 +8,19 @@ import { consola } from 'consola'
 import { createRuntimeValidationArtifacts, resolveValidationOptions, validateRuntimeConfig } from './validation'
 
 export { transformEnvVars } from './runtime/utils/transform'
-export type { ErrorBehavior, ValidationOptions } from './types'
+export type { ErrorBehavior, SchemaSource, ValidationOptions } from './types'
 
 const logger = consola.withTag('safe-runtime-config')
 
-// Resolve runtime plugin path across three layouts:
+// Runtime files use three layouts across source, package dist, and shared chunks.
 // - src (tests/monorepo): `./runtime/nitro/validate-plugin.ts`
 // - dist sibling: `./runtime/nitro/validate-plugin.js`
 // - dist shared chunk (bundled into dist/shared/*): `../runtime/nitro/validate-plugin.js`
-function resolveRuntimePlugin(): string {
+function resolveRuntimeFile(name: string): string {
   const candidates = [
-    './runtime/nitro/validate-plugin.ts',
-    './runtime/nitro/validate-plugin.js',
-    '../runtime/nitro/validate-plugin.js',
+    `./runtime/nitro/${name}.ts`,
+    `./runtime/nitro/${name}.js`,
+    `../runtime/nitro/${name}.js`,
   ] as const
   for (const candidate of candidates) {
     const path = fileURLToPath(new URL(candidate, import.meta.url))
@@ -30,7 +30,8 @@ function resolveRuntimePlugin(): string {
   return fileURLToPath(new URL(candidates[2], import.meta.url))
 }
 
-export const RUNTIME_PLUGIN_PATH = resolveRuntimePlugin()
+export const RUNTIME_PLUGIN_PATH = resolveRuntimeFile('validate-plugin')
+export const RUNTIME_MIDDLEWARE_PATH = resolveRuntimeFile('validate-middleware')
 
 export function resolveRuntimeConfigImport(frameworkName = 'nitro'): string {
   return frameworkName === 'nitro' ? 'nitro/runtime-config' : 'nitropack/runtime/config'
@@ -76,13 +77,19 @@ function configureNitro(nitro: Nitro, options: ResolvedValidationOptions, valida
     nitro.options.alias['#safe-runtime-config/nitro-runtime-config'] = resolveRuntimeConfigImport(nitro.options.framework.name)
     nitro.options.plugins ||= []
     pushUnique(nitro.options.plugins, RUNTIME_PLUGIN_PATH)
+
+    if (options.schemaPath) {
+      nitro.options.handlers ||= []
+      if (!nitro.options.handlers.some(handler => handler.handler === RUNTIME_MIDDLEWARE_PATH))
+        nitro.options.handlers.unshift({ route: '/**', handler: RUNTIME_MIDDLEWARE_PATH, middleware: true })
+    }
   }
 }
 
 const safeRuntimeConfigNitroModule: NitroModule = {
   name: 'nuxt-safe-runtime-config/nitro',
   async setup(nitro) {
-    const options = resolveValidationOptions(nitro.options.safeRuntimeConfig)
+    const options = await resolveValidationOptions(nitro.options.safeRuntimeConfig, nitro.options.rootDir)
     if (!options.$schema)
       return
 
