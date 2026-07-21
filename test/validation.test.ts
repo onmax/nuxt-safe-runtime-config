@@ -30,8 +30,9 @@ function cleanNuxtBuildOutputs(fixtureDir: string): void {
 }
 
 async function createRuntimeValidationTemplate($schema: Parameters<typeof resolveValidationOptions>[0]['$schema']) {
+  const options = await resolveValidationOptions({ $schema, validateAtRuntime: true })
   const artifacts = await createRuntimeValidationArtifacts(
-    resolveValidationOptions({ $schema, validateAtRuntime: true }),
+    options,
     () => {},
   )
 
@@ -39,7 +40,7 @@ async function createRuntimeValidationTemplate($schema: Parameters<typeof resolv
 
   return {
     draft: artifacts!.draft,
-    onError: resolveValidationOptions({ $schema }).onError,
+    onError: options.onError,
     schema: artifacts!.jsonSchema,
   }
 }
@@ -103,6 +104,26 @@ describe('build-time validation', () => {
 })
 
 describe('runtime JSON Schema generation', () => {
+  it('uses portable runtime imports and types the value consumers receive', async () => {
+    const rootDir = fileURLToPath(new URL('.', import.meta.url))
+    const options = await resolveValidationOptions({
+      $schema: './fixtures/runtime-transform/schema',
+      validateAtBuild: false,
+      validateAtRuntime: true,
+    }, rootDir)
+    const runtimeArtifacts = await createRuntimeValidationArtifacts(options, () => {})
+
+    expect(runtimeArtifacts!.validateTemplate).toContain('import runtimeSchema from \'#safe-runtime-config/runtime-schema\'')
+    expect(runtimeArtifacts!.validateTemplate).not.toContain(options.schemaPath!)
+    expect(runtimeArtifacts!.typeDeclaration).toContain('StandardSchemaV1.InferOutput<typeof schema>')
+
+    const buildOnlyArtifacts = await createRuntimeValidationArtifacts(
+      { ...options, validateAtRuntime: false },
+      () => {},
+    )
+    expect(buildOnlyArtifacts!.typeDeclaration).toContain('StandardSchemaV1.InferInput<typeof schema>')
+  })
+
   it('builds a Nuxt app with Nitro-owned runtime validation artifacts', () => {
     const fixtureDir = fileURLToPath(new URL('./fixtures/runtime-invalid', import.meta.url))
     cleanNuxtBuildOutputs(fixtureDir)

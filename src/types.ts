@@ -1,10 +1,11 @@
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 
 export type ErrorBehavior = 'throw' | 'warn' | 'ignore'
+export type SchemaSource = StandardSchemaV1 | string
 
 export interface ValidationOptions {
-  /** Standard Schema for validation (Zod, Valibot, ArkType, etc.) */
-  $schema?: StandardSchemaV1
+  /** Standard Schema or project-relative path to a default-exported schema module */
+  $schema?: SchemaSource
   /** Validate runtime config at build time. Default: true */
   validateAtBuild?: boolean
   /** Validate runtime config at runtime via Nitro plugin. Default: false */

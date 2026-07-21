@@ -104,6 +104,7 @@
     "@valibot/to-json-schema": "catalog:",
     "consola": "catalog:",
     "defu": "catalog:",
+    "jiti": "catalog:",
     "magicast": "catalog:",
     "ofetch": "catalog:",
     "std-env": "catalog:",

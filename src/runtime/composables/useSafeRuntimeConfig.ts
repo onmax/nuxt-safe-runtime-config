@@ -1,4 +1,5 @@
 import { useRuntimeConfig } from '#imports'
+import { useValidatedRuntimeConfig } from '../config-state'
 
 declare global {
   interface NuxtSafeRuntimeConfig {}
@@ -17,5 +18,5 @@ declare global {
  * ```
  */
 export function useSafeRuntimeConfig(): NuxtSafeRuntimeConfig {
-  return useRuntimeConfig() as NuxtSafeRuntimeConfig
+  return useValidatedRuntimeConfig(useRuntimeConfig()) as NuxtSafeRuntimeConfig
 }

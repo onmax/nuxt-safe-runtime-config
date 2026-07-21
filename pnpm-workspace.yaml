@@ -35,9 +35,10 @@ catalog:
   changelogen: ^0.6.1
   consola: ^3.4.0
   defu: ^6.1.4
-  docus: ^5.8.1
+  docus: ^5.12.3
   eslint: ^9.28.0
   eslint-plugin-format: ^1.0.1
+  jiti: ^2.6.1
   lint-staged: ^16.1.0
   magicast: ^0.3.5
   nitro: 3.0.260429-beta

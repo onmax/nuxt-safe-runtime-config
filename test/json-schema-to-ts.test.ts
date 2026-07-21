@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { generateTypeDeclaration, jsonSchemaToTs } from '../src/json-schema-to-ts'
+import { generateSchemaTypeDeclaration, generateTypeDeclaration, jsonSchemaToTs } from '../src/json-schema-to-ts'
 
 describe('jsonSchemaToTs', () => {
   it('converts primitives', () => {
@@ -98,5 +98,19 @@ describe('generateTypeDeclaration', () => {
     expect(result).toContain('apiBase: string')
     expect(result).toContain('declare module \'#imports\'')
     expect(result).toContain('useSafeRuntimeConfig(): SafeRuntimeConfig')
+  })
+
+  it('infers transformed output from an importable Standard Schema', () => {
+    const result = generateSchemaTypeDeclaration('/app/runtime-config.schema.ts', 'output')
+
+    expect(result).toContain('import schema from "/app/runtime-config.schema.ts"')
+    expect(result).toContain('StandardSchemaV1.InferOutput<typeof schema>')
+  })
+
+  it('infers raw input when runtime validation is disabled', () => {
+    const result = generateSchemaTypeDeclaration('C:\\app\\runtime-config.schema.ts', 'input')
+
+    expect(result).toContain('import schema from "C:/app/runtime-config.schema.ts"')
+    expect(result).toContain('StandardSchemaV1.InferInput<typeof schema>')
   })
 })
