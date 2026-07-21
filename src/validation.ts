@@ -3,7 +3,7 @@ import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/sp
 import type { ErrorBehavior, ValidationOptions } from './types'
 import { join } from 'node:path'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createJiti } from 'jiti'
 import { generateSchemaTypeDeclaration, generateTypeDeclaration } from './json-schema-to-ts'
 import { isStandardSchema } from './runtime/validate'
@@ -76,14 +76,14 @@ export async function createRuntimeValidationArtifacts(
     : await getJSONSchema(options.$schema, options.jsonSchemaTarget, warn)
   const draft = detectJsonSchemaDraft(jsonSchema.$schema as string | undefined)
   const runtimeSchema = options.schemaPath
-    ? `import runtimeSchema from ${JSON.stringify(options.schemaPath)}\n`
+    ? `import runtimeSchema from ${JSON.stringify(pathToFileURL(options.schemaPath).href)}\n`
     : 'const runtimeSchema = null\n'
 
   return {
     draft,
     jsonSchema,
     typeDeclaration: options.schemaPath
-      ? generateSchemaTypeDeclaration(options.schemaPath)
+      ? generateSchemaTypeDeclaration(options.schemaPath, options.validateAtRuntime ? 'output' : 'input')
       : generateTypeDeclaration(jsonSchema),
     validateTemplate: `${runtimeSchema}export { runtimeSchema }\nexport const schema = ${JSON.stringify(jsonSchema)}\nexport const onError = ${JSON.stringify(options.onError)}\nexport const draft = ${JSON.stringify(draft)}\n`,
     validateTemplateDeclaration: `import type { Schema, SchemaDraft } from '@cfworker/json-schema'\nimport type { StandardSchemaV1 } from '@standard-schema/spec'\nexport declare const runtimeSchema: StandardSchemaV1 | null\nexport declare const schema: Schema\nexport declare const onError: 'throw' | 'warn' | 'ignore'\nexport declare const draft: SchemaDraft\n`,

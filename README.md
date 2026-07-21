@@ -383,7 +383,9 @@ The rule includes auto-fix support — run `eslint --fix` to automatically repla
 
 ## Type Safety
 
-Types are generated from JSON Schema for inline schemas and from Standard Schema's output type for schema modules. The `useSafeRuntimeConfig()` composable returns a fully typed object in both app and server contexts (`app.vue`, `server/api`, `server/utils`) — no manual generics needed:
+Types are generated from JSON Schema for inline schemas. Schema modules use their Standard Schema input type for build-only validation and switch to the output type when `validateAtRuntime` is enabled. Build-only consumers therefore account for untransformed overrides, while successful runtime validation exposes the transformed output type.
+
+The composable returns a fully typed object in both app and server contexts (`app.vue`, `server/api`, `server/utils`) without manual generics:
 
 ```ts
 const config = useSafeRuntimeConfig()

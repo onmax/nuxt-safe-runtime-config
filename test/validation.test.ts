@@ -1,7 +1,7 @@
 import { execSync, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { setup } from '@nuxt/test-utils/e2e'
 import { number, object, optional, string } from 'valibot'
 import { describe, expect, it } from 'vitest'
@@ -104,6 +104,27 @@ describe('build-time validation', () => {
 })
 
 describe('runtime JSON Schema generation', () => {
+  it('uses portable runtime imports and types the value consumers receive', async () => {
+    const rootDir = fileURLToPath(new URL('.', import.meta.url))
+    const options = await resolveValidationOptions({
+      $schema: './fixtures/runtime-transform/schema',
+      validateAtBuild: false,
+      validateAtRuntime: true,
+    }, rootDir)
+    const runtimeArtifacts = await createRuntimeValidationArtifacts(options, () => {})
+
+    expect(runtimeArtifacts!.validateTemplate).toContain(
+      `import runtimeSchema from ${JSON.stringify(pathToFileURL(options.schemaPath!).href)}`,
+    )
+    expect(runtimeArtifacts!.typeDeclaration).toContain('StandardSchemaV1.InferOutput<typeof schema>')
+
+    const buildOnlyArtifacts = await createRuntimeValidationArtifacts(
+      { ...options, validateAtRuntime: false },
+      () => {},
+    )
+    expect(buildOnlyArtifacts!.typeDeclaration).toContain('StandardSchemaV1.InferInput<typeof schema>')
+  })
+
   it('builds a Nuxt app with Nitro-owned runtime validation artifacts', () => {
     const fixtureDir = fileURLToPath(new URL('./fixtures/runtime-invalid', import.meta.url))
     cleanNuxtBuildOutputs(fixtureDir)

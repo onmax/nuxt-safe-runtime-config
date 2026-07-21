@@ -1,6 +1,6 @@
 import * as v from 'valibot'
 
-let validationRuns = 0
+const validationRunsKey = Symbol.for('nuxt-safe-runtime-config.test.validation-runs')
 
 const inputSchema = v.object({
   perfTrace: v.object({
@@ -23,13 +23,14 @@ const outputSchema = v.object({
 })
 
 export function getValidationRuns(): number {
-  return validationRuns
+  return (Reflect.get(globalThis, validationRunsKey) as number | undefined) ?? 0
 }
 
 export default v.pipeAsync(
   inputSchema,
   v.transformAsync(async (config) => {
-    validationRuns++
+    const validationRuns = getValidationRuns() + 1
+    Reflect.set(globalThis, validationRunsKey, validationRuns)
     await new Promise(resolve => setTimeout(resolve, 25))
     return {
       inputType: typeof config.perfTrace.enabled,

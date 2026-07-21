@@ -1,5 +1,5 @@
 import { defineNuxtPlugin } from '#app'
-import { useValidatedRuntimeConfig } from '../config-state'
+import { mergeTransformedRuntimeConfig, useValidatedRuntimeConfig } from '../config-state'
 
 export default defineNuxtPlugin((nuxtApp) => {
   const config = useValidatedRuntimeConfig(nuxtApp.$config as Record<string, unknown>)
@@ -8,5 +8,5 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   const ssrConfig = nuxtApp.ssrContext?.config as { public: unknown } | undefined
   if (ssrConfig)
-    ssrConfig.public = config.public
+    ssrConfig.public = mergeTransformedRuntimeConfig(ssrConfig.public, config.public)
 })

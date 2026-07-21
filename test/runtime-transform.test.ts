@@ -67,5 +67,6 @@ describe('runtime Standard Schema transformations', () => {
     const html = await (await fetch(`http://127.0.0.1:${port}/`)).text()
     expect(html).toContain('<div>boolean</div>')
     expect(html).toContain('featureEnabled:true')
+    expect(html).toContain('moduleConfig:keep:1')
   }, 60000)
 })

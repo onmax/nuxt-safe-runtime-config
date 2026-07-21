@@ -120,7 +120,9 @@ export function generateTypeDeclaration(schema: Record<string, unknown>): string
   return wrapTypeDeclaration(jsonSchemaToTs(schema))
 }
 
-export function generateSchemaTypeDeclaration(schemaPath: string): string {
-  const imports = `import type { StandardSchemaV1 } from '@standard-schema/spec'\nimport schema from ${JSON.stringify(schemaPath)}\n\n`
-  return wrapTypeDeclaration('StandardSchemaV1.InferOutput<typeof schema>', imports)
+export function generateSchemaTypeDeclaration(schemaPath: string, inference: 'input' | 'output'): string {
+  const schemaSpecifier = schemaPath.replace(/\\/g, '/')
+  const imports = `import type { StandardSchemaV1 } from '@standard-schema/spec'\nimport schema from ${JSON.stringify(schemaSpecifier)}\n\n`
+  const inferredType = inference === 'output' ? 'InferOutput' : 'InferInput'
+  return wrapTypeDeclaration(`StandardSchemaV1.${inferredType}<typeof schema>`, imports)
 }

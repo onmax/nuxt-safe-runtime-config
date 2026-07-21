@@ -1,5 +1,19 @@
 type RuntimeConfig = Record<string, unknown>
 
+function isRuntimeConfig(value: unknown): value is RuntimeConfig {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+export function mergeTransformedRuntimeConfig(current: unknown, transformed: unknown): unknown {
+  if (!isRuntimeConfig(current) || !isRuntimeConfig(transformed))
+    return transformed
+
+  const merged: RuntimeConfig = { ...current }
+  for (const [key, value] of Object.entries(transformed))
+    merged[key] = mergeTransformedRuntimeConfig(current[key], value)
+  return merged
+}
+
 export type RuntimeValidationState =
   | { status: 'pending', ready: Promise<void> }
   | { status: 'valid', value: RuntimeConfig }
@@ -27,15 +41,14 @@ export function setRuntimeValidationState(config: RuntimeConfig, state: RuntimeV
 }
 
 export function applyValidatedRuntimeConfig(config: RuntimeConfig, value: unknown): void {
-  if (!value || typeof value !== 'object' || Array.isArray(value))
+  if (!isRuntimeConfig(value))
     throw new TypeError('Runtime config schema output must be an object')
 
-  const output = value as RuntimeConfig
-  for (const [key, transformedValue] of Object.entries(output)) {
+  for (const [key, transformedValue] of Object.entries(value)) {
     if (Object.hasOwn(config, key))
-      Reflect.set(config, key, transformedValue)
+      Reflect.set(config, key, mergeTransformedRuntimeConfig(config[key], transformedValue))
   }
-  setRuntimeValidationState(config, { status: 'valid', value: output })
+  setRuntimeValidationState(config, { status: 'valid', value })
 }
 
 export function useValidatedRuntimeConfig(config: RuntimeConfig): RuntimeConfig {

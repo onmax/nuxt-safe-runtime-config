@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { applyValidatedRuntimeConfig, useValidatedRuntimeConfig } from '../src/runtime/config-state'
+import { applyValidatedRuntimeConfig, mergeTransformedRuntimeConfig, useValidatedRuntimeConfig } from '../src/runtime/config-state'
 import { validateRuntimeConfig } from '../src/runtime/validate'
 
 const logger = {
@@ -46,6 +46,22 @@ describe('standard Schema runtime validation', () => {
 
     expect(useValidatedRuntimeConfig(rawConfig)).toBe(output)
     expect(rawConfig.enabled).toBe('true')
+  })
+
+  it('preserves runtime config fields omitted from transformed output', () => {
+    const current = {
+      featureEnabled: 'true',
+      moduleConfig: { label: 'keep', nested: { count: 1 } },
+    }
+    const transformed = {
+      featureEnabled: true,
+      moduleConfig: { nested: { enabled: true } },
+    }
+
+    expect(mergeTransformedRuntimeConfig(current, transformed)).toEqual({
+      featureEnabled: true,
+      moduleConfig: { label: 'keep', nested: { count: 1, enabled: true } },
+    })
   })
 
   it('preserves raw config after ignored validation issues', () => {
