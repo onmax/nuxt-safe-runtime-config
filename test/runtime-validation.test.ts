@@ -48,6 +48,16 @@ describe('standard Schema runtime validation', () => {
     expect(rawConfig.enabled).toBe('true')
   })
 
+  it('isolates validation state by runtime config instance', () => {
+    const validatedConfig = { enabled: 'true' }
+    const unrelatedConfig = { enabled: 'false' }
+
+    applyValidatedRuntimeConfig(validatedConfig, { enabled: true })
+
+    expect(useValidatedRuntimeConfig(validatedConfig)).toEqual({ enabled: true })
+    expect(useValidatedRuntimeConfig(unrelatedConfig)).toBe(unrelatedConfig)
+  })
+
   it('preserves runtime config fields omitted from transformed output', () => {
     const current = {
       featureEnabled: 'true',

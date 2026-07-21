@@ -4,6 +4,7 @@ import { runtimeConfigSchema, validRuntimeConfig } from '../_shared/nitro-runtim
 
 export default defineNitroConfig({
   modules: [SafeRuntimeConfig],
+  plugins: ['./plugin'],
   runtimeConfig: validRuntimeConfig,
   safeRuntimeConfig: { $schema: runtimeConfigSchema, validateAtRuntime: true },
 })

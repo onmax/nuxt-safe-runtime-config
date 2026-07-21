@@ -1,5 +1,7 @@
 type RuntimeConfig = Record<string, unknown>
 
+export const runtimeValidationContextKey = Symbol.for('nuxt-safe-runtime-config.validation-context')
+
 function isRuntimeConfig(value: unknown): value is RuntimeConfig {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
@@ -21,7 +23,6 @@ export type RuntimeValidationState =
   | { status: 'failed', error: unknown }
 
 interface RuntimeValidationStore {
-  latest?: RuntimeValidationState
   states: WeakMap<RuntimeConfig, RuntimeValidationState>
 }
 
@@ -32,12 +33,11 @@ if (!existingValidationStore)
   Reflect.set(globalThis, validationStoreKey, validationStore)
 
 export function getRuntimeValidationState(config: RuntimeConfig): RuntimeValidationState | undefined {
-  return validationStore.states.get(config) ?? validationStore.latest
+  return validationStore.states.get(config)
 }
 
 export function setRuntimeValidationState(config: RuntimeConfig, state: RuntimeValidationState): void {
   validationStore.states.set(config, state)
-  validationStore.latest = state
 }
 
 export function applyValidatedRuntimeConfig(config: RuntimeConfig, value: unknown): void {
