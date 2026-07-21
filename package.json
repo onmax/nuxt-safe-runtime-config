@@ -1,7 +1,7 @@
 {
   "name": "nuxt-safe-runtime-config",
   "type": "module",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "packageManager": "pnpm@11.2.2",
   "description": "Validate Nuxt runtime config with Standard Schema at build time",
   "author": {
