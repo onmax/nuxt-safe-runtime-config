@@ -3,7 +3,7 @@ import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/sp
 import type { ErrorBehavior, ValidationOptions } from './types'
 import { join } from 'node:path'
 import process from 'node:process'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { createJiti } from 'jiti'
 import { generateSchemaTypeDeclaration, generateTypeDeclaration } from './json-schema-to-ts'
 import { isStandardSchema } from './runtime/validate'
@@ -76,7 +76,7 @@ export async function createRuntimeValidationArtifacts(
     : await getJSONSchema(options.$schema, options.jsonSchemaTarget, warn)
   const draft = detectJsonSchemaDraft(jsonSchema.$schema as string | undefined)
   const runtimeSchema = options.schemaPath
-    ? `import runtimeSchema from ${JSON.stringify(pathToFileURL(options.schemaPath).href)}\n`
+    ? `import runtimeSchema from '#safe-runtime-config/runtime-schema'\n`
     : 'const runtimeSchema = null\n'
 
   return {

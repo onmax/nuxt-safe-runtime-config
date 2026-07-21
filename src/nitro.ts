@@ -67,6 +67,8 @@ function pushUnique<T>(list: T[], item: T): void {
 function configureNitro(nitro: Nitro, options: ResolvedValidationOptions, validateModule: string, typeDeclaration: string): void {
   nitro.options.alias ||= {}
   nitro.options.alias['#safe-runtime-config/validate'] = validateModule
+  if (options.schemaPath)
+    nitro.options.alias['#safe-runtime-config/runtime-schema'] = options.schemaPath
 
   const ts = (nitro.options.typescript ||= {} as Nitro['options']['typescript'])
   ts.tsConfig ||= {}

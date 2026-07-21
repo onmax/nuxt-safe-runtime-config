@@ -1,7 +1,7 @@
 import { execSync, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { setup } from '@nuxt/test-utils/e2e'
 import { number, object, optional, string } from 'valibot'
 import { describe, expect, it } from 'vitest'
@@ -113,9 +113,8 @@ describe('runtime JSON Schema generation', () => {
     }, rootDir)
     const runtimeArtifacts = await createRuntimeValidationArtifacts(options, () => {})
 
-    expect(runtimeArtifacts!.validateTemplate).toContain(
-      `import runtimeSchema from ${JSON.stringify(pathToFileURL(options.schemaPath!).href)}`,
-    )
+    expect(runtimeArtifacts!.validateTemplate).toContain('import runtimeSchema from \'#safe-runtime-config/runtime-schema\'')
+    expect(runtimeArtifacts!.validateTemplate).not.toContain(options.schemaPath!)
     expect(runtimeArtifacts!.typeDeclaration).toContain('StandardSchemaV1.InferOutput<typeof schema>')
 
     const buildOnlyArtifacts = await createRuntimeValidationArtifacts(

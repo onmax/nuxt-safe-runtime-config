@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 
 const fixtureDir = fileURLToPath(new URL('./fixtures/runtime-transform', import.meta.url))
@@ -40,6 +41,15 @@ describe('runtime Standard Schema transformations', () => {
       encoding: 'utf8',
     })
     expect(build.status, `${build.stdout}\n${build.stderr}`).toBe(0)
+
+    const schemaPath = join(fixtureDir, 'schema.ts')
+    const serverDir = join(fixtureDir, '.output/server')
+    const serverOutput = readdirSync(serverDir, { recursive: true })
+      .filter(path => path.toString().endsWith('.mjs'))
+      .map(path => readFileSync(join(serverDir, path.toString()), 'utf8'))
+      .join('\n')
+    expect(serverOutput).not.toContain(schemaPath)
+    expect(serverOutput).not.toContain(pathToFileURL(schemaPath).href)
 
     const port = '48767'
     const child = spawn('node', [serverEntry], {
