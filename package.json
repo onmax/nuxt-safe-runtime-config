@@ -76,9 +76,7 @@
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
     "test:watch": "vitest watch",
-    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit",
-    "test:packed-release": "node scripts/smoke-packed-release.mjs",
-    "test:nuxt5-nightly": "node scripts/smoke-nuxt5-nightly.mjs"
+    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
   },
   "peerDependencies": {
     "@nuxt/kit": "^3.0.0 || ^4.0.0 || ^5.0.0-0",
