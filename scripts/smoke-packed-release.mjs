@@ -12,6 +12,12 @@ function writeJson(path, value) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`)
 }
 
+function allowEsbuild(appDir) {
+  writeFileSync(join(appDir, 'pnpm-workspace.yaml'), `allowBuilds:
+  esbuild: true
+`)
+}
+
 function tail(output) {
   return output.split('\n').slice(-80).join('\n')
 }
@@ -77,6 +83,7 @@ function createArkTypeConsumer(appDir, tarballPath) {
       'typescript': '^5.8.3',
     },
   })
+  allowEsbuild(appDir)
   writeFileSync(join(appDir, 'app.vue'), `<template>
   <div>{{ config.public.apiBase }}</div>
 </template>
@@ -115,7 +122,10 @@ export default defineNuxtConfig({
 `)
 }
 
-function createNitroConsumer(appDir, tarballPath) {
+function createNitroConsumer(appDir, tarballPath, majorVersion) {
+  const packageName = majorVersion >= 3 ? 'nitro' : 'nitropack'
+  const packageVersion = majorVersion >= 3 ? '3.0.260429-beta' : '^2.13.0'
+
   rmSync(appDir, { recursive: true, force: true })
   mkdirSync(join(appDir, 'server/api'), { recursive: true })
   writeJson(join(appDir, 'package.json'), {
@@ -123,21 +133,25 @@ function createNitroConsumer(appDir, tarballPath) {
     private: true,
     scripts: {
       build: 'nitro build',
+      prepare: 'nitro prepare',
+      typecheck: 'tsc --noEmit --module preserve --moduleResolution bundler --target esnext --skipLibCheck true --types node nitro.config.ts',
     },
     dependencies: {
-      'nitro': '3.0.260429-beta',
+      '@types/node': 'latest',
       'nuxt-safe-runtime-config': `file:${tarballPath}`,
       'typescript': '^5.8.3',
       'valibot': '^1.1.0',
+      [packageName]: packageVersion,
     },
   })
+  allowEsbuild(appDir)
   writeFileSync(join(appDir, 'server/api/config.get.ts'), `export default defineEventHandler(() => {
   const config = useRuntimeConfig()
   return { port: config.port }
 })
 `)
   writeFileSync(join(appDir, 'nitro.config.ts'), `import { number, object, string } from 'valibot'
-import { defineNitroConfig } from 'nitro/config'
+import { defineNitroConfig } from '${packageName}/config'
 import SafeRuntimeConfig from 'nuxt-safe-runtime-config/nitro'
 
 const runtimeConfigSchema = object({
@@ -173,7 +187,7 @@ try {
 
   const eslintDir = join(tempRoot, 'eslint-consumer')
   createEslintConsumer(eslintDir, tarballPath)
-  run('eslint-install', 'pnpm', ['install', '--ignore-workspace', '--no-frozen-lockfile'], { cwd: eslintDir, timeout: 240_000 })
+  run('eslint-install', 'pnpm', ['install', '--no-frozen-lockfile'], { cwd: eslintDir, timeout: 240_000 })
   const eslintOutput = run('eslint-detect', 'pnpm', ['exec', 'eslint', '.'], { cwd: eslintDir })
   if (!eslintOutput.output.includes('Use useSafeRuntimeConfig()'))
     throw new Error(`eslint rule did not report useRuntimeConfig()\nLog: ${eslintOutput.logPath}`)
@@ -184,21 +198,22 @@ try {
 
   const arktypeDir = join(tempRoot, 'arktype-consumer')
   createArkTypeConsumer(arktypeDir, tarballPath)
-  run('arktype-install', 'pnpm', ['install', '--ignore-workspace', '--no-frozen-lockfile'], { cwd: arktypeDir, timeout: 240_000 })
+  run('arktype-install', 'pnpm', ['install', '--no-frozen-lockfile'], { cwd: arktypeDir, timeout: 240_000 })
   run('arktype-prepare', 'pnpm', ['prepare'], { cwd: arktypeDir })
   const arktypeBuild = run('arktype-build', 'pnpm', ['build'], { cwd: arktypeDir, timeout: 240_000 })
   if (arktypeBuild.output.includes('Schema is not Standard Schema compatible'))
     throw new Error(`ArkType build still rejected the callable Standard Schema\nLog: ${arktypeBuild.logPath}`)
 
-  const nitroDir = join(tempRoot, 'nitro-consumer')
-  createNitroConsumer(nitroDir, tarballPath)
-  run('nitro-install', 'pnpm', ['install', '--ignore-workspace', '--no-frozen-lockfile'], { cwd: nitroDir, timeout: 240_000 })
-  run('nitro-import', 'node', ['-e', 'await import("nuxt-safe-runtime-config/nitro")'], { cwd: nitroDir })
-  if (existsSync(join(nitroDir, 'node_modules/@nuxt/kit')))
+  const nitro3Dir = join(tempRoot, 'nitro3-consumer')
+  createNitroConsumer(nitro3Dir, tarballPath, 3)
+  run('nitro3-install', 'pnpm', ['install', '--no-frozen-lockfile'], { cwd: nitro3Dir, timeout: 240_000 })
+  run('nitro3-import', 'node', ['-e', 'await import("nuxt-safe-runtime-config/nitro")'], { cwd: nitro3Dir })
+  if (existsSync(join(nitro3Dir, 'node_modules/@nuxt/kit')))
     throw new Error('Nitro-only consumer unexpectedly installed @nuxt/kit')
-  run('nitro-build', 'pnpm', ['build'], { cwd: nitroDir, timeout: 240_000 })
-  const nitroServer = run('nitro-server-invalid-env', 'node', ['.output/server/index.mjs'], {
-    cwd: nitroDir,
+  run('nitro3-typecheck', 'pnpm', ['typecheck'], { cwd: nitro3Dir })
+  run('nitro3-build', 'pnpm', ['build'], { cwd: nitro3Dir, timeout: 240_000 })
+  const nitroServer = run('nitro3-server-invalid-env', 'node', ['.output/server/index.mjs'], {
+    cwd: nitro3Dir,
     env: {
       NITRO_PORT: 'not-a-number',
       PORT: '48765',
@@ -212,6 +227,17 @@ try {
     throw new Error(`Nitro runtime validation server still has an unbound defineNitroPlugin\nLog: ${nitroServer.logPath}`)
   if (!nitroServer.output.includes('Runtime validation failed') || !nitroServer.output.includes('port'))
     throw new Error(`Nitro runtime validation server did not report the invalid port\nLog: ${nitroServer.logPath}\n${tail(nitroServer.output)}`)
+
+  const nitro2Dir = join(tempRoot, 'nitro2-consumer')
+  createNitroConsumer(nitro2Dir, tarballPath, 2)
+  run('nitro2-install', 'pnpm', ['install', '--no-frozen-lockfile'], { cwd: nitro2Dir, timeout: 240_000 })
+  run('nitro2-import', 'node', ['-e', 'await import("nuxt-safe-runtime-config/nitro")'], { cwd: nitro2Dir })
+  const nitroEntryTypes = readFileSync(join(nitro2Dir, 'node_modules/nuxt-safe-runtime-config/dist/nitro.d.mts'), 'utf8')
+  if (/from ['"]nitro\/types['"]/.test(nitroEntryTypes))
+    throw new Error('Nitro 2 consumer types still import Nitro 3 types')
+  run('nitro2-prepare', 'pnpm', ['prepare'], { cwd: nitro2Dir })
+  run('nitro2-typecheck', 'pnpm', ['typecheck'], { cwd: nitro2Dir })
+  run('nitro2-build', 'pnpm', ['build'], { cwd: nitro2Dir, timeout: 240_000 })
 
   console.log(`Packed release smoke test passed in ${tempRoot}`)
 }

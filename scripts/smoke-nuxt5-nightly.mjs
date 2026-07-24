@@ -52,6 +52,10 @@ try {
     },
   }, null, 2)}\n`)
 
+  await writeFile(join(appDir, 'pnpm-workspace.yaml'), `allowBuilds:
+  esbuild: true
+`)
+
   await writeFile(join(appDir, 'app.vue'), `<template>
   <div>{{ config.public.apiBase }}</div>
 </template>
@@ -81,7 +85,7 @@ export default defineNuxtConfig({
 })
 `)
 
-  run('pnpm', ['install', '--ignore-workspace', '--no-frozen-lockfile'], { cwd: appDir })
+  run('pnpm', ['install', '--no-frozen-lockfile'], { cwd: appDir })
   run('pnpm', ['prepare'], { cwd: appDir })
   run('pnpm', ['build'], { cwd: appDir })
 
