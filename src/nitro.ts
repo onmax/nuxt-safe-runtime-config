@@ -5,6 +5,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { consola } from 'consola'
+import { createJiti } from 'jiti'
 import { createRuntimeValidationArtifacts, resolveValidationOptions, validateRuntimeConfig } from './validation'
 
 export { transformEnvVars } from './runtime/utils/transform'
@@ -33,8 +34,10 @@ function resolveRuntimeFile(name: string): string {
 export const RUNTIME_PLUGIN_PATH = resolveRuntimeFile('validate-plugin')
 export const RUNTIME_MIDDLEWARE_PATH = resolveRuntimeFile('validate-middleware')
 
-export function resolveRuntimeConfigImport(frameworkName = 'nitro'): string {
-  return frameworkName === 'nitro' ? 'nitro/runtime-config' : 'nitropack/runtime/config'
+export function resolveRuntimeConfigImport(majorVersion: number, parentPath: string): string {
+  const specifier = majorVersion >= 3 ? 'nitro/runtime-config' : 'nitropack/runtime/config'
+  const resolved = createJiti(parentPath).esmResolve(specifier)
+  return resolved.startsWith('file:') ? fileURLToPath(resolved) : resolved
 }
 
 async function writeFileIfChanged(file: string, contents: string): Promise<void> {
@@ -83,7 +86,10 @@ function configureNitro(nitro: Nitro, options: ResolvedValidationOptions, valida
   pushUnique(ts.tsConfig.include, `./${relative(nitro.options.buildDir, typeDeclaration)}`)
 
   if (options.validateAtRuntime) {
-    nitro.options.alias['#safe-runtime-config/nitro-runtime-config'] = resolveRuntimeConfigImport(nitro.options.framework.name)
+    nitro.options.alias['#safe-runtime-config/nitro-runtime-config'] ||= resolveRuntimeConfigImport(
+      nitro.meta?.majorVersion ?? 2,
+      join(nitro.options.rootDir, 'nitro.config.ts'),
+    )
     nitro.options.plugins ||= []
     orderRuntimePlugins(nitro.options.plugins)
 
@@ -127,4 +133,9 @@ const safeRuntimeConfigNitroModule: NitroModule = {
   },
 }
 
-export default safeRuntimeConfigNitroModule
+interface CompatibleNitroModule {
+  name?: string
+  setup: (nitro: unknown) => void | Promise<void>
+}
+
+export default safeRuntimeConfigNitroModule as CompatibleNitroModule
