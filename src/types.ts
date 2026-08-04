@@ -49,6 +49,15 @@ declare module 'nitro/types' {
   }
 }
 
+declare module 'nitropack/types' {
+  interface NitroConfig {
+    safeRuntimeConfig?: ValidationOptions
+  }
+  interface NitroOptions {
+    safeRuntimeConfig?: ValidationOptions
+  }
+}
+
 export interface EnvVar {
   key: string
   value: string

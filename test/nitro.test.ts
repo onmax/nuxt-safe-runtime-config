@@ -1,11 +1,14 @@
 import type { Buffer } from 'node:buffer'
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { resolveRuntimeConfigImport } from '../src/nitro'
 
 const nitroBin = fileURLToPath(new URL('../node_modules/.bin/nitro', import.meta.url))
+const rootRequire = createRequire(import.meta.url)
 
 function fixturePath(name: string): string {
   return fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url))
@@ -39,6 +42,14 @@ function waitForOutputMatching(child: ReturnType<typeof spawn>, pattern: RegExp,
 }
 
 describe('nitro module', () => {
+  it('resolves version-specific runtime config entries through ESM exports', () => {
+    const nitro2RuntimeConfig = resolveRuntimeConfigImport(2, rootRequire.resolve('nuxt/package.json'))
+    const nitro3RuntimeConfig = resolveRuntimeConfigImport(3, rootRequire.resolve('nitro/package.json'))
+
+    expect(nitro2RuntimeConfig).toMatch(/nitropack[/\\]dist[/\\]runtime[/\\]config\.mjs$/)
+    expect(nitro3RuntimeConfig).toMatch(/nitro[/\\]dist[/\\]runtime[/\\]runtime-config\.mjs$/)
+  })
+
   it.concurrent('validates build config and generates runtime validation files', () => {
     const fixtureDir = fixturePath('nitro-validation-success')
     const result = runNitroBuild(fixtureDir)

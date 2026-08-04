@@ -1,7 +1,9 @@
 /// <reference types="@nuxt/nitro-server" />
 import type { ModuleOptions } from './types'
+import { createRequire } from 'node:module'
+import { join } from 'node:path'
 import process from 'node:process'
-import { addImports, addPlugin, addServerImports, addServerPlugin, addTemplate, addTypeTemplate, createResolver, defineNuxtModule, useLogger } from '@nuxt/kit'
+import { addImports, addPlugin, addServerImports, addServerPlugin, addTemplate, addTypeTemplate, createResolver, defineNuxtModule, getNuxtVersion, useLogger } from '@nuxt/kit'
 import defu from 'defu'
 import { isCI, isTest } from 'std-env'
 import { version } from '../package.json'
@@ -95,7 +97,12 @@ export default defineNuxtModule<ModuleOptions>({
   async setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
     const onError = options.onError!
-    const runtimeConfigImport = resolveRuntimeConfigImport('nuxt')
+    const nuxtMajorVersion = Number.parseInt(getNuxtVersion(nuxt), 10)
+    const rootRequire = createRequire(join(nuxt.options.rootDir, 'package.json'))
+    const runtimeConfigImport = resolveRuntimeConfigImport(
+      nuxtMajorVersion >= 5 ? 3 : 2,
+      rootRequire.resolve('nuxt/package.json'),
+    )
 
     const shelveOpts = resolveShelveOptions(options.shelve)
     if (shelveOpts) {
@@ -176,6 +183,8 @@ export default defineNuxtModule<ModuleOptions>({
 
     nuxt.hook('nitro:config', (nitroConfig) => {
       ;(nitroConfig as typeof nitroConfig & { safeRuntimeConfig: typeof validationOptions }).safeRuntimeConfig = validationOptions
+      nitroConfig.alias ||= {}
+      nitroConfig.alias['#safe-runtime-config/nitro-runtime-config'] = runtimeConfigImport
       nitroConfig.modules ||= []
       pushUnique(nitroConfig.modules, safeRuntimeConfigNitroModule)
 
