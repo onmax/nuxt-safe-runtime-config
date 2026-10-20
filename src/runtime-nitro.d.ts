@@ -1,5 +1,9 @@
 declare module '#safe-runtime-config/nitro-runtime-config' {
-  export function useRuntimeConfig(): Record<string, unknown>
+  export function useRuntimeConfig(event?: unknown): Record<string, unknown>
+}
+
+declare module '#safe-runtime-config/h3' {
+  export { eventHandler } from 'h3'
 }
 
 declare module '#safe-runtime-config/validate' {
@@ -8,6 +12,7 @@ declare module '#safe-runtime-config/validate' {
 
   export const runtimeSchema: StandardSchemaV1 | null
   export const schema: Schema
+  export const coercionSchema: Record<string, unknown> | null
   export const onError: 'throw' | 'warn' | 'ignore'
   export const draft: SchemaDraft
 }

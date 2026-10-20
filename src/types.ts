@@ -8,7 +8,7 @@ export interface ValidationOptions {
   $schema?: SchemaSource
   /** Validate runtime config at build time. Default: true */
   validateAtBuild?: boolean
-  /** Validate runtime config at runtime via Nitro plugin. Default: false */
+  /** Validate runtime config when the server starts, coercing env overrides against the schema. Default: false */
   validateAtRuntime?: boolean
   /** JSON Schema target version. Default: 'draft-2020-12' */
   jsonSchemaTarget?: StandardJSONSchemaV1.Target

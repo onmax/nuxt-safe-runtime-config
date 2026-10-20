@@ -173,7 +173,7 @@ import { useSafeRuntimeConfig } from '#imports'
 | ------------------- | ------------------------------- | ----------------- | ------------------------------------------- |
 | `$schema`           | `StandardSchemaV1 \| string`    | —                 | Schema or path to its default-export module |
 | `validateAtBuild`   | `boolean`                       | `true`            | Validate during dev/build                   |
-| `validateAtRuntime` | `boolean`                       | `false`           | Validate when server starts                 |
+| `validateAtRuntime` | `boolean`                       | `false`           | Coerce and validate when server starts      |
 | `onError`           | `'throw' \| 'warn' \| 'ignore'` | `'throw'`         | How to handle validation errors             |
 | `jsonSchemaTarget`  | `string`                        | `'draft-2020-12'` | JSON Schema version for runtime validation  |
 | `shelve`            | `boolean \| ShelveOptions`      | `undefined`       | Shelve secrets integration (see below)      |
@@ -282,9 +282,20 @@ export default defineNuxtConfig({
 
 This path uses [@cfworker/json-schema](https://github.com/cfworker/cfworker/tree/main/packages/json-schema) after Nitro applies environment overrides. JSON Schema validates the resulting shape, but it cannot execute Standard Schema transformations.
 
+### Environment Coercion
+
+Environment overrides arrive as strings (Nitro 3) or partially parsed (Nitro 2 turns `1` into a number). Before validating, the module converts each override to the type the schema expects:
+
+- `boolean`: `'true'`, `'false'`, `'1'`, `'0'` (any case), `1`, `0`
+- `number`: numeric strings such as `'0.5'`; `integer`: integral strings such as `'3000'`
+- `string`: integers and booleans that Nitro 2 already parsed, such as `123`
+- arrays and objects: JSON strings such as `'["email","github"]'`
+
+Only values the schema would otherwise reject are converted, so fields that accept strings are left alone. A plain `boolean()` field is enough, and `useSafeRuntimeConfig()` returns real booleans and numbers on the server and in the client payload. The validated values are also written back into the per-request `useRuntimeConfig(event)` on Nitro 2 and the shared config on Nitro 3.
+
 ### Preserve Runtime Transformations
 
-Runtime environment overrides often arrive as strings. Move the schema into a default-exported module when the validated output must contain canonical booleans, numbers, or other transformed values:
+Move the schema into a default-exported module when the validated output needs parsing beyond these coercions:
 
 ```ts [runtime-config.schema.ts]
 import * as v from 'valibot'
@@ -336,6 +347,8 @@ The server executes the schema once after Nitro applies runtime overrides. Reque
 
 > [!IMPORTANT]
 > Use a string `$schema` path when runtime behavior depends on transformations. Inline schemas retain the JSON Schema validation path for backward compatibility and do not execute transformations.
+
+Schema modules are coerced against their input JSON Schema when one can be derived. Schemas with transforms usually have no JSON Schema form and receive the raw values.
 
 Runtime validation catches:
 

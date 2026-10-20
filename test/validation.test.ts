@@ -122,6 +122,22 @@ describe('runtime JSON Schema generation', () => {
       () => {},
     )
     expect(buildOnlyArtifacts!.typeDeclaration).toContain('StandardSchemaV1.InferInput<typeof schema>')
+    // Transforms have no JSON Schema form, so this schema module receives raw values.
+    expect(runtimeArtifacts!.validateTemplate).toContain('export const coercionSchema = null\n')
+  })
+
+  it('exports the coercion schema in the runtime validation template', async () => {
+    const inline = await createRuntimeValidationArtifacts(
+      await resolveValidationOptions({ $schema: valibotRuntimeConfigSchema, validateAtRuntime: true }),
+      () => {},
+    )
+    expect(inline!.validateTemplate).toContain('export const coercionSchema = schema\n')
+
+    const buildOnly = await createRuntimeValidationArtifacts(
+      await resolveValidationOptions({ $schema: valibotRuntimeConfigSchema }),
+      () => {},
+    )
+    expect(buildOnly!.validateTemplate).toContain('export const coercionSchema = null\n')
   })
 
   it('builds a Nuxt app with Nitro-owned runtime validation artifacts', () => {

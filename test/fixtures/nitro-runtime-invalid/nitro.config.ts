@@ -5,5 +5,6 @@ import { invalidRuntimeConfig, runtimeConfigSchema } from '../_shared/nitro-runt
 export default defineNitroConfig({
   modules: [SafeRuntimeConfig],
   runtimeConfig: invalidRuntimeConfig,
+  handlers: [{ route: '/port', handler: './port' }],
   safeRuntimeConfig: { $schema: runtimeConfigSchema, validateAtBuild: false, validateAtRuntime: true },
 })

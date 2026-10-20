@@ -96,5 +96,24 @@ describe('nitro module', () => {
 
     expect(output).toContain('Runtime validation failed')
     expect(output).toContain('port')
+
+    // Nitro 3 passes env overrides as raw strings; NITRO_PORT also sets the listen port.
+    const coerced = spawn('node', [join(fixtureDir, '.output/server/index.mjs')], {
+      cwd: fixtureDir,
+      env: { ...process.env, NITRO_PORT: '48770' },
+    })
+    let coercedOutput = ''
+    coerced.stdout?.on('data', (data: Buffer) => coercedOutput += data.toString())
+    coerced.stderr?.on('data', (data: Buffer) => coercedOutput += data.toString())
+    let body: unknown
+    for (let attempt = 0; attempt < 100 && body === undefined && coerced.exitCode === null; attempt++) {
+      body = await fetch('http://127.0.0.1:48770/port').then(response => response.json(), () => undefined)
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+    coerced.kill()
+
+    expect(coercedOutput).not.toContain('Runtime validation failed')
+    // The validated value is written back into Nitro 3's mutable shared config.
+    expect(body, coercedOutput).toEqual({ port: 48770, type: 'number' })
   }, 60000)
 })
