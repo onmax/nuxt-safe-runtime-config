@@ -475,6 +475,6 @@ pnpm run test
 pnpm run test:watch
 ```
 
-Releases go through [uppt](https://github.com/danielroe/uppt). Every push to `main` updates a draft `release/vX.Y.Z` PR built from conventional commits. Merging it tags the version, creates the GitHub release, and stages the package on npm through OIDC, where it waits for approval with 2FA. If staging fails after the tag exists, run `gh workflow run release.yml --ref vX.Y.Z`.
+Releases go through [uppt](https://github.com/danielroe/uppt). Every push to `main` updates a draft `release/vX.Y.Z` PR built from conventional commits. Merging it tags the version, creates the GitHub release, and publishes the package to npm through OIDC trusted publishing. If publishing fails after the tag exists, run `gh workflow run release.yml --ref vX.Y.Z`.
 
 </details>
