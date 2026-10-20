@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
+import { getFreePort } from './utils/free-port'
 
 const fixtureDir = fileURLToPath(new URL('./fixtures/runtime-transform', import.meta.url))
 const nuxtBin = fileURLToPath(new URL('../node_modules/nuxt/bin/nuxt.mjs', import.meta.url))
@@ -51,7 +52,7 @@ describe('runtime Standard Schema transformations', () => {
     expect(serverOutput).not.toContain(schemaPath)
     expect(serverOutput).not.toContain(pathToFileURL(schemaPath).href)
 
-    const port = '48767'
+    const port = await getFreePort()
     const child = spawn('node', [serverEntry], {
       cwd: fixtureDir,
       env: {
