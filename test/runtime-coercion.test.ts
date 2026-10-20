@@ -2,6 +2,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
+import { getFreePort } from './utils/free-port'
 
 const fixtureDir = fileURLToPath(new URL('./fixtures/runtime-coercion', import.meta.url))
 const nuxtBin = fileURLToPath(new URL('../node_modules/nuxt/bin/nuxt.mjs', import.meta.url))
@@ -39,7 +40,7 @@ describe('runtime env coercion with an inline schema', () => {
     const build = spawnSync(process.execPath, [nuxtBin, 'build'], { cwd: fixtureDir, encoding: 'utf8' })
     expect(build.status, `${build.stdout}\n${build.stderr}`).toBe(0)
 
-    const port = '48768'
+    const port = await getFreePort()
     const child = spawn('node', [serverEntry], {
       cwd: fixtureDir,
       env: {
@@ -75,7 +76,7 @@ describe('runtime env coercion with an inline schema', () => {
   it('fails at startup when a runtime value cannot be coerced', async () => {
     const child = spawn('node', [serverEntry], {
       cwd: fixtureDir,
-      env: { ...process.env, NUXT_SECRET: 'runtime-secret', NUXT_PERF_TRACE_ENABLED: 'maybe', PORT: '48769' },
+      env: { ...process.env, NUXT_SECRET: 'runtime-secret', NUXT_PERF_TRACE_ENABLED: 'maybe', PORT: await getFreePort() },
     })
     children.push(child)
 
