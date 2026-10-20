@@ -171,6 +171,8 @@ export default defineEventHandler((event) => {
 })
 ```
 
+On Nitro 3, which has no per-request runtime config, this returns the same config as `useSafeRuntimeConfig()`.
+
 If your editor runs type-checking outside Nuxt's auto-import context, import it explicitly:
 
 ```ts

@@ -146,7 +146,7 @@ describe('useSafeRuntimeConfig(event)', () => {
     const validator = register()
     const config = useSafeRuntimeConfig(event(structuredClone(rawConfig('startup-secret'))))
 
-    expect(config).toBe(useSafeRuntimeConfig())
+    expect(config).toEqual(useSafeRuntimeConfig())
     expect(validator).toHaveBeenCalledOnce()
   })
 

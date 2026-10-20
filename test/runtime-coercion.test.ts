@@ -61,7 +61,8 @@ describe('runtime env coercion with an inline schema', () => {
       posthogEnabled: true,
       sampleRate: 0.5,
       logins: ['email', 'github'],
-      sameAsShared: true,
+      matchesStartup: true,
+      rawEventType: 'boolean',
     })
 
     const html = await (await fetch(`http://127.0.0.1:${port}/`)).text()
