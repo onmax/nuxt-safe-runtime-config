@@ -21,7 +21,6 @@ export default defineNuxtConfig({
         logins: array(picklist(['email', 'github'])),
       }),
     }),
-    validateAtBuild: false,
     validateAtRuntime: true,
   },
 })

@@ -181,14 +181,14 @@ import { useSafeRuntimeConfig } from '#imports'
 
 ## Configuration Options
 
-| Option              | Type                            | Default           | Description                                 |
-| ------------------- | ------------------------------- | ----------------- | ------------------------------------------- |
-| `$schema`           | `StandardSchemaV1 \| string`    | —                 | Schema or path to its default-export module |
-| `validateAtBuild`   | `boolean`                       | `true`            | Validate during dev/build                   |
-| `validateAtRuntime` | `boolean`                       | `false`           | Coerce and validate when server starts      |
-| `onError`           | `'throw' \| 'warn' \| 'ignore'` | `'throw'`         | How to handle validation errors             |
-| `jsonSchemaTarget`  | `string`                        | `'draft-2020-12'` | JSON Schema version for runtime validation  |
-| `shelve`            | `boolean \| ShelveOptions`      | `undefined`       | Shelve secrets integration (see below)      |
+| Option              | Type                            | Default              | Description                                 |
+| ------------------- | ------------------------------- | -------------------- | ------------------------------------------- |
+| `$schema`           | `StandardSchemaV1 \| string`    | —                    | Schema or path to its default-export module |
+| `validateAtBuild`   | `boolean`                       | `!validateAtRuntime` | Validate during dev/build                   |
+| `validateAtRuntime` | `boolean`                       | `false`              | Coerce and validate when server starts      |
+| `onError`           | `'throw' \| 'warn' \| 'ignore'` | `'throw'`            | How to handle validation errors             |
+| `jsonSchemaTarget`  | `string`                        | `'draft-2020-12'`    | JSON Schema version for runtime validation  |
+| `shelve`            | `boolean \| ShelveOptions`      | `undefined`          | Shelve secrets integration (see below)      |
 
 ## Shelve Integration
 
@@ -280,7 +280,9 @@ On module install, an interactive setup wizard can help bootstrap validation and
 
 ## Runtime Validation
 
-By default, validation only runs at build time. Inline schemas can opt into JSON Schema validation when the server starts:
+By default, validation only runs at build time. Build validation checks the values written in `nuxt.config.ts`; runtime validation checks the values the deployed server runs with. Enabling `validateAtRuntime` turns build validation off unless you set `validateAtBuild: true`, so builds do not need placeholder secrets. This applies to both the Nuxt module and the standalone Nitro module.
+
+Inline schemas can opt into JSON Schema validation when the server starts:
 
 ```ts [nuxt.config.ts]
 export default defineNuxtConfig({

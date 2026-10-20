@@ -82,7 +82,7 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: {
     $schema: undefined,
-    validateAtBuild: true,
+    validateAtBuild: undefined,
     validateAtRuntime: false,
     jsonSchemaTarget: 'draft-2020-12',
     onError: 'throw',
