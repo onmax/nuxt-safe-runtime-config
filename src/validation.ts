@@ -51,7 +51,8 @@ export async function resolveValidationOptions(
   return {
     $schema: schema,
     schemaPath,
-    validateAtBuild: options.validateAtBuild ?? true,
+    // Runtime validation sees the deployed values, so build-time values are only defaults.
+    validateAtBuild: options.validateAtBuild ?? !options.validateAtRuntime,
     validateAtRuntime: options.validateAtRuntime ?? false,
     jsonSchemaTarget: options.jsonSchemaTarget ?? 'draft-2020-12',
     onError: options.onError ?? 'throw',

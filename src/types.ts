@@ -6,7 +6,7 @@ export type SchemaSource = StandardSchemaV1 | string
 export interface ValidationOptions {
   /** Standard Schema or project-relative path to a default-exported schema module */
   $schema?: SchemaSource
-  /** Validate runtime config at build time. Default: true */
+  /** Validate runtime config at build time. Default: `true`, or `false` when `validateAtRuntime` is enabled */
   validateAtBuild?: boolean
   /** Validate runtime config when the server starts, coercing env overrides against the schema. Default: false */
   validateAtRuntime?: boolean

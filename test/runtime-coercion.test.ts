@@ -34,7 +34,8 @@ async function waitForResponse(url: string, child: ReturnType<typeof spawn>): Pr
 }
 
 describe('runtime env coercion with an inline schema', () => {
-  it('serves coerced, event-scoped config on the server and in the client payload', async () => {
+  it('builds without runtime secrets and serves coerced, event-scoped config', async () => {
+    // validateAtRuntime turns build validation off by default, so the empty secret does not fail the build.
     const build = spawnSync(process.execPath, [nuxtBin, 'build'], { cwd: fixtureDir, encoding: 'utf8' })
     expect(build.status, `${build.stdout}\n${build.stderr}`).toBe(0)
 
