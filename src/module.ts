@@ -178,7 +178,7 @@ export default defineNuxtModule<ModuleOptions>({
       getContents: () => artifacts.typeDeclaration,
     })
 
-    if (validationOptions.schemaPath && validationOptions.validateAtRuntime)
+    if (validationOptions.validateAtRuntime)
       addPlugin({ src: resolver.resolve('./runtime/plugins/validated-public.server'), mode: 'server' })
 
     nuxt.hook('nitro:config', (nitroConfig) => {

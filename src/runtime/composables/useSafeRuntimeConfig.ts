@@ -1,5 +1,5 @@
 import { useRuntimeConfig } from '#imports'
-import { useValidatedRuntimeConfig } from '../config-state'
+import { ensureRuntimeConfigValidation, useValidatedRuntimeConfig } from '../config-state'
 
 declare global {
   interface NuxtSafeRuntimeConfig {}
@@ -18,5 +18,9 @@ declare global {
  * ```
  */
 export function useSafeRuntimeConfig(): NuxtSafeRuntimeConfig {
-  return useValidatedRuntimeConfig(useRuntimeConfig()) as NuxtSafeRuntimeConfig
+  const config = useRuntimeConfig()
+  // Nuxt's server-side `$config` is event-scoped and validates on first read.
+  // Asynchronous schemas were already awaited by the validation middleware.
+  void ensureRuntimeConfigValidation(config)
+  return useValidatedRuntimeConfig(config) as NuxtSafeRuntimeConfig
 }

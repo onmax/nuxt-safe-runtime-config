@@ -6,16 +6,16 @@ type NativeJsonSchemaOutput = (options: {
   target: StandardJSONSchemaV1.Target
 }) => Record<string, unknown> | Promise<Record<string, unknown>>
 
+type JsonSchemaIO = 'input' | 'output'
+
 interface StandardSchemaWithNativeJsonSchema extends StandardSchemaV1 {
   '~standard': StandardSchemaV1['~standard'] & {
-    jsonSchema?: {
-      output?: NativeJsonSchemaOutput
-    }
+    jsonSchema?: Partial<Record<JsonSchemaIO, NativeJsonSchemaOutput>>
   }
 }
 
-function getNativeJSONSchemaOutput(schema: StandardSchemaV1): NativeJsonSchemaOutput | undefined {
-  const output = (schema as StandardSchemaWithNativeJsonSchema)['~standard']?.jsonSchema?.output
+function getNativeJSONSchemaOutput(schema: StandardSchemaV1, io: JsonSchemaIO = 'output'): NativeJsonSchemaOutput | undefined {
+  const output = (schema as StandardSchemaWithNativeJsonSchema)['~standard']?.jsonSchema?.[io]
   return typeof output === 'function' ? output : undefined
 }
 
@@ -27,8 +27,9 @@ export async function getJSONSchema(
   schema: StandardSchemaV1,
   target: StandardJSONSchemaV1.Target = 'draft-2020-12',
   onFallback?: (message: string) => void,
+  io: JsonSchemaIO = 'output',
 ): Promise<Record<string, unknown>> {
-  const nativeOutput = getNativeJSONSchemaOutput(schema)
+  const nativeOutput = getNativeJSONSchemaOutput(schema, io)
 
   if (nativeOutput) {
     try {

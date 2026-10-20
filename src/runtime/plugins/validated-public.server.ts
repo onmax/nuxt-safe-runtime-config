@@ -1,13 +1,13 @@
 import { defineNuxtPlugin } from '#app'
-import { mergeTransformedRuntimeConfig, runtimeValidationContextKey, setRuntimeValidationState } from '../config-state'
+import { ensureRuntimeConfigValidation, mergeTransformedRuntimeConfig, useValidatedRuntimeConfig } from '../config-state'
 
-export default defineNuxtPlugin((nuxtApp) => {
-  const event = nuxtApp.ssrContext?.event
-  const config = event && Reflect.get(event.context, runtimeValidationContextKey) as Record<string, unknown> | undefined
-  if (!config)
+export default defineNuxtPlugin(async (nuxtApp) => {
+  // On the server, `$config` is the event-scoped runtime config.
+  const runtimeConfig = nuxtApp.$config as Record<string, unknown>
+  await ensureRuntimeConfigValidation(runtimeConfig)
+  const config = useValidatedRuntimeConfig(runtimeConfig)
+  if (config === runtimeConfig)
     return
-
-  setRuntimeValidationState(nuxtApp.$config as Record<string, unknown>, { status: 'valid', value: config })
 
   if (!config.public || typeof config.public !== 'object' || Array.isArray(config.public))
     return
