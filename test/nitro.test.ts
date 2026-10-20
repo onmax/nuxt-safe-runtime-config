@@ -105,14 +105,15 @@ describe('nitro module', () => {
     let coercedOutput = ''
     coerced.stdout?.on('data', (data: Buffer) => coercedOutput += data.toString())
     coerced.stderr?.on('data', (data: Buffer) => coercedOutput += data.toString())
-    let status: number | undefined
-    for (let attempt = 0; attempt < 100 && status === undefined && coerced.exitCode === null; attempt++) {
-      status = await fetch('http://127.0.0.1:48770/').then(response => response.status, () => undefined)
+    let body: unknown
+    for (let attempt = 0; attempt < 100 && body === undefined && coerced.exitCode === null; attempt++) {
+      body = await fetch('http://127.0.0.1:48770/port').then(response => response.json(), () => undefined)
       await new Promise(resolve => setTimeout(resolve, 50))
     }
     coerced.kill()
 
     expect(coercedOutput).not.toContain('Runtime validation failed')
-    expect(status, coercedOutput).toBeLessThan(500)
+    // The validated value is written back into Nitro 3's mutable shared config.
+    expect(body, coercedOutput).toEqual({ port: 48770, type: 'number' })
   }, 60000)
 })

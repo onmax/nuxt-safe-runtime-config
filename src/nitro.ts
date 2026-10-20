@@ -86,18 +86,19 @@ function configureNitro(nitro: Nitro, options: ResolvedValidationOptions, valida
   pushUnique(ts.tsConfig.include, `./${relative(nitro.options.buildDir, typeDeclaration)}`)
 
   if (options.validateAtRuntime) {
+    const majorVersion = nitro.meta?.majorVersion ?? 2
     nitro.options.alias['#safe-runtime-config/nitro-runtime-config'] ||= resolveRuntimeConfigImport(
-      nitro.meta?.majorVersion ?? 2,
+      majorVersion,
       join(nitro.options.rootDir, 'nitro.config.ts'),
     )
+    // Nitro 3 exposes h3 v2 as `nitro/h3` and does not bundle a bare `h3` import.
+    nitro.options.alias['#safe-runtime-config/h3'] ||= majorVersion >= 3 ? 'nitro/h3' : 'h3'
     nitro.options.plugins ||= []
     orderRuntimePlugins(nitro.options.plugins)
 
-    if (options.schemaPath) {
-      nitro.options.handlers ||= []
-      if (!nitro.options.handlers.some(handler => handler.handler === RUNTIME_MIDDLEWARE_PATH))
-        nitro.options.handlers.unshift({ route: '/', handler: RUNTIME_MIDDLEWARE_PATH, middleware: true })
-    }
+    nitro.options.handlers ||= []
+    if (!nitro.options.handlers.some(handler => handler.handler === RUNTIME_MIDDLEWARE_PATH))
+      nitro.options.handlers.unshift({ route: '/', handler: RUNTIME_MIDDLEWARE_PATH, middleware: true })
   }
 }
 

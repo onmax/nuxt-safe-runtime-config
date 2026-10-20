@@ -287,10 +287,11 @@ This path uses [@cfworker/json-schema](https://github.com/cfworker/cfworker/tree
 Environment overrides arrive as strings (Nitro 3) or partially parsed (Nitro 2 turns `1` into a number). Before validating, the module converts each override to the type the schema expects:
 
 - `boolean`: `'true'`, `'false'`, `'1'`, `'0'` (any case), `1`, `0`
-- `number` / `integer`: numeric strings such as `'0.5'`
+- `number`: numeric strings such as `'0.5'`; `integer`: integral strings such as `'3000'`
+- `string`: integers and booleans that Nitro 2 already parsed, such as `123`
 - arrays and objects: JSON strings such as `'["email","github"]'`
 
-Only values the schema would otherwise reject are converted, so fields that accept strings are left alone. A plain `boolean()` field is enough, and `useSafeRuntimeConfig()` returns real booleans and numbers on the server and in the client payload.
+Only values the schema would otherwise reject are converted, so fields that accept strings are left alone. A plain `boolean()` field is enough, and `useSafeRuntimeConfig()` returns real booleans and numbers on the server and in the client payload. The validated values are also written back into the per-request `useRuntimeConfig(event)` on Nitro 2 and the shared config on Nitro 3.
 
 ### Preserve Runtime Transformations
 

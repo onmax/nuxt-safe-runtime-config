@@ -31,7 +31,6 @@ interface RuntimeValidationStore {
   validator?: RuntimeConfigValidator
   /** The startup config and its serialized raw values, reused for event configs with equal values. */
   baseline?: { config: RuntimeConfig, snapshot: string }
-  async?: boolean
 }
 
 const validationStoreKey = Symbol.for('nuxt-safe-runtime-config.validation-store')
@@ -70,10 +69,6 @@ export function useValidatedRuntimeConfig(config: RuntimeConfig): RuntimeConfig 
   throw new Error('Runtime config validation is still pending')
 }
 
-export function isRuntimeConfigValidationAsync(): boolean {
-  return validationStore.async === true
-}
-
 /**
  * Registers the validator and validates the startup config with it.
  * Event-scoped configs are validated later through `ensureRuntimeConfigValidation`.
@@ -82,12 +77,21 @@ export function registerRuntimeConfigValidator(validator: RuntimeConfigValidator
   validationStore.validator = validator
   validationStore.baseline = { config, snapshot: JSON.stringify(config) }
   validator(config)
-  validationStore.async = getRuntimeValidationState(config)?.status === 'pending'
+}
+
+// Event configs must not share mutable objects with other requests.
+function clonePlain<T>(value: T): T {
+  if (Array.isArray(value))
+    return value.map(clonePlain) as T
+  if (isRuntimeConfig(value) && Object.getPrototypeOf(value) === Object.prototype)
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, clonePlain(child)])) as T
+  return value
 }
 
 /**
- * Validates a config object once. Event configs whose raw values equal the startup
- * config reuse its outcome, so Node servers validate once per process.
+ * Validates a config object once and writes the validated values into it when it is mutable.
+ * Event configs whose raw values equal the startup config reuse a copy of its outcome, so Node
+ * servers run the schema once per process.
  */
 export function ensureRuntimeConfigValidation(config: RuntimeConfig): void | Promise<void> {
   const state = getRuntimeValidationState(config)
@@ -102,6 +106,10 @@ export function ensureRuntimeConfigValidation(config: RuntimeConfig): void | Pro
     const baselineState = getRuntimeValidationState(baseline.config)
     if (baselineState?.status === 'pending')
       return baselineState.ready.then(() => ensureRuntimeConfigValidation(config))
+    if (baselineState?.status === 'valid') {
+      applyValidatedRuntimeConfig(config, clonePlain(baselineState.value))
+      return
+    }
     if (baselineState) {
       setRuntimeValidationState(config, baselineState)
       return

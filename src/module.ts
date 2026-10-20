@@ -3,7 +3,7 @@ import type { ModuleOptions } from './types'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import process from 'node:process'
-import { addImports, addPlugin, addServerImports, addServerPlugin, addTemplate, addTypeTemplate, createResolver, defineNuxtModule, getNuxtVersion, useLogger } from '@nuxt/kit'
+import { addImports, addServerImports, addServerPlugin, addTemplate, addTypeTemplate, createResolver, defineNuxtModule, getNuxtVersion, useLogger } from '@nuxt/kit'
 import defu from 'defu'
 import { isCI, isTest } from 'std-env'
 import { version } from '../package.json'
@@ -177,9 +177,6 @@ export default defineNuxtModule<ModuleOptions>({
       filename: 'types/safe-runtime-config.d.ts',
       getContents: () => artifacts.typeDeclaration,
     })
-
-    if (validationOptions.validateAtRuntime)
-      addPlugin({ src: resolver.resolve('./runtime/plugins/validated-public.server'), mode: 'server' })
 
     nuxt.hook('nitro:config', (nitroConfig) => {
       ;(nitroConfig as typeof nitroConfig & { safeRuntimeConfig: typeof validationOptions }).safeRuntimeConfig = validationOptions

@@ -1,7 +1,7 @@
 type JsonSchema = Record<string, unknown>
-type JsonType = 'array' | 'boolean' | 'integer' | 'null' | 'number' | 'object' | 'string'
 
 const booleanStrings: Record<string, boolean> = { true: true, false: false, 1: true, 0: false }
+const combinators = ['anyOf', 'oneOf', 'allOf'] as const
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -20,40 +20,54 @@ function resolveRef(schema: JsonSchema, root: JsonSchema): JsonSchema | undefine
   return isPlainObject(target) ? resolveRef(target, root) : undefined
 }
 
-/** Flattens `anyOf`/`oneOf`/`allOf` into the branches a value may match. */
-function branches(schema: JsonSchema, root: JsonSchema, seen = new Set<JsonSchema>()): JsonSchema[] {
-  const resolved = resolveRef(schema, root)
+/** Resolves `$ref` and flattens `anyOf`/`oneOf`/`allOf` into the schemas a value may match. */
+function alternatives(schema: unknown, root: JsonSchema, seen = new Set<JsonSchema>()): JsonSchema[] {
+  if (schema === true)
+    return [{}]
+  const resolved = isPlainObject(schema) ? resolveRef(schema, root) : undefined
   if (!resolved || seen.has(resolved))
     return []
   seen.add(resolved)
 
-  const nested = [resolved.anyOf, resolved.oneOf, resolved.allOf].filter(Array.isArray).flat() as JsonSchema[]
-  if (!nested.length)
-    return [resolved]
-  return [resolved, ...nested.flatMap(branch => isPlainObject(branch) ? branches(branch, root, seen) : [])]
+  const nested = combinators.flatMap(key => Array.isArray(resolved[key]) ? resolved[key] as unknown[] : [])
+  return [resolved, ...nested.flatMap(branch => alternatives(branch, root, seen))]
 }
 
-function acceptedTypes(schemas: JsonSchema[]): Set<JsonType> {
-  const types = new Set<JsonType>()
+interface Accepted {
+  /** Some alternative has no type constraint, so any value is valid here */
+  any: boolean
+  types: Set<string>
+  literals: unknown[]
+}
+
+function accepted(schemas: JsonSchema[]): Accepted {
+  const result: Accepted = { any: false, types: new Set(), literals: [] }
   for (const schema of schemas) {
-    const type = schema.type
-    for (const entry of Array.isArray(type) ? type : [type]) {
-      if (typeof entry === 'string')
-        types.add(entry as JsonType)
+    if ('const' in schema)
+      result.literals.push(schema.const)
+    else if (Array.isArray(schema.enum))
+      result.literals.push(...schema.enum)
+    else if (!('type' in schema) && !combinators.some(key => key in schema))
+      result.any = true
+
+    for (const type of Array.isArray(schema.type) ? schema.type : [schema.type]) {
+      if (typeof type === 'string')
+        result.types.add(type)
     }
-    const literals = 'const' in schema ? [schema.const] : Array.isArray(schema.enum) ? schema.enum : []
-    for (const literal of literals) {
-      if (typeof literal === 'string' || typeof literal === 'boolean' || typeof literal === 'number')
-        types.add(typeof literal as JsonType)
-    }
-    if (isPlainObject(schema.properties))
-      types.add('object')
-    if ('items' in schema || 'prefixItems' in schema)
-      types.add('array')
   }
-  if (types.has('integer'))
-    types.add('number')
-  return types
+  return result
+}
+
+function accepts(value: unknown, { any, types, literals }: Accepted): boolean {
+  if (any || literals.includes(value))
+    return true
+  if (typeof value === 'number')
+    return types.has('number') || (types.has('integer') && Number.isInteger(value))
+  if (Array.isArray(value))
+    return types.has('array')
+  if (value === null)
+    return types.has('null')
+  return types.has(isPlainObject(value) ? 'object' : typeof value)
 }
 
 function parseNumber(value: string): number | undefined {
@@ -73,85 +87,118 @@ function parseJson(value: string): unknown {
   }
 }
 
-function coerceScalar(value: unknown, types: Set<JsonType>): unknown {
-  if (typeof value === 'string' && !types.has('string')) {
-    const number = types.has('number') ? parseNumber(value) : undefined
-    if (number !== undefined)
-      return number
-    const boolean = booleanStrings[value.trim().toLowerCase()]
-    if (types.has('boolean') && boolean !== undefined)
-      return boolean
-    if (types.has('object') || types.has('array')) {
-      const parsed = parseJson(value)
-      if ((types.has('array') && Array.isArray(parsed)) || (types.has('object') && isPlainObject(parsed)))
-        return parsed
-    }
-    return value
+function candidates(value: unknown): unknown[] {
+  if (typeof value === 'string') {
+    const parsed = parseJson(value)
+    return [
+      parseNumber(value),
+      booleanStrings[value.trim().toLowerCase()],
+      typeof parsed === 'object' ? parsed : undefined,
+    ]
   }
-
-  // Nitro 2 parses `NUXT_FLAG=1` into the number 1.
-  if (typeof value === 'number' && !types.has('number') && types.has('boolean') && (value === 0 || value === 1))
-    return value === 1
-
-  return value
+  // Nitro 2 parses env values with destr, so `1` and `true` may stand for the strings '1' and 'true'.
+  if (typeof value === 'number')
+    return [Number.isSafeInteger(value) ? String(value) : undefined, value === 1 ? true : value === 0 ? false : undefined]
+  if (typeof value === 'boolean')
+    return [String(value)]
+  return []
 }
 
-function coerceNode(value: unknown, schema: JsonSchema, root: JsonSchema): unknown {
-  const schemas = branches(schema, root)
-  if (!schemas.length)
+function coerceScalar(value: unknown, schemas: JsonSchema[]): unknown {
+  const target = accepted(schemas)
+  if (accepts(value, target))
     return value
-
-  const coerced = coerceScalar(value, acceptedTypes(schemas))
-
-  if (isPlainObject(coerced))
-    return coerceObject(coerced, schemas, root)
-  if (Array.isArray(coerced))
-    return coerceArray(coerced, schemas, root)
-  return coerced
+  return candidates(value).find(candidate => candidate !== undefined && accepts(candidate, target)) ?? value
 }
 
-function coerceObject(value: Record<string, unknown>, schemas: JsonSchema[], root: JsonSchema): Record<string, unknown> {
-  let result = value
-  for (const [key, child] of Object.entries(value)) {
-    const childSchemas = schemas.flatMap((schema) => {
-      const properties = isPlainObject(schema.properties) ? schema.properties : undefined
-      const property = properties?.[key] ?? schema.additionalProperties
-      return isPlainObject(property) ? [property] : []
+function looselyEquals(value: unknown, literal: unknown): boolean {
+  return value === literal || (value !== undefined && value !== null && String(value) === String(literal))
+}
+
+// Discriminated unions: skip object branches whose literal properties contradict the value.
+function matchingBranches(value: Record<string, unknown>, schemas: JsonSchema[]): JsonSchema[] {
+  const matching = schemas.filter((schema) => {
+    const properties = isPlainObject(schema.properties) ? schema.properties : {}
+    return Object.entries(properties).every(([key, property]) => {
+      if (!isPlainObject(property) || !(key in value))
+        return true
+      const literals = 'const' in property ? [property.const] : Array.isArray(property.enum) && property.enum.length === 1 ? property.enum : undefined
+      return !literals || literals.some(literal => looselyEquals(value[key], literal))
     })
-    let next = child
-    for (const childSchema of childSchemas)
-      next = coerceNode(next, childSchema, root)
-    if (next !== child) {
-      if (result === value)
-        result = { ...value }
-      result[key] = next
-    }
+  })
+  return matching.length ? matching : schemas
+}
+
+function matchesPattern(pattern: string, key: string): boolean {
+  try {
+    return new RegExp(pattern, 'u').test(key)
   }
+  catch {
+    return false
+  }
+}
+
+function propertySchemas(schema: JsonSchema, key: string): unknown[] {
+  if (isPlainObject(schema.properties) && key in schema.properties)
+    return [schema.properties[key]]
+  const patterns = isPlainObject(schema.patternProperties)
+    ? Object.entries(schema.patternProperties).filter(([pattern]) => matchesPattern(pattern, key)).map(([, property]) => property)
+    : []
+  if (patterns.length)
+    return patterns
+  return 'additionalProperties' in schema ? [schema.additionalProperties] : []
+}
+
+function itemSchemas(schema: JsonSchema, index: number): unknown[] {
+  if (Array.isArray(schema.prefixItems))
+    return index < schema.prefixItems.length ? [schema.prefixItems[index]] : 'items' in schema ? [schema.items] : []
+  if (Array.isArray(schema.items))
+    return index < schema.items.length ? [schema.items[index]] : 'additionalItems' in schema ? [schema.additionalItems] : []
+  return 'items' in schema ? [schema.items] : []
+}
+
+function coerceChildren<T extends unknown[] | Record<string, unknown>>(
+  value: T,
+  childSchemas: (key: string, index: number) => unknown[],
+  root: JsonSchema,
+): T {
+  let result = value
+  Object.entries(value).forEach(([key, child], index) => {
+    const schemas = childSchemas(key, index).filter(schema => schema !== false)
+    if (!schemas.length)
+      return
+    const next = coerceNode(child, { anyOf: schemas }, root)
+    if (next === child)
+      return
+    if (result === value)
+      result = (Array.isArray(value) ? [...value] : { ...value }) as T
+    ;(result as Record<string, unknown>)[key] = next
+  })
   return result
 }
 
-function coerceArray(value: unknown[], schemas: JsonSchema[], root: JsonSchema): unknown[] {
-  const itemSchemas = schemas.flatMap(schema => isPlainObject(schema.items) ? [schema.items] : [])
-  if (!itemSchemas.length)
+function coerceNode(value: unknown, schema: unknown, root: JsonSchema): unknown {
+  const schemas = alternatives(schema, root)
+  if (!schemas.length)
     return value
 
-  let changed = false
-  const result = value.map((item) => {
-    let next = item
-    for (const itemSchema of itemSchemas)
-      next = coerceNode(next, itemSchema, root)
-    changed ||= next !== item
-    return next
-  })
-  return changed ? result : value
+  const coerced = coerceScalar(value, schemas)
+  if (isPlainObject(coerced)) {
+    const branches = matchingBranches(coerced, schemas)
+    return coerceChildren(coerced, key => branches.flatMap(branch => propertySchemas(branch, key)), root)
+  }
+  if (Array.isArray(coerced))
+    return coerceChildren(coerced, (_, index) => schemas.flatMap(branch => itemSchemas(branch, index)), root)
+  return coerced
 }
 
 /**
  * Converts runtime env overrides to the types the JSON Schema expects.
  *
- * Only values the schema would reject are touched: a string becomes a number,
- * boolean (`true`/`false`/`1`/`0`), or JSON array/object when the schema does not
- * accept strings at that path. Unchanged subtrees keep their identity.
+ * A value the schema already accepts is left alone. Otherwise a string may become a number,
+ * boolean (`true`/`false`/`1`/`0`), or JSON array/object, and a Nitro 2 `destr` number or
+ * boolean may become its string form. Unchanged subtrees keep their identity, and the input
+ * is never mutated.
  */
 export function coerceRuntimeConfig<T>(value: T, schema: JsonSchema | null | undefined): T {
   if (!schema || !Object.keys(schema).length)

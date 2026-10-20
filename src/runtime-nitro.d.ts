@@ -2,6 +2,10 @@ declare module '#safe-runtime-config/nitro-runtime-config' {
   export function useRuntimeConfig(event?: unknown): Record<string, unknown>
 }
 
+declare module '#safe-runtime-config/h3' {
+  export { eventHandler } from 'h3'
+}
+
 declare module '#safe-runtime-config/validate' {
   import type { Schema, SchemaDraft } from '@cfworker/json-schema'
   import type { StandardSchemaV1 } from '@standard-schema/spec'

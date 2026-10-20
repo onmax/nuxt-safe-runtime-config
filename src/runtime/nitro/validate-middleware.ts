@@ -1,11 +1,13 @@
 /// <reference path="../../runtime-nitro.d.ts" />
+import { eventHandler } from '#safe-runtime-config/h3'
 import { useRuntimeConfig } from '#safe-runtime-config/nitro-runtime-config'
-import { eventHandler } from 'h3'
-import { isRuntimeConfigValidationAsync, waitForRuntimeConfigValidation } from '../config-state'
+import { waitForRuntimeConfigValidation } from '../config-state'
 
 export default eventHandler(async (event): Promise<void> => {
+  // Read the event config before awaiting: Nitro 2 on Cloudflare resolves env from a global
+  // that the next request overwrites.
+  const eventConfig = useRuntimeConfig(event)
   await waitForRuntimeConfigValidation(useRuntimeConfig())
-  // `useSafeRuntimeConfig()` is synchronous, so asynchronous schemas validate the event config here.
-  if (isRuntimeConfigValidationAsync())
-    await waitForRuntimeConfigValidation(useRuntimeConfig(event))
+  // Writes the validated values into the event config, which Nuxt renders into the payload.
+  await waitForRuntimeConfigValidation(eventConfig)
 })

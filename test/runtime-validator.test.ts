@@ -72,7 +72,7 @@ describe('event-scoped config validation', () => {
     const validator = register()
     const config = validated(structuredClone(rawConfig('startup-secret')))
 
-    expect(config).toBe(useSafeRuntimeConfig())
+    expect(config).toEqual(useSafeRuntimeConfig())
     expect(validator).toHaveBeenCalledOnce()
   })
 
@@ -86,6 +86,19 @@ describe('event-scoped config validation', () => {
     expect(config.secret).toBe('request-secret')
     expect(config.perfTrace.enabled).toBe(false)
     expect(validator).toHaveBeenCalledTimes(2)
+  })
+
+  it('writes validated values into mutable event configs without sharing objects', () => {
+    register()
+    const first = structuredClone(rawConfig('startup-secret'))
+    const second = structuredClone(rawConfig('startup-secret'))
+
+    const firstConfig = validated(first)
+    firstConfig.public.sampleRate = 1
+
+    expect(first.public.sampleRate).toBe(0.5)
+    expect(validated(second).public.sampleRate).toBe(0.5)
+    expect(useSafeRuntimeConfig()).toMatchObject({ public: { sampleRate: 0.5 } })
   })
 
   it('throws for invalid event configs when onError is throw', () => {
