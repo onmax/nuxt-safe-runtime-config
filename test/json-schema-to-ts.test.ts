@@ -97,7 +97,7 @@ describe('generateTypeDeclaration', () => {
     expect(result).toContain('secretKey: string')
     expect(result).toContain('apiBase: string')
     expect(result).toContain('declare module \'#imports\'')
-    expect(result).toContain('useSafeRuntimeConfig(): SafeRuntimeConfig')
+    expect(result).toContain('useSafeRuntimeConfig(event?: { context: object }): SafeRuntimeConfig')
   })
 
   it('infers transformed output from an importable Standard Schema', () => {

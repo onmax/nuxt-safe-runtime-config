@@ -161,6 +161,16 @@ export function getPrivateConfig() {
 }
 ```
 
+Pass the request event for the validated equivalent of `useRuntimeConfig(event)`:
+
+```ts
+// server/api/token.get.ts
+export default defineEventHandler((event) => {
+  const { secretKey } = useSafeRuntimeConfig(event)
+  return sign(secretKey)
+})
+```
+
 If your editor runs type-checking outside Nuxt's auto-import context, import it explicitly:
 
 ```ts
@@ -392,7 +402,7 @@ export default [
 ]
 ```
 
-The rule includes auto-fix support — run `eslint --fix` to automatically replace `useRuntimeConfig()` calls.
+The rule includes auto-fix support — run `eslint --fix` to automatically replace `useRuntimeConfig()` calls. `useRuntimeConfig(event)` becomes the event-scoped `useSafeRuntimeConfig(event)`.
 
 ## Type Safety
 
