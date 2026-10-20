@@ -6,5 +6,5 @@ export default defineNitroConfig({
   modules: [SafeRuntimeConfig],
   plugins: ['./plugin', './safe-runtime-config/shelve-plugin'],
   runtimeConfig: validRuntimeConfig,
-  safeRuntimeConfig: { $schema: runtimeConfigSchema, validateAtRuntime: true },
+  safeRuntimeConfig: { $schema: runtimeConfigSchema, validateAtBuild: true, validateAtRuntime: true },
 })

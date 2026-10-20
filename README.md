@@ -280,7 +280,7 @@ On module install, an interactive setup wizard can help bootstrap validation and
 
 ## Runtime Validation
 
-By default, validation only runs at build time. Build validation checks the values written in `nuxt.config.ts`; runtime validation checks the values the deployed server runs with. Enabling `validateAtRuntime` turns build validation off unless you set `validateAtBuild: true`, so builds do not need placeholder secrets.
+By default, validation only runs at build time. Build validation checks the values written in `nuxt.config.ts`; runtime validation checks the values the deployed server runs with. Enabling `validateAtRuntime` turns build validation off unless you set `validateAtBuild: true`, so builds do not need placeholder secrets. This applies to both the Nuxt module and the standalone Nitro module.
 
 Inline schemas can opt into JSON Schema validation when the server starts:
 
