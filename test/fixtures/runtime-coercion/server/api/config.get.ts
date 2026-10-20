@@ -1,5 +1,5 @@
-export default defineEventHandler(() => {
-  const config = useSafeRuntimeConfig()
+export default defineEventHandler((event) => {
+  const config = useSafeRuntimeConfig(event)
 
   return {
     secret: config.secret,
@@ -7,5 +7,8 @@ export default defineEventHandler(() => {
     posthogEnabled: config.public.posthog.enabled,
     sampleRate: config.public.posthog.sampleRate,
     logins: config.public.logins,
+    matchesStartup: JSON.stringify(config) === JSON.stringify(useSafeRuntimeConfig()),
+    // Validated values are written back into Nitro 2's per-request config.
+    rawEventType: typeof useRuntimeConfig(event).public.posthog.enabled,
   }
 })

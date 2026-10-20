@@ -13,6 +13,7 @@ ruleTester.run('prefer-safe-runtime-config', rule, {
     { code: 'const config = useSafeRuntimeConfig()' },
     { code: 'const config = useSafeRuntimeConfig(); console.log(config)' },
     { code: 'function foo() { return useSafeRuntimeConfig() }' },
+    { code: 'const config = useSafeRuntimeConfig(event)' },
     { code: 'const runtimeConfig = someOtherFunction()' },
   ],
   invalid: [
@@ -30,6 +31,11 @@ ruleTester.run('prefer-safe-runtime-config', rule, {
       code: 'const { public } = useRuntimeConfig()',
       errors: [{ messageId: 'preferSafe' }],
       output: 'const { public } = useSafeRuntimeConfig()',
+    },
+    {
+      code: 'const { secret } = useRuntimeConfig(event)',
+      errors: [{ messageId: 'preferSafe' }],
+      output: 'const { secret } = useSafeRuntimeConfig(event)',
     },
   ],
 })

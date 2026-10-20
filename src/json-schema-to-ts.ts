@@ -105,11 +105,11 @@ declare global {
 }
 
 declare module '#imports' {
-  export function useSafeRuntimeConfig(): SafeRuntimeConfig
+  export function useSafeRuntimeConfig(event?: { context: object }): SafeRuntimeConfig
 }
 
 declare module '#app' {
-  export function useSafeRuntimeConfig(): SafeRuntimeConfig
+  export function useSafeRuntimeConfig(event?: { context: object }): SafeRuntimeConfig
 }
 
 export {}

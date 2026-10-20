@@ -4,10 +4,10 @@ import { ensureRuntimeConfigValidation, getRuntimeValidationState, registerRunti
 import { createRuntimeConfigValidator } from '../src/runtime/validator'
 import { getJSONSchema } from '../src/utils/json-schema'
 
-const runtimeConfig = vi.hoisted(() => ({ shared: {} as Record<string, unknown> }))
+const runtimeConfig = vi.hoisted(() => ({ shared: {} as Record<string, unknown>, event: new Map<object, Record<string, unknown>>() }))
 
 vi.mock('#imports', () => ({
-  useRuntimeConfig: () => runtimeConfig.shared,
+  useRuntimeConfig: (event?: object) => event ? runtimeConfig.event.get(event) : runtimeConfig.shared,
 }))
 
 const { useSafeRuntimeConfig } = await import('../src/runtime/composables/useSafeRuntimeConfig')
@@ -36,6 +36,12 @@ function register(options: Partial<Parameters<typeof createRuntimeConfigValidato
   }))
   registerRuntimeConfigValidator(validator, runtimeConfig.shared)
   return validator
+}
+
+function event(config: Record<string, unknown>) {
+  const event = { context: {} }
+  runtimeConfig.event.set(event, config)
+  return event
 }
 
 beforeEach(() => {
@@ -132,5 +138,26 @@ describe('event-scoped config validation', () => {
     expect(getRuntimeValidationState(eventConfig)?.status).toBe('valid')
     expect(useValidatedRuntimeConfig(eventConfig)).toMatchObject({ secret: 'request-secret', perfTrace: { enabled: true }, runs: 2 })
     expect(useValidatedRuntimeConfig(runtimeConfig.shared)).toMatchObject({ secret: 'startup-secret', runs: 1 })
+  })
+})
+
+describe('useSafeRuntimeConfig(event)', () => {
+  it('returns the startup result when the event config has the same values', () => {
+    const validator = register()
+    const config = useSafeRuntimeConfig(event(structuredClone(rawConfig('startup-secret'))))
+
+    expect(config).toEqual(useSafeRuntimeConfig())
+    expect(validator).toHaveBeenCalledOnce()
+  })
+
+  it('returns the coerced event config when its values differ', () => {
+    register()
+    const requestEvent = event(rawConfig('request-secret', '0'))
+
+    const config = useSafeRuntimeConfig(requestEvent) as Record<string, any>
+
+    expect(config.secret).toBe('request-secret')
+    expect(config.perfTrace.enabled).toBe(false)
+    expect(useSafeRuntimeConfig(requestEvent)).toBe(config)
   })
 })
