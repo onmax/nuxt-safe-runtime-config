@@ -1,4 +1,4 @@
-/// <reference types="@nuxt/nitro-server" />
+/// <reference types="@nuxt/nitro-server/augments" />
 import type { ModuleOptions } from './types'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
