@@ -20,11 +20,11 @@ export function mergeTransformedRuntimeConfig(current: unknown, transformed: unk
   return merged
 }
 
-export type RuntimeValidationState =
-  | { status: 'pending', ready: Promise<void> }
-  | { status: 'valid', value: RuntimeConfig }
-  | { status: 'invalid' }
-  | { status: 'failed', error: unknown }
+export type RuntimeValidationState
+  = | { status: 'pending', ready: Promise<void> }
+    | { status: 'valid', value: RuntimeConfig }
+    | { status: 'invalid' }
+    | { status: 'failed', error: unknown }
 
 interface RuntimeValidationStore {
   states: WeakMap<RuntimeConfig, RuntimeValidationState>
