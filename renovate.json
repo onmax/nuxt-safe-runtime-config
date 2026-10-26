@@ -6,7 +6,7 @@
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": ["before 5am on monday"],
-    "automerge": true
+    "automerge": false
   },
   "packageRules": [
     {
@@ -19,6 +19,53 @@
     {
       "description": "Automerge patch updates for regular runtime dependencies once required checks pass.",
       "matchDepTypes": ["dependencies"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true
+    },
+    {
+      "description": "Apply dev grouping and patch/minor automerge to explicitly selected catalog tooling and test dependencies.",
+      "matchDepTypes": ["pnpm.catalog.default"],
+      "matchPackageNames": [
+        "@antfu/eslint-config",
+        "@antfu/ni",
+        "@types/node",
+        "@typescript-eslint/parser",
+        "@typescript-eslint/rule-tester",
+        "arktype",
+        "bumpp",
+        "changelogen",
+        "eslint",
+        "eslint-plugin-format",
+        "lint-staged",
+        "simple-git-hooks",
+        "typescript",
+        "unbuild",
+        "valibot",
+        "vitest",
+        "vue-tsc",
+        "zod"
+      ],
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "dev dependencies",
+      "automerge": true
+    },
+    {
+      "description": "Automerge only patches for catalog dependencies shipped by this module.",
+      "matchDepTypes": ["pnpm.catalog.default"],
+      "matchPackageNames": [
+        "@cfworker/json-schema",
+        "@standard-community/standard-json",
+        "@standard-schema/spec",
+        "@typescript-eslint/utils",
+        "@valibot/to-json-schema",
+        "consola",
+        "defu",
+        "jiti",
+        "magicast",
+        "ofetch",
+        "std-env",
+        "zod-to-json-schema"
+      ],
       "matchUpdateTypes": ["patch"],
       "automerge": true
     },
