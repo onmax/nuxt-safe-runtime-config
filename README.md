@@ -9,16 +9,16 @@ Validate Nuxt runtime config at build time using <b>Zod</b>, <b>Valibot</b>, <b>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/nuxt-safe-runtime-config">
-    <img src="https://img.shields.io/npm/v/nuxt-safe-runtime-config.svg" alt="npm version" />
+    <img src="https://comark-ui.onmax.me/badge.svg?source=npm-version&amp;package=nuxt-safe-runtime-config&amp;icon=npm" alt="npm version" />
   </a>
   <a href="https://www.npmjs.com/package/nuxt-safe-runtime-config">
-    <img src="https://img.shields.io/npm/dm/nuxt-safe-runtime-config.svg" alt="npm downloads" />
+    <img src="https://comark-ui.onmax.me/badge.svg?source=npm-downloads&amp;package=nuxt-safe-runtime-config&amp;icon=npm" alt="npm downloads" />
   </a>
   <a href="https://github.com/onmax/nuxt-safe-runtime-config/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/onmax/nuxt-safe-runtime-config.svg" alt="License" />
+    <img src="https://comark-ui.onmax.me/badge.svg?label=license&amp;value=MIT" alt="License" />
   </a>
   <a href="https://nuxt.com">
-    <img src="https://img.shields.io/badge/Nuxt-3%20%7C%204%20%7C%205%20nightly-00DC82.svg" alt="Nuxt compatibility" />
+    <img src="https://comark-ui.onmax.me/badge.svg?label=Nuxt&amp;value=3+%7C+4+%7C+5+nightly" alt="Nuxt compatibility" />
   </a>
 
   <p align="center">
