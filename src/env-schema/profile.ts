@@ -153,7 +153,8 @@ function lexicalValue(node: ParsedEnvSpecStaticValue, context: Context): string 
     return undefined
   if (/^["'`[{]/.test(value) || /^[A-Z]\w*\(/i.test(value))
     fail(context, 'Unsupported or malformed default expression')
-  return value
+  const decoded = staticValue(node, context)
+  return typeof decoded === 'string' ? decoded : value
 }
 
 function validUrl(value: string): boolean {
