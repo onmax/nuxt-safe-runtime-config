@@ -1,7 +1,7 @@
 /// <reference path="../../runtime-nitro.d.ts" />
+import { consola } from 'consola'
 import { useRuntimeConfig } from '#safe-runtime-config/nitro-runtime-config'
 import { coercionSchema, draft, onError, runtimeSchema, schema } from '#safe-runtime-config/validate'
-import { consola } from 'consola'
 import { registerRuntimeConfigValidator } from '../config-state'
 import { createRuntimeConfigValidator } from '../validator'
 

@@ -2,7 +2,7 @@
   "name": "nuxt-safe-runtime-config",
   "type": "module",
   "version": "0.3.1",
-  "packageManager": "pnpm@11.2.2",
+  "packageManager": "pnpm@12.15.0",
   "description": "Validate Nuxt runtime config with Standard Schema at build time",
   "author": {
     "name": "onmax"
@@ -71,10 +71,10 @@
     "dev:prepare": "nuxt-module-build build --stub && nuxi prepare playground",
     "clean:runtime-stubs": "find src/runtime -type f \\( -name '*.js' -o -name '*.d.ts' \\) -delete",
     "typecheck": "pnpm clean:runtime-stubs && nuxt typecheck && pnpm -C playground typecheck",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint": "eslint --config eslint.config.mjs .",
+    "lint:fix": "eslint --config eslint.config.mjs . --fix",
     "test": "vitest run --exclude test/env-schema-lab.test.ts",
-    "test:lab:env-schema": "vitest run test/env-schema-lab.test.ts --minWorkers=1 --maxWorkers=1",
+    "test:lab:env-schema": "vitest run test/env-schema-lab.test.ts --maxWorkers=1",
     "test:watch": "vitest watch",
     "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
   },

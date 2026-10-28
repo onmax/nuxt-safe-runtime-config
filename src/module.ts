@@ -1,4 +1,4 @@
-/// <reference types="@nuxt/nitro-server" />
+/// <reference types="@nuxt/nitro-server/augments" />
 import type { ModuleOptions } from './types'
 import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
