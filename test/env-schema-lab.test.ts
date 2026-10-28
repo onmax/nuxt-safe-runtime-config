@@ -182,7 +182,7 @@ afterAll(async () => {
   await Promise.all([...children].map(stop))
 }, 10_000)
 
-describe('experimental env schema deployment lab', () => {
+describe('env schema deployment lab', () => {
   it('retries startup when another process claims the selected port', async () => {
     const occupied = createServer(socket => socket.destroy())
     await new Promise<void>((resolve, reject) => {
@@ -235,6 +235,8 @@ describe('experimental env schema deployment lab', () => {
         secretDigest: digest(firstSecret),
         accountPin: '1e3',
         retries: 3,
+        roles: ['read'],
+        settings: { enabled: false, retries: 3, tags: [] },
         public: {
           replayEnabled: true,
           telemetry: { sampleRate: 0.4 },
@@ -305,7 +307,29 @@ describe('experimental env schema deployment lab', () => {
     }
   }, 20_000)
 
+  it('validates injected JSON arrays and objects in the built server', async () => {
+    const server = await startServer({
+      NUXT_ROLES: '["read","write"]',
+      NUXT_SETTINGS: '{"enabled":true,"retries":7,"tags":["one","two"]}',
+      NUXT_METADATA: '{"nested":[true,null,3]}',
+    })
+    try {
+      const config: unknown = await (await ready(server)).json()
+      expect(config).toMatchObject({
+        roles: ['read', 'write'],
+        settings: { enabled: true, retries: 7, tags: ['one', 'two'] },
+        metadata: { nested: [true, null, 3] },
+      })
+    }
+    finally { await stop(server) }
+  }, 20_000)
+
   it.each([
+    ['invalid JSON array item', 'NUXT_ROLES', '["unknown"]'],
+    ['invalid JSON object property', 'NUXT_SETTINGS', '{"enabled":"true","retries":3,"tags":[]}'],
+    ['missing JSON object property', 'NUXT_SETTINGS', '{"enabled":true,"retries":3}'],
+    ['malformed JSON', 'NUXT_ROLES', '['],
+    ['unsafe JSON object', 'NUXT_METADATA', '{"__proto__":{"polluted":true}}'],
     ['missing secret', 'NUXT_API_SECRET', undefined],
     ['short secret', 'NUXT_API_SECRET', 'short!'],
     ['missing required number', 'NUXT_RETRIES', undefined],

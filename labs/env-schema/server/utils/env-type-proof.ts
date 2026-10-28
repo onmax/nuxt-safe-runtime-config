@@ -5,6 +5,9 @@ type Equal<T, U> = (<V>() => V extends T ? 1 : 2) extends (<V>() => V extends U 
 type Assert<T extends true> = T
 
 export type EnvironmentTypeProof = [
+  Assert<Equal<Config['roles'], ('read' | 'write')[]>>,
+  Assert<Equal<Config['settings'], { enabled: boolean, retries: number, tags: string[] }>>,
+  Assert<Equal<Config['metadata'], Record<string, unknown> | undefined>>,
   Assert<Equal<Config['apiSecret'], string>>,
   Assert<Equal<Config['accountPin'], string>>,
   Assert<Equal<Config['retries'], number>>,

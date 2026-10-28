@@ -11,6 +11,9 @@ export default defineEventHandler((event) => {
     retries: config.retries,
     optionalLimit: config.optionalLimit,
     public: config.public,
+    roles: config.roles,
+    settings: config.settings,
+    metadata: config.metadata,
     types: {
       accountPin: typeof config.accountPin,
       retries: typeof config.retries,

@@ -33,3 +33,5 @@ pnpm test:lab:env-schema
 The test prepares generated types, checks the actual consumer, builds once, restarts that artifact, checks rendered HTML and client assets, and exercises startup failures. It removes inherited `NUXT_*`, `NITRO_*`, `HOST`, and `PORT` settings from child processes. No deployment secrets or external services are needed.
 
 The final check rebuilds with an inherited synthetic credential, verifies that no output file contains it, and starts that artifact with a different runtime credential. CI runs this lab separately from the main suite to avoid overlapping framework builds.
+
+The schema also declares `roles` as `('read' | 'write')[]`, `settings` as an exact object with a boolean, number and string array, and an optional open `metadata` object. The production checks inject JSON, verify parsed responses, and reject malformed JSON, wrong item/property types, missing properties and unsafe prototype keys. The consumer type checks assert these generated types.
