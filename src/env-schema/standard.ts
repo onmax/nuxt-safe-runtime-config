@@ -17,7 +17,7 @@ export function createEnvSchemaValidator(jsonSchema: EnvSchemaObject): StandardS
         const result = validator.validate(value)
         return result.valid
           ? { value }
-          : { issues: result.errors.map(error => ({ message: `${envSchemaIssueLocation(jsonSchema, error.instanceLocation)}${error.instanceLocation}: ${error.error}` })) }
+          : { issues: result.errors.map(error => ({ message: `${envSchemaIssueLocation(jsonSchema, error)}${error.instanceLocation}: ${error.error}` })) }
       },
     },
   }

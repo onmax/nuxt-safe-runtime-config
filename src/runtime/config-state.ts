@@ -1,10 +1,16 @@
 type RuntimeConfig = Record<string, unknown>
+type RuntimeConfigEnvironment = Record<string, string | undefined>
 
 /**
  * Validates one runtime config object and records the outcome with `setRuntimeValidationState`.
  * Asynchronous schemas record a `pending` state whose promise never rejects.
  */
-export type RuntimeConfigValidator = (config: RuntimeConfig) => void
+export interface RuntimeConfigValidator {
+  /** Startup uses process env; requests may provide the env captured at config creation. */
+  (config: RuntimeConfig, source?: 'startup' | RuntimeConfigEnvironment): void
+  /** Installs compatible cached output, including schema-specific cleanup. */
+  reuse?: (config: RuntimeConfig, value: RuntimeConfig, environment?: RuntimeConfigEnvironment) => boolean
+}
 
 function isRuntimeConfig(value: unknown): value is RuntimeConfig {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -76,7 +82,7 @@ export function useValidatedRuntimeConfig(config: RuntimeConfig): RuntimeConfig 
 export function registerRuntimeConfigValidator(validator: RuntimeConfigValidator, config: RuntimeConfig): void {
   validationStore.validator = validator
   validationStore.baseline = { config, snapshot: JSON.stringify(config) }
-  validator(config)
+  validator(config, 'startup')
 }
 
 // Event configs must not share mutable objects with other requests.
@@ -93,7 +99,7 @@ function clonePlain<T>(value: T): T {
  * Event configs whose raw values equal the startup config reuse a copy of its outcome, so Node
  * servers run the schema once per process.
  */
-export function ensureRuntimeConfigValidation(config: RuntimeConfig): void | Promise<void> {
+export function ensureRuntimeConfigValidation(config: RuntimeConfig, environment?: RuntimeConfigEnvironment): void | Promise<void> {
   const state = getRuntimeValidationState(config)
   if (state)
     return state.status === 'pending' ? state.ready : undefined
@@ -105,24 +111,31 @@ export function ensureRuntimeConfigValidation(config: RuntimeConfig): void | Pro
   if (JSON.stringify(config) === baseline.snapshot) {
     const baselineState = getRuntimeValidationState(baseline.config)
     if (baselineState?.status === 'pending')
-      return baselineState.ready.then(() => ensureRuntimeConfigValidation(config))
+      return baselineState.ready.then(() => ensureRuntimeConfigValidation(config, environment))
     if (baselineState?.status === 'valid') {
-      applyValidatedRuntimeConfig(config, clonePlain(baselineState.value))
-      return
+      const value = clonePlain(baselineState.value)
+      if (validator.reuse) {
+        if (validator.reuse(config, value, environment))
+          return
+      }
+      else {
+        applyValidatedRuntimeConfig(config, value)
+        return
+      }
     }
-    if (baselineState) {
+    else if (baselineState && !validator.reuse) {
       setRuntimeValidationState(config, baselineState)
       return
     }
   }
 
-  validator(config)
+  validator(config, environment)
   const validatedState = getRuntimeValidationState(config)
   return validatedState?.status === 'pending' ? validatedState.ready : undefined
 }
 
-export async function waitForRuntimeConfigValidation(config: RuntimeConfig): Promise<void> {
-  await ensureRuntimeConfigValidation(config)
+export async function waitForRuntimeConfigValidation(config: RuntimeConfig, environment?: RuntimeConfigEnvironment): Promise<void> {
+  await ensureRuntimeConfigValidation(config, environment)
 
   const settledState = getRuntimeValidationState(config)
   if (settledState?.status === 'failed')

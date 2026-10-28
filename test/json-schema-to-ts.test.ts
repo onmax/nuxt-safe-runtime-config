@@ -13,6 +13,8 @@ describe('jsonSchemaToTs', () => {
   it('converts arrays', () => {
     expect(jsonSchemaToTs({ type: 'array', items: { type: 'string' } })).toBe('string[]')
     expect(jsonSchemaToTs({ type: 'array' })).toBe('unknown[]')
+    expect(jsonSchemaToTs({ type: 'array', items: { enum: ['read', 'write'] } })).toBe('("read" | "write")[]')
+    expect(jsonSchemaToTs({ type: 'array', items: { anyOf: [{ type: 'number' }, { type: 'string' }] } })).toBe('(number | string)[]')
     expect(jsonSchemaToTs({ type: 'array', items: { type: 'array', items: { type: 'number' } } })).toBe('number[][]')
   })
 
