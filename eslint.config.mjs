@@ -3,6 +3,8 @@ import antfu from '@antfu/eslint-config'
 
 export default antfu({
   type: 'lib',
+  // Preserve the existing wrapping style when upgrading the shared config.
+  rules: { 'antfu/reasonable-newline': 'off' },
   typescript: true,
   vue: true,
   formatters: true,

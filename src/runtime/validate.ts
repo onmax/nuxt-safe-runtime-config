@@ -6,9 +6,9 @@ export interface ValidationLogger {
   warn: (message: string) => void
 }
 
-export type RuntimeValidationResult =
-  | { success: true, value: unknown }
-  | { success: false }
+export type RuntimeValidationResult
+  = | { success: true, value: unknown }
+    | { success: false }
 
 function reportError(msg: string, onError: ErrorBehavior, logger: ValidationLogger, throwMsg?: string): void {
   if (onError === 'throw') {
