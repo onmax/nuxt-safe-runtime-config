@@ -45,7 +45,7 @@ function validateJsonSchema(
   if (result.valid)
     return { success: true, value: config }
 
-  const errors = result.errors.map(e => `${envSchemaIssueLocation(schema, e.instanceLocation)}${e.instanceLocation}: ${e.error}`).join(', ')
+  const errors = result.errors.map(e => `${envSchemaIssueLocation(schema, e)}${e.instanceLocation}: ${e.error}`).join(', ')
   const msg = `Runtime validation failed: ${errors}`
   if (onError === 'throw') {
     logger.error(msg)
@@ -72,9 +72,10 @@ export function createRuntimeConfigValidator(options: RuntimeConfigValidatorOpti
     }
   }
 
-  return (config) => {
+  const validate: RuntimeConfigValidator = (config, source) => {
+    const environment = source === 'startup' ? process.env : source
     const coerced = isEnvSchema(options.schema)
-      ? normalizeEnvSchemaConfig(config, options.schema, process.env)
+      ? normalizeEnvSchemaConfig(config, options.schema, environment)
       : coerceRuntimeConfig(config, coercionSchema)
     let result: RuntimeValidationResult | Promise<RuntimeValidationResult>
     try {
@@ -97,4 +98,15 @@ export function createRuntimeConfigValidator(options: RuntimeConfigValidatorOpti
       .catch(error => setRuntimeValidationState(config, { status: 'failed', error }))
     setRuntimeValidationState(config, { status: 'pending', ready })
   }
+
+  if (isEnvSchema(options.schema)) {
+    validate.reuse = (config, value, environment) => {
+      // Equal parsed values do not prove that a request used the startup env spelling.
+      if (JSON.stringify(normalizeEnvSchemaConfig(config, options.schema, environment)) !== JSON.stringify(value))
+        return false
+      settle(config, { success: true, value })
+      return true
+    }
+  }
+  return validate
 }

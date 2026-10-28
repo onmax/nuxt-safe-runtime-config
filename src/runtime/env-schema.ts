@@ -1,3 +1,5 @@
+import type { OutputUnit } from '@cfworker/json-schema'
+
 type JsonSchema = Record<string, unknown>
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -10,6 +12,26 @@ function isUnsetValue(value: unknown): boolean {
 
 export function isEnvSchema(schema: JsonSchema): boolean {
   return schema['x-env-profile'] === 'env-spec-v1'
+}
+
+/** Captures declared lexical inputs at the point Nitro creates a config from this env. */
+export function captureEnvSchemaEnvironment(schema: JsonSchema, env: Record<string, string | undefined>): Record<string, string | undefined> {
+  const result: Record<string, string | undefined> = {}
+  if (!isRecord(schema.properties))
+    return result
+  for (const property of Object.values(schema.properties)) {
+    if (!isRecord(property))
+      continue
+    const key = property['x-env-key']
+    if (typeof key === 'string') {
+      if (Object.hasOwn(env, key))
+        result[key] = env[key]
+    }
+    else {
+      Object.assign(result, captureEnvSchemaEnvironment(property, env))
+    }
+  }
+  return result
 }
 
 function normalizeField(value: unknown, schema: JsonSchema): unknown {
@@ -39,20 +61,6 @@ function normalizeField(value: unknown, schema: JsonSchema): unknown {
   return value
 }
 
-function matchesInjectedValue(current: unknown, raw: string): boolean {
-  if (current === raw)
-    return true
-  try {
-    const parsed: unknown = JSON.parse(raw)
-    return Object.is(current, parsed) || (isRecord(current) && isRecord(parsed) && JSON.stringify(current) === JSON.stringify(parsed))
-  }
-  catch {
-    if (typeof current === 'boolean')
-      return String(current) === raw.trim().toLowerCase()
-    return typeof current === 'number' && raw.trim() !== '' && Number(raw) === current
-  }
-}
-
 function normalizeObject(config: Record<string, unknown>, schema: JsonSchema, env: Record<string, string | undefined>): Record<string, unknown> {
   const result = { ...config }
   if (!isRecord(schema.properties))
@@ -67,11 +75,12 @@ function normalizeObject(config: Record<string, unknown>, schema: JsonSchema, en
       continue
     }
 
-    // Read the original injected string before Nitro's JSON parsing loses its spelling.
+    // Only the caller that knows the config's source may supply lexical env values.
     const raw = Object.hasOwn(env, envKey) ? env[envKey] : undefined
-    // A request-scoped binding can differ from the process environment. Keep its value.
-    const hasOverride = raw !== undefined && (!Object.hasOwn(config, key) || isUnsetValue(config[key]) || matchesInjectedValue(config[key], raw))
-    let value: unknown = hasOverride ? env[envKey] : config[key]
+    const hasOverride = raw !== undefined
+    if (!hasOverride && !Object.hasOwn(config, key))
+      continue
+    let value: unknown = hasOverride ? raw : config[key]
     const optional = property['x-env-required'] === false
     const plainString = property.type === 'string' && !property.enum && !property.format
     if (optional && ((!hasOverride && (isUnsetValue(value) || value === null)) || (value === '' && !plainString)))
@@ -90,21 +99,36 @@ export function normalizeEnvSchemaConfig(config: Record<string, unknown>, schema
   return isEnvSchema(schema) ? normalizeObject(config, schema, env) : config
 }
 
-export function envSchemaIssueLocation(schema: JsonSchema, location: string): string {
+function sourceLocations(schema: JsonSchema): string[] {
+  const source = schema['x-env-source']
+  if (typeof schema['x-env-key'] === 'string' && isRecord(source) && typeof source.file === 'string' && typeof source.line === 'number')
+    return [`${source.file}:${source.line} (${schema['x-env-key']})`]
+  const properties = schema.properties
+  if (!isRecord(properties) || !Array.isArray(schema.required))
+    return []
+  return schema.required.flatMap((key: unknown) => typeof key === 'string' && isRecord(properties[key]) ? sourceLocations(properties[key]) : [])
+}
+
+export function envSchemaIssueLocation(schema: JsonSchema, issue: Pick<OutputUnit, 'instanceLocation' | 'keyword' | 'error'>): string {
   if (!isEnvSchema(schema))
     return ''
   let current: unknown = schema
-  for (const segment of location.split('/').slice(1)) {
+  for (const segment of issue.instanceLocation.split('/').slice(1)) {
     if (!isRecord(current) || !isRecord(current.properties))
       return ''
     current = current.properties[segment.replace(/~1/g, '/').replace(/~0/g, '~')]
   }
-  if (!isRecord(current) || typeof current['x-env-key'] !== 'string')
+  if (issue.keyword === 'required') {
+    // The validator points required errors at the containing object, not the missing child.
+    const key = issue.error.match(/^Instance does not have required property "([^"]+)"\.$/)?.[1]
+    if (!key || !isRecord(current) || !isRecord(current.properties))
+      return ''
+    current = current.properties[key]
+  }
+  if (!isRecord(current))
     return ''
-  const source = current['x-env-source']
-  return isRecord(source) && typeof source.file === 'string' && typeof source.line === 'number'
-    ? `${source.file}:${source.line} (${current['x-env-key']}) `
-    : ''
+  const locations = sourceLocations(current)
+  return locations.length ? `${locations.join(', ')} ` : ''
 }
 
 /** Keeps omitted optional declarations out of Nuxt's serialized public payload. */
