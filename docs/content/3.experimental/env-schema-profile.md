@@ -42,7 +42,7 @@ Root decorators must be in a header ending with `# ---`. Only `@defaultRequired`
 | --- | --- |
 | `@type=string` | String output. This is always the default type. |
 | `@type=string(minLength=1, maxLength=80)` | Inclusive string length constraints. |
-| `@type=number(min=0, max=100, isInt=true)` | Finite numeric output with optional bounds and integer constraint. |
+| `@type=number(min=0, max=100, isInt=true)` | Finite numeric output with optional bounds and safe integer constraint. |
 | `@type=boolean` | Boolean output. |
 | `@type=enum(debug, info, error)` | One of the listed strings. Quote numeric or boolean-looking choices. |
 | `@type=url` | An absolute URL accepted by the platform `URL` constructor. Output remains a string. |

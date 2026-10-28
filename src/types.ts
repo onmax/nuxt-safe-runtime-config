@@ -36,6 +36,14 @@ export interface ShelveProviderOptions {
 }
 
 export interface ModuleOptions extends ValidationOptions {
+  /** Experimental schema formats. The env schema validates deployed values without requiring build secrets. */
+  experimental?: {
+    envSchema?: string | {
+      file: string
+      /** Explicit nested paths. Each path must match the declared canonical NUXT_ name. */
+      paths?: Record<string, string>
+    }
+  }
   /** Shelve integration options */
   shelve?: boolean | ShelveProviderOptions
 }
