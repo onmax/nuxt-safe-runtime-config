@@ -1,0 +1,15 @@
+{
+  "name": "nuxt-safe-runtime-config-lab-env-schema",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "prepare": "nuxt prepare",
+    "build": "nuxt build",
+    "typecheck": "vue-tsc --noEmit --skipLibCheck -p .nuxt/tsconfig.server.json",
+    "start": "node .output/server/index.mjs"
+  },
+  "devDependencies": {
+    "nuxt": "catalog:",
+    "vue-tsc": "catalog:"
+  }
+}

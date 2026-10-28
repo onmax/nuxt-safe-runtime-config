@@ -190,6 +190,20 @@ import { useSafeRuntimeConfig } from '#imports'
 | `jsonSchemaTarget`  | `string`                        | `'draft-2020-12'`    | JSON Schema version for runtime validation  |
 | `shelve`            | `boolean \| ShelveOptions`      | `undefined`          | Shelve secrets integration (see below)      |
 
+## Experimental environment schemas
+
+A committed `.env.example` can declare runtime config and its generated types. Enable it explicitly:
+
+```ts
+safeRuntimeConfig: {
+  experimental: { envSchema: '.env.example' },
+}
+```
+
+Preparation and builds require the schema file, without deployment variables. The built server validates injected `NUXT_*` values at startup. Assignments are real defaults; `@example` values are documentation only.
+
+See the [experimental guide](./docs/content/3.experimental/2.nuxt-env-schema.md), [supported profile](./docs/content/3.experimental/env-schema-profile.md), and [runnable deployment lab](./labs/env-schema). The lab checks generated consumer types, runtime restarts, invalid deployments and secret leakage with `pnpm test:lab:env-schema`.
+
 ## Shelve Integration
 
 [Shelve](https://shelve.cloud) is a secrets management service. This module fetches secrets from Shelve at build time and merges them into your runtime config before validation.
