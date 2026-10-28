@@ -185,12 +185,12 @@ export default defineNuxtModule<ModuleOptions>({
       }
     }
 
-    const envSchemaSource = options.experimental?.envSchema
+    const envSchemaSource = options.envSchema
     if (envSchemaSource) {
       if (options.$schema)
-        throw new Error('Choose experimental.envSchema or $schema, not both')
+        throw new Error('Choose envSchema or $schema, not both')
       if (options.validateAtRuntime === false)
-        throw new Error('experimental.envSchema requires runtime validation of deployed values')
+        throw new Error('envSchema requires runtime validation of deployed values')
       const source = typeof envSchemaSource === 'string' ? { file: envSchemaSource } : envSchemaSource
       const schemaFile = resolve(nuxt.options.rootDir, source.file)
       const fields = parseEnvSchema(await readFile(schemaFile, 'utf8'), schemaFile)

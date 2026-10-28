@@ -1,3 +1,4 @@
+import type { EnvSchemaValue } from '../runtime/env-schema-value'
 import type { EnvSchemaField, EnvSchemaType } from './profile'
 import { camelCase, snakeCase } from 'scule'
 
@@ -12,17 +13,20 @@ export interface EnvSchemaMapping {
   sensitive: boolean
   type: EnvSchemaType
   source: { file: string, line: number }
-  default?: string | number | boolean
+  default?: EnvSchemaValue
 }
 
-interface EnvSchemaLeaf extends Record<string, unknown> {
-  'type': 'string' | 'number' | 'integer' | 'boolean'
+interface EnvSchemaValueSchema extends Record<string, unknown> {
+  type: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object'
+}
+
+interface EnvSchemaLeaf extends EnvSchemaValueSchema {
   'description': string
   'x-env-key': string
   'x-env-source': { file: string, line: number }
   'x-env-required': boolean
   'x-env-sensitive': boolean
-  'default'?: string | number | boolean
+  'default'?: EnvSchemaValue
   'enum'?: string[]
   'format'?: string
   'minLength'?: number
@@ -39,7 +43,7 @@ export interface EnvSchemaObject extends Record<string, unknown> {
 }
 
 export interface EnvSchemaRuntimeConfig {
-  [key: string]: string | number | boolean | null | EnvSchemaRuntimeConfig
+  [key: string]: EnvSchemaValue
 }
 
 export interface CompiledEnvSchema {
@@ -100,32 +104,41 @@ function fieldSchema(field: EnvSchemaField): EnvSchemaLeaf {
     'x-env-source': { ...field.source },
     'x-env-required': field.required,
     'x-env-sensitive': field.sensitive,
-    ...(field.default !== undefined && { default: field.default }),
+    ...(field.default !== undefined && { default: structuredClone(field.default) }),
   }
-  switch (field.type.kind) {
+  const valueSchema = typeSchema(field.type)
+  if (field.type.kind === 'string' && field.required)
+    valueSchema.minLength = Math.max(1, field.type.minLength ?? 0)
+  return { ...metadata, ...valueSchema }
+}
+
+function typeSchema(type: EnvSchemaType): EnvSchemaValueSchema {
+  switch (type.kind) {
+    case 'array':
+      return { type: 'array', items: type.items ? typeSchema(type.items) : {} }
+    case 'object':
+      return type.properties
+        ? { type: 'object', properties: Object.fromEntries(Object.entries(type.properties).map(([key, property]) => [key, typeSchema(property)])), required: Object.keys(type.properties), additionalProperties: false }
+        : { type: 'object', additionalProperties: true }
     case 'string':
       return {
-        ...metadata,
         type: 'string',
-        ...(field.required || field.type.minLength !== undefined
-          ? { minLength: Math.max(field.required ? 1 : 0, field.type.minLength ?? 0) }
-          : {}),
-        ...(field.type.maxLength !== undefined && { maxLength: field.type.maxLength }),
+        ...(type.minLength !== undefined && { minLength: type.minLength }),
+        ...(type.maxLength !== undefined && { maxLength: type.maxLength }),
       }
     case 'number':
       return {
-        ...metadata,
-        type: field.type.isInt ? 'integer' : 'number',
-        ...(field.type.isInt
-          ? { minimum: Math.max(field.type.min ?? Number.MIN_SAFE_INTEGER, Number.MIN_SAFE_INTEGER), maximum: Math.min(field.type.max ?? Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER) }
-          : { ...(field.type.min !== undefined && { minimum: field.type.min }), ...(field.type.max !== undefined && { maximum: field.type.max }) }),
+        type: type.isInt ? 'integer' : 'number',
+        ...(type.isInt
+          ? { minimum: Math.max(type.min ?? Number.MIN_SAFE_INTEGER, Number.MIN_SAFE_INTEGER), maximum: Math.min(type.max ?? Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER) }
+          : { ...(type.min !== undefined && { minimum: type.min }), ...(type.max !== undefined && { maximum: type.max }) }),
       }
     case 'boolean':
-      return { ...metadata, type: 'boolean' }
+      return { type: 'boolean' }
     case 'enum':
-      return { ...metadata, type: 'string', enum: [...field.type.values] }
+      return { type: 'string', enum: [...type.values] }
     case 'url':
-      return { ...metadata, type: 'string', format: 'uri', minLength: 1 }
+      return { type: 'string', format: 'uri', minLength: 1 }
   }
 }
 
@@ -168,7 +181,7 @@ function renderObject(node: ObjectNode): Pick<CompiledEnvSchema, 'jsonSchema' | 
       const { field } = child
       jsonSchema.properties[key] = fieldSchema(field)
       // Nitro drops null defaults. An invalid object keeps the env key declared until runtime.
-      runtimeConfig[key] = field.default ?? { __envSchemaUnset: true }
+      runtimeConfig[key] = structuredClone(field.default) ?? { __envSchemaUnset: true }
       if (field.required || field.default !== undefined)
         jsonSchema.required.push(key)
     }
@@ -198,9 +211,9 @@ export function compileEnvSchema(fields: EnvSchemaField[], options: CompileEnvSc
       path,
       required: field.required,
       sensitive: field.sensitive,
-      type: field.type.kind === 'enum' ? { ...field.type, values: [...field.type.values] } : { ...field.type },
+      type: structuredClone(field.type),
       source: { ...field.source },
-      ...(field.default !== undefined && { default: field.default }),
+      ...(field.default !== undefined && { default: structuredClone(field.default) }),
     })
   }
   const compiled = renderObject(root)

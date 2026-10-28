@@ -141,6 +141,75 @@ describe('env-spec-v1 profile', () => {
     expect(() => parseEnvSchema(source, 'dynamic.env')).toThrow(/unsupported|Only static/)
   })
 
+  it('reads typed JSON arrays, objects and nested constraints', () => {
+    const fields = parseEnvSchema(`
+# @type=array(enum(read, write))
+A='["read","write"]'
+# @type=object(enabled=boolean, retries=number(min=0, isInt=true), tags=array(string))
+B='{"enabled":true,"retries":2,"tags":["one"]}'
+# @type=array(object(name=string(minLength=1), scores=array(number)))
+C='[{"name":"one","scores":[1,2]}]'
+# @type=object
+D='{"anything":[true,null,1]}'
+# @type=array
+E='[true,{"nested":1},null]'
+# @type=object()
+F='{}'
+`, 'json.env')
+    expect(fields.map(field => field.default)).toEqual([
+      ['read', 'write'],
+      { enabled: true, retries: 2, tags: ['one'] },
+      [{ name: 'one', scores: [1, 2] }],
+      { anything: [true, null, 1] },
+      [true, { nested: 1 }, null],
+      {},
+    ])
+    expect(fields[1]?.type).toEqual({ kind: 'object', properties: {
+      enabled: { kind: 'boolean' },
+      retries: { kind: 'number', min: 0, isInt: true },
+      tags: { kind: 'array', items: { kind: 'string' } },
+    } })
+    expect(JSON.parse(JSON.stringify(fields))).toEqual(fields)
+  })
+
+  it.each([
+    ['array(number)', '["private-marker"]'],
+    ['array(number(isInt=true))', '[1.5]'],
+    ['object(enabled=boolean)', '{"enabled":"true"}'],
+    ['object(enabled=boolean)', '{}'],
+    ['object(enabled=boolean)', '{"enabled":true,"extra":1}'],
+    ['object()', '{"extra":1}'],
+    ['object', '{"__proto__":{"polluted":true}}'],
+    ['object', '{"constructor":1}'],
+    ['object', '{"__envSchemaUnset":true}'],
+    ['array', '{}'],
+    ['object', '[]'],
+    ['array', '[1e999]'],
+    ['array', 'private-marker'],
+  ])('rejects invalid JSON defaults for %s', (type, value) => {
+    expect(() => parseEnvSchema(`# @type=${type}\nA='${value}'`, 'json.env')).toThrow(/json\.env:2 \(A\): Default/)
+    try {
+      parseEnvSchema(`# @type=${type}\nA='${value}'`, 'json.env')
+    }
+    catch (error: unknown) {
+      if (error instanceof Error)
+        expect(error.message).not.toContain('private-marker')
+    }
+  })
+
+  it.each([
+    'array(string, number)',
+    'array(items=string)',
+    'object(string)',
+    'object(a=string, a=number)',
+    'object(__proto__=string)',
+    'object(constructor=string)',
+    'object(__envSchemaUnset=boolean)',
+    `${'array('.repeat(18)}string${')'.repeat(18)}`,
+  ])('rejects invalid structured type %s', (type) => {
+    expect(() => parseEnvSchema(`# @type=${type}\nA=`, 'json.env')).toThrow()
+  })
+
   it('reports safe locations without echoing default values or parser source excerpts', () => {
     expect(() => fixture('invalid-default')).toThrow(/invalid-default\.env:2 \(PORT\): Default/)
     expect(() => fixture('unsupported')).toThrow('Only static values')

@@ -478,3 +478,16 @@ pnpm run test:watch
 Releases go through [uppt](https://github.com/danielroe/uppt). Every push to `main` updates a draft `release/vX.Y.Z` PR built from conventional commits. Merging it tags the version, creates the GitHub release, and publishes the package to npm through OIDC trusted publishing. If publishing fails after the tag exists, run `gh workflow run release.yml --ref vX.Y.Z`.
 
 </details>
+
+### Environment file schemas
+
+Use `.env` for values and a committed `.env.example` for types and defaults:
+
+```ts
+export default defineNuxtConfig({
+  modules: ['nuxt-safe-runtime-config'],
+  safeRuntimeConfig: { envSchema: '.env.example' },
+})
+```
+
+`useSafeRuntimeConfig()` provides the declared types after Runtime validation. Strings, booleans, numbers, enums, URLs, JSON arrays and object shapes are supported. The existing `$schema` API remains available as an alternative schema source. See the [environment schema guide](https://nuxt-safe-runtime-config.onmax.me/guide/env-schema).
