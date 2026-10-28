@@ -1,12 +1,14 @@
 import type { ChildProcess } from 'node:child_process'
+import type { AddressInfo } from 'node:net'
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { access, readdir, readFile } from 'node:fs/promises'
+import { createServer } from 'node:net'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { getFreePort } from './utils/free-port'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import * as ports from './utils/free-port'
 
 const labDir = fileURLToPath(new URL('../labs/env-schema', import.meta.url))
 const nuxtBin = fileURLToPath(new URL('../node_modules/nuxt/bin/nuxt.mjs', import.meta.url))
@@ -105,9 +107,30 @@ function deploymentEnvironment(overrides: NodeJS.ProcessEnv = {}): NodeJS.Proces
 }
 
 async function startServer(overrides: NodeJS.ProcessEnv = {}) {
-  const port = await getFreePort()
-  const running = launch([serverEntry], { ...deploymentEnvironment(overrides), HOST: '127.0.0.1', PORT: port })
-  return Object.assign(running, { url: `http://127.0.0.1:${port}` })
+  // Nitro 2 maps PORT=0 to its default port, so retry bind collisions instead.
+  for (let attempt = 0; ; attempt++) {
+    const port = await ports.getFreePort()
+    const running = launch([serverEntry], { ...deploymentEnvironment(overrides), HOST: '127.0.0.1', PORT: port })
+    try {
+      await within((async () => {
+        while (running.child.exitCode === null && running.child.signalCode === null
+          && !/Listening on|EADDRINUSE/.test(running.logs())) {
+          await delay(25)
+        }
+        if (running.child.exitCode !== null || running.child.signalCode !== null)
+          await running.closed
+      })(), 12_000, () => `Lab server did not start\n${running.logs()}`)
+      if (!running.logs().includes('EADDRINUSE'))
+        return Object.assign(running, { url: `http://127.0.0.1:${port}` })
+      if (attempt >= 2)
+        throw new Error(`Lab server could not bind after three attempts\n${running.logs()}`)
+    }
+    catch (error) {
+      await stop(running)
+      throw error
+    }
+    await stop(running)
+  }
 }
 
 async function ready(server: Awaited<ReturnType<typeof startServer>>): Promise<Response> {
@@ -160,6 +183,32 @@ afterAll(async () => {
 }, 10_000)
 
 describe('experimental env schema deployment lab', () => {
+  it('retries startup when another process claims the selected port', async () => {
+    const occupied = createServer(socket => socket.destroy())
+    await new Promise<void>((resolve, reject) => {
+      occupied.once('error', reject)
+      occupied.listen(0, '127.0.0.1', resolve)
+    })
+    const port = String((occupied.address() as AddressInfo).port)
+    const getFreePort = vi.spyOn(ports, 'getFreePort').mockResolvedValueOnce(port)
+    try {
+      const server = await startServer()
+      try {
+        const response = await ready(server)
+        await response.body?.cancel()
+        expect(getFreePort).toHaveBeenCalledTimes(2)
+        expect(new URL(server.url).port).not.toBe(port)
+      }
+      finally {
+        await stop(server)
+      }
+    }
+    finally {
+      getFreePort.mockRestore()
+      await new Promise<void>((resolve, reject) => occupied.close(error => error ? reject(error) : resolve()))
+    }
+  }, 20_000)
+
   it('builds without deployment values and never embeds example credentials', async () => {
     const builtText = await outputText(join(labDir, '.output'))
     for (const marker of [...exampleMarkers, firstSecret, secondSecret])
