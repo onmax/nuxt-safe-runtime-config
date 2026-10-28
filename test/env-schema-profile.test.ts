@@ -26,7 +26,7 @@ describe('env-spec-v1 profile', () => {
 
   it('uses the actual parser for quoting, comments and multiline values', () => {
     const fields = fixture('quoted')
-    expect(fields.map(field => field.default)).toEqual(['value#with=hash', 'literal $VALUE', 'first\nsecond', '00123', 'true'])
+    expect(fields.map(field => field.default)).toEqual(['value#with=hash', 'literal $VALUE', 'first\nsecond', '00123', 'true', '$OTHER', '\\$OTHER', '$OTHER'])
     expect(fields.every(field => field.type.kind === 'string')).toBe(true)
     expect(fields[0]?.description).toBe('A literal hash and equals sign remain part of this string.')
   })
