@@ -1,5 +1,6 @@
 import type { ParsedEnvSpecDecorator, ParsedEnvSpecFile } from '@env-spec/parser'
 import type { EnvSchemaValue } from '../runtime/env-schema-value'
+import { format } from '@cfworker/json-schema'
 import { ParsedEnvSpecFunctionCall, ParsedEnvSpecKeyValuePair, ParsedEnvSpecStaticValue, parseEnvSpecDotEnvFile } from '@env-spec/parser'
 import { isEnvSchemaValue } from '../runtime/env-schema-value'
 
@@ -185,15 +186,6 @@ function lexicalValue(node: ParsedEnvSpecStaticValue, context: Context): string 
   return typeof decoded === 'string' ? decoded : value
 }
 
-function validUrl(value: string): boolean {
-  try {
-    return !!new URL(value).protocol
-  }
-  catch {
-    return false
-  }
-}
-
 function matchesStructuredType(value: EnvSchemaValue, type: EnvSchemaType): boolean {
   switch (type.kind) {
     case 'array': {
@@ -218,7 +210,7 @@ function matchesStructuredType(value: EnvSchemaValue, type: EnvSchemaType): bool
     case 'enum':
       return typeof value === 'string' && type.values.includes(value)
     case 'url':
-      return typeof value === 'string' && validUrl(value)
+      return typeof value === 'string' && format.uri(value)
   }
 }
 
@@ -269,7 +261,7 @@ function parseDefault(value: string | undefined, type: EnvSchemaType, required: 
         fail(context, 'Default is not an enum choice')
       return value
     case 'url':
-      if (!validUrl(value))
+      if (!format.uri(value))
         fail(context, 'Default must be an absolute URL')
       return value
   }
