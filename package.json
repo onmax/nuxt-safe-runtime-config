@@ -95,6 +95,7 @@
   },
   "dependencies": {
     "@cfworker/json-schema": "catalog:",
+    "@env-spec/parser": "catalog:",
     "@standard-community/standard-json": "catalog:",
     "@standard-schema/spec": "catalog:",
     "@typescript-eslint/utils": "catalog:",
@@ -104,6 +105,7 @@
     "jiti": "catalog:",
     "magicast": "catalog:",
     "ofetch": "catalog:",
+    "scule": "catalog:",
     "std-env": "catalog:",
     "zod-to-json-schema": "catalog:"
   },

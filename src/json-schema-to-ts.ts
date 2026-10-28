@@ -40,8 +40,10 @@ export function jsonSchemaToTs(schema: Record<string, unknown>, indent = 0): str
 
   if (type === 'array') {
     const items = schema.items as Record<string, unknown> | undefined
-    if (items)
-      return `${jsonSchemaToTs(items, indent)}[]`
+    if (items) {
+      const itemType = jsonSchemaToTs(items, indent)
+      return `${itemType.includes(' | ') || itemType.includes(' & ') ? `(${itemType})` : itemType}[]`
+    }
     return 'unknown[]'
   }
 
@@ -68,6 +70,19 @@ export function jsonSchemaToTs(schema: Record<string, unknown>, indent = 0): str
       const optional = isRequired ? '' : '?'
       const safeKey = /^[\w$]+$/.test(key) && !/^\d/.test(key) ? key : JSON.stringify(key)
       const propType = jsonSchemaToTs(propSchema, indent + 1)
+      if (typeof propSchema['x-env-key'] === 'string') {
+        const description = typeof propSchema.description === 'string' ? propSchema.description : ''
+        const source = propSchema['x-env-source']
+        const location = source && typeof source === 'object' && 'file' in source && 'line' in source
+          ? `${String(source.file)}:${String(source.line)}`
+          : ''
+        const docLines = [description, location].filter(Boolean).flatMap(text => text.replace(/\*\//g, '* /').split(/\r?\n/))
+        if (docLines.length) {
+          lines.push(`${propIndent}/**`)
+          lines.push(...docLines.map(line => `${propIndent} * ${line}`))
+          lines.push(`${propIndent} */`)
+        }
+      }
       lines.push(`${propIndent}${safeKey}${optional}: ${propType}`)
     }
 

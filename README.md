@@ -9,16 +9,16 @@ Validate Nuxt runtime config at build time using <b>Zod</b>, <b>Valibot</b>, <b>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/nuxt-safe-runtime-config">
-    <img src="https://img.shields.io/npm/v/nuxt-safe-runtime-config.svg" alt="npm version" />
+    <img src="https://comark-ui.onmax.me/badge.svg?source=npm-version&amp;package=nuxt-safe-runtime-config&amp;icon=npm" alt="npm version" />
   </a>
   <a href="https://www.npmjs.com/package/nuxt-safe-runtime-config">
-    <img src="https://img.shields.io/npm/dm/nuxt-safe-runtime-config.svg" alt="npm downloads" />
+    <img src="https://comark-ui.onmax.me/badge.svg?source=npm-downloads&amp;package=nuxt-safe-runtime-config&amp;icon=npm" alt="npm downloads" />
   </a>
   <a href="https://github.com/onmax/nuxt-safe-runtime-config/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/onmax/nuxt-safe-runtime-config.svg" alt="License" />
+    <img src="https://comark-ui.onmax.me/badge.svg?label=license&amp;value=MIT" alt="License" />
   </a>
   <a href="https://nuxt.com">
-    <img src="https://img.shields.io/badge/Nuxt-3%20%7C%204%20%7C%205%20nightly-00DC82.svg" alt="Nuxt compatibility" />
+    <img src="https://comark-ui.onmax.me/badge.svg?label=Nuxt&amp;value=3+%7C+4+%7C+5+nightly" alt="Nuxt compatibility" />
   </a>
 
   <p align="center">
@@ -478,3 +478,16 @@ pnpm run test:watch
 Releases go through [uppt](https://github.com/danielroe/uppt). Every push to `main` updates a draft `release/vX.Y.Z` PR built from conventional commits. Merging it tags the version, creates the GitHub release, and publishes the package to npm through OIDC trusted publishing. If publishing fails after the tag exists, run `gh workflow run release.yml --ref vX.Y.Z`.
 
 </details>
+
+### Environment file schemas
+
+Use `.env` for values and a committed `.env.example` for types and defaults:
+
+```ts
+export default defineNuxtConfig({
+  modules: ['nuxt-safe-runtime-config'],
+  safeRuntimeConfig: { envSchema: '.env.example' },
+})
+```
+
+`useSafeRuntimeConfig()` provides the declared types after Runtime validation. Strings, booleans, numbers, enums, URLs, JSON arrays and object shapes are supported. The existing `$schema` API remains available as an alternative schema source. See the [environment schema guide](https://nuxt-safe-runtime-config.onmax.me/guide/env-schema).
