@@ -138,6 +138,81 @@ describe('env schema runtime boundary', () => {
     expect(createEnvSchemaValidator(jsonSchema)['~standard'].validate({ secret: 'runtime-only', limit: null })).toEqual({ value: { secret: 'runtime-only' } })
   })
 
+  it.each([
+    'https://example.test',
+    'https://xn--r8jz45g.xn--zckzah/%E8%B7%AF',
+    'postgresql://example.test/database',
+    'mailto:ops@example.test',
+    'urn:isbn:9780140328721',
+  ])('accepts the same URL defaults and overrides: %s', (value) => {
+    for (const [type, input] of [['url', value], ['array(url)', [value]], ['object(endpoint=url)', { endpoint: value }]] as const) {
+      const raw = typeof input === 'string' ? input : JSON.stringify(input)
+      const { config, validate } = contract(`# @type=${type}\nNUXT_TARGET='${raw}'`)
+      validate(config)
+      expect(useValidatedRuntimeConfig(config).target).toEqual(input)
+
+      const override = { target: raw }
+      validate(override)
+      expect(useValidatedRuntimeConfig(override).target).toEqual(input)
+    }
+  })
+
+  it.each([
+    'https://例え.テスト',
+    'https://example.test/路径',
+    'https://example.test/has space',
+    ' https://example.test ',
+  ])('rejects URLs requiring platform normalization in defaults and overrides: %s', (value) => {
+    expect(new URL(value).protocol).toBe('https:')
+    for (const [type, input] of [['url', value], ['array(url)', [value]], ['object(endpoint=url)', { endpoint: value }]] as const) {
+      const raw = typeof input === 'string' ? input : JSON.stringify(input)
+      expect(() => contract(`# @type=${type}\nNUXT_TARGET='${raw}'`)).toThrow(/example.env:2 \(NUXT_TARGET\): Default/)
+
+      const { config, validate } = contract(`# @type=${type}\nNUXT_TARGET=`)
+      config.target = raw
+      expect(() => validate(config)).toThrow('Runtime validation failed')
+    }
+  })
+
+  it('parses JSON without coercing its members and removes optional missing values', () => {
+    const { config, validate } = contract(`# @type=array(enum(read, write))
+NUXT_ROLES=
+# @type=object(enabled=boolean, retries=number)
+NUXT_SETTINGS=
+# @optional @type=array(string)
+NUXT_TAGS=
+`)
+    config.roles = '["read","write"]'
+    config.settings = '{"enabled":false,"retries":3}'
+    validate(config)
+    expect(useValidatedRuntimeConfig(config)).toEqual({ roles: ['read', 'write'], settings: { enabled: false, retries: 3 } })
+    expect(config.tags).toBeUndefined()
+  })
+
+  it.each([
+    ['array(number)', '["private-marker"]'],
+    ['array(object(enabled=boolean))', '[{"enabled":"private-marker"}]'],
+    ['object(enabled=boolean)', '{}'],
+    ['object(enabled=boolean)', '{"enabled":true,"extra":1}'],
+    ['object', '{"__proto__":{"private-marker":true}}'],
+    ['object', '{"__envSchemaUnset":true}'],
+    ['array', 'private-marker'],
+  ])('reports the declaration for invalid nested JSON %s', async (type, value) => {
+    const { config, validate, jsonSchema, logger } = contract(`# @type=${type}\nNUXT_SETTINGS=`)
+    config.settings = value
+    expect(() => validate(config)).toThrow('Runtime validation failed')
+    const result = await createEnvSchemaValidator(jsonSchema)['~standard'].validate(config)
+    for (const message of [logger.error.mock.calls.flat().join(), result.issues?.map(issue => issue.message).join() ?? '']) {
+      expect(message).toContain('example.env:2 (NUXT_SETTINGS)')
+      expect(message).not.toContain('private-marker')
+    }
+  })
+
+  it('rejects a missing required open object rather than accepting its placeholder', () => {
+    const { config, validate } = contract('# @type=object\nNUXT_SETTINGS=')
+    expect(() => validate(config)).toThrow('Runtime validation failed')
+  })
+
   it('leaves existing schemas and their string unions unchanged', () => {
     const config = { limit: '5' }
     expect(normalizeEnvSchemaConfig(config, { type: 'object' })).toBe(config)

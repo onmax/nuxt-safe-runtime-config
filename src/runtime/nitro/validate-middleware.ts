@@ -8,7 +8,10 @@ import { captureEnvSchemaEnvironment, isEnvSchema } from '../env-schema'
 
 export default eventHandler(async (event): Promise<void> => {
   // Only a fresh Nitro config has a known process-env source. Existing bindings own their values.
-  const environment = isEnvSchema(schema) && !event.context.nitro?.runtimeConfig
+  const nitroContext: unknown = event.context.nitro
+  const existingConfig = typeof nitroContext === 'object' && nitroContext !== null
+    && 'runtimeConfig' in nitroContext && nitroContext.runtimeConfig
+  const environment = isEnvSchema(schema) && !existingConfig
     ? captureEnvSchemaEnvironment(schema, process.env)
     : undefined
   // Read the event config before awaiting: Nitro 2 on Cloudflare resolves env from a global

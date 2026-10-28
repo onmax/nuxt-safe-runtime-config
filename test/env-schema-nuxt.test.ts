@@ -167,6 +167,30 @@ NUXT_OPTIONAL_LIMIT=
     expect(result.mappings).toContainEqual(expect.objectContaining({ key: 'NUXT_OPTIONAL_LIMIT', required: false, type: { kind: 'number' } }))
   })
 
+  it('compiles recursive JSON schemas and exact TypeScript output', () => {
+    const result = compile(`# @type=array(enum(read, write))
+NUXT_ROLES='["read"]'
+# @type=object(enabled=boolean, retries=number(min=0), tags=array(string))
+NUXT_SETTINGS=
+# @optional @type=array(number)
+NUXT_LIMITS=
+# @type=object
+NUXT_METADATA='{}'
+`)
+    const declaration = generateTypeDeclaration(result.jsonSchema)
+    expect(declaration).toContain('roles: ("read" | "write")[]')
+    expect(declaration).toContain('enabled: boolean')
+    expect(declaration).toContain('retries: number')
+    expect(declaration).toContain('tags: string[]')
+    expect(declaration).toContain('limits?: number[]')
+    expect(declaration).toContain('metadata: Record<string, unknown>')
+    const validator = new Validator(result.jsonSchema)
+    const valid = { roles: ['write'], settings: { enabled: true, retries: 2, tags: ['one'] }, metadata: {} }
+    expect(validator.validate(valid).valid).toBe(true)
+    for (const settings of [{ enabled: true }, { enabled: 'true', retries: 2, tags: [] }, { ...valid.settings, extra: 1 }, { ...valid.settings, tags: [1] }])
+      expect(validator.validate({ ...valid, settings }).valid).toBe(false)
+  })
+
   it('generates typed outputs for required, optional, defaulted and nested values', () => {
     const result = compile(`NUXT_TOKEN=
 # @optional

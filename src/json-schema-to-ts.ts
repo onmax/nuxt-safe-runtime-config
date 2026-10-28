@@ -40,8 +40,10 @@ export function jsonSchemaToTs(schema: Record<string, unknown>, indent = 0): str
 
   if (type === 'array') {
     const items = schema.items as Record<string, unknown> | undefined
-    if (items)
-      return `${jsonSchemaToTs(items, indent)}[]`
+    if (items) {
+      const itemType = jsonSchemaToTs(items, indent)
+      return `${itemType.includes(' | ') || itemType.includes(' & ') ? `(${itemType})` : itemType}[]`
+    }
     return 'unknown[]'
   }
 

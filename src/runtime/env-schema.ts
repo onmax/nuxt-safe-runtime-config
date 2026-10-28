@@ -1,4 +1,5 @@
 import type { OutputUnit } from '@cfworker/json-schema'
+import { isEnvSchemaValue } from './env-schema-value'
 
 type JsonSchema = Record<string, unknown>
 
@@ -35,6 +36,17 @@ export function captureEnvSchemaEnvironment(schema: JsonSchema, env: Record<stri
 }
 
 function normalizeField(value: unknown, schema: JsonSchema): unknown {
+  if (schema.type === 'array' || schema.type === 'object') {
+    if (typeof value !== 'string')
+      return isEnvSchemaValue(value) ? value : null
+    try {
+      const parsed: unknown = JSON.parse(value)
+      return isEnvSchemaValue(parsed) ? parsed : null
+    }
+    catch {
+      return null
+    }
+  }
   if (schema.type === 'number' || schema.type === 'integer') {
     if (typeof value !== 'string')
       return value
@@ -89,12 +101,12 @@ function normalizeObject(config: Record<string, unknown>, schema: JsonSchema, en
       delete result[key]
       continue
     }
-    result[key] = normalizeField(value === undefined ? null : value, property)
+    result[key] = normalizeField(value === undefined || isUnsetValue(value) ? null : value, property)
   }
   return result
 }
 
-/** Normalizes only the compiled experiment; other schema sources keep their own semantics. */
+/** Normalizes only env-spec declarations; other schema sources keep their own semantics. */
 export function normalizeEnvSchemaConfig(config: Record<string, unknown>, schema: JsonSchema, env: Record<string, string | undefined> = {}): Record<string, unknown> {
   return isEnvSchema(schema) ? normalizeObject(config, schema, env) : config
 }
@@ -113,21 +125,25 @@ export function envSchemaIssueLocation(schema: JsonSchema, issue: Pick<OutputUni
   if (!isEnvSchema(schema))
     return ''
   let current: unknown = schema
+  let field: JsonSchema | undefined
   for (const segment of issue.instanceLocation.split('/').slice(1)) {
-    if (!isRecord(current) || !isRecord(current.properties))
-      return ''
-    current = current.properties[segment.replace(/~1/g, '/').replace(/~0/g, '~')]
+    if (!isRecord(current))
+      break
+    if (typeof current['x-env-key'] === 'string')
+      field = current
+    current = current.type === 'array'
+      ? current.items
+      : isRecord(current.properties) ? current.properties[segment.replace(/~1/g, '/').replace(/~0/g, '~')] : undefined
   }
-  if (issue.keyword === 'required') {
-    // The validator points required errors at the containing object, not the missing child.
+  if (isRecord(current) && typeof current['x-env-key'] === 'string')
+    field = current
+  if (!field && issue.keyword === 'required') {
+    // Required errors point at the containing object, not the missing child.
     const key = issue.error.match(/^Instance does not have required property "([^"]+)"\.$/)?.[1]
-    if (!key || !isRecord(current) || !isRecord(current.properties))
-      return ''
-    current = current.properties[key]
+    if (key && isRecord(current) && isRecord(current.properties))
+      current = current.properties[key]
   }
-  if (!isRecord(current))
-    return ''
-  const locations = sourceLocations(current)
+  const locations = sourceLocations(field ?? (isRecord(current) ? current : {}))
   return locations.length ? `${locations.join(', ')} ` : ''
 }
 

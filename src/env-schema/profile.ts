@@ -1,5 +1,8 @@
 import type { ParsedEnvSpecDecorator, ParsedEnvSpecFile } from '@env-spec/parser'
+import type { EnvSchemaValue } from '../runtime/env-schema-value'
+import { format } from '@cfworker/json-schema'
 import { ParsedEnvSpecFunctionCall, ParsedEnvSpecKeyValuePair, ParsedEnvSpecStaticValue, parseEnvSpecDotEnvFile } from '@env-spec/parser'
+import { isEnvSchemaValue } from '../runtime/env-schema-value'
 
 export const ENV_SCHEMA_PROFILE = 'env-spec-v1'
 
@@ -9,6 +12,8 @@ export type EnvSchemaType
     | { kind: 'boolean' }
     | { kind: 'enum', values: string[] }
     | { kind: 'url' }
+    | { kind: 'array', items?: EnvSchemaType }
+    | { kind: 'object', properties?: Record<string, EnvSchemaType> }
 
 export interface EnvSchemaField {
   key: string
@@ -18,7 +23,7 @@ export interface EnvSchemaField {
   description: string
   example?: string
   docs: string[]
-  default?: string | number | boolean
+  default?: EnvSchemaValue
   source: { file: string, line: number }
 }
 
@@ -94,8 +99,32 @@ function numericArgument(args: Map<string, unknown>, name: string, context: Cont
 function parseType(decorator: ParsedEnvSpecDecorator | undefined, context: Context): EnvSchemaType {
   if (!decorator)
     return { kind: 'string' }
-  const node = decorator.value
+  return parseTypeNode(decorator.value, context)
+}
+
+function parseTypeNode(node: unknown, context: Context, depth = 0): EnvSchemaType {
+  if (depth > 16)
+    fail(context, 'Type nesting exceeds 16 levels')
   const name = node instanceof ParsedEnvSpecFunctionCall ? node.name : staticValue(node, context)
+  if (name === 'array') {
+    const args = node instanceof ParsedEnvSpecFunctionCall ? node.data.args.values : []
+    if (args.length > 1 || args[0] instanceof ParsedEnvSpecKeyValuePair)
+      fail(context, 'Array requires at most one item type')
+    return { kind: 'array', ...(args.length && { items: parseTypeNode(args[0], context, depth + 1) }) }
+  }
+  if (name === 'object') {
+    if (!(node instanceof ParsedEnvSpecFunctionCall))
+      return { kind: 'object' }
+    const entries = new Map<string, EnvSchemaType>()
+    for (const arg of node.data.args.values) {
+      if (!(arg instanceof ParsedEnvSpecKeyValuePair) || !/^[A-Z_$][\w$]*$/i.test(arg.key) || ['__proto__', 'prototype', 'constructor', '__envSchemaUnset'].includes(arg.key))
+        fail(context, 'Object requires safe named property types')
+      if (entries.has(arg.key))
+        fail(context, 'Duplicate object property')
+      entries.set(arg.key, parseTypeNode(arg.value, context, depth + 1))
+    }
+    return { kind: 'object', properties: Object.fromEntries(entries) }
+  }
   if (name === 'enum') {
     if (!(node instanceof ParsedEnvSpecFunctionCall) || node.data.args.values.length === 0)
       fail(context, 'Enum requires string choices')
@@ -157,16 +186,35 @@ function lexicalValue(node: ParsedEnvSpecStaticValue, context: Context): string 
   return typeof decoded === 'string' ? decoded : value
 }
 
-function validUrl(value: string): boolean {
-  try {
-    return !!new URL(value).protocol
-  }
-  catch {
-    return false
+function matchesStructuredType(value: EnvSchemaValue, type: EnvSchemaType): boolean {
+  switch (type.kind) {
+    case 'array': {
+      const items = type.items
+      return Array.isArray(value) && (!items || value.every(item => matchesStructuredType(item, items)))
+    }
+    case 'object': {
+      if (value === null || typeof value !== 'object' || Array.isArray(value))
+        return false
+      const properties = type.properties
+      return !properties || (Object.keys(value).length === Object.keys(properties).length && Object.entries(properties).every(([key, property]) => {
+        const item = value[key]
+        return Object.hasOwn(value, key) && item !== undefined && matchesStructuredType(item, property)
+      }))
+    }
+    case 'string':
+      return typeof value === 'string' && (type.minLength === undefined || value.length >= type.minLength) && (type.maxLength === undefined || value.length <= type.maxLength)
+    case 'number':
+      return typeof value === 'number' && (!type.isInt || Number.isSafeInteger(value)) && (type.min === undefined || value >= type.min) && (type.max === undefined || value <= type.max)
+    case 'boolean':
+      return typeof value === 'boolean'
+    case 'enum':
+      return typeof value === 'string' && type.values.includes(value)
+    case 'url':
+      return typeof value === 'string' && format.uri?.(value) === true
   }
 }
 
-function parseDefault(value: string | undefined, type: EnvSchemaType, required: boolean, context: Context): string | number | boolean | undefined {
+function parseDefault(value: string | undefined, type: EnvSchemaType, required: boolean, context: Context): EnvSchemaValue | undefined {
   if (value === undefined)
     return undefined
   if (value === '') {
@@ -176,6 +224,19 @@ function parseDefault(value: string | undefined, type: EnvSchemaType, required: 
       return undefined
   }
   switch (type.kind) {
+    case 'array':
+    case 'object': {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(value)
+      }
+      catch {
+        fail(context, 'Default must be valid JSON')
+      }
+      if (!isEnvSchemaValue(parsed) || !matchesStructuredType(parsed, type))
+        fail(context, 'Default does not match the declared JSON type')
+      return parsed
+    }
     case 'string':
       if ((type.minLength !== undefined && value.length < type.minLength) || (type.maxLength !== undefined && value.length > type.maxLength))
         fail(context, 'Default violates string length constraints')
@@ -200,7 +261,7 @@ function parseDefault(value: string | undefined, type: EnvSchemaType, required: 
         fail(context, 'Default is not an enum choice')
       return value
     case 'url':
-      if (!validUrl(value))
+      if (!format.uri?.(value))
         fail(context, 'Default must be an absolute URL')
       return value
   }
