@@ -195,9 +195,12 @@ import { useSafeRuntimeConfig } from '#imports'
 A committed `.env.example` can declare runtime config and its generated types. Enable it explicitly:
 
 ```ts
-safeRuntimeConfig: {
-  experimental: { envSchema: '.env.example' },
-}
+export default defineNuxtConfig({
+  modules: ['nuxt-safe-runtime-config'],
+  safeRuntimeConfig: {
+    experimental: { envSchema: '.env.example' },
+  },
+})
 ```
 
 Preparation and builds require the schema file, without deployment variables. The built server validates injected `NUXT_*` values at startup. Assignments are real defaults; `@example` values are documentation only.
