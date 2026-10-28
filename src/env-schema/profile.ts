@@ -210,7 +210,7 @@ function matchesStructuredType(value: EnvSchemaValue, type: EnvSchemaType): bool
     case 'enum':
       return typeof value === 'string' && type.values.includes(value)
     case 'url':
-      return typeof value === 'string' && format.uri(value)
+      return typeof value === 'string' && format.uri?.(value) === true
   }
 }
 
@@ -261,7 +261,7 @@ function parseDefault(value: string | undefined, type: EnvSchemaType, required: 
         fail(context, 'Default is not an enum choice')
       return value
     case 'url':
-      if (!format.uri(value))
+      if (!format.uri?.(value))
         fail(context, 'Default must be an absolute URL')
       return value
   }
