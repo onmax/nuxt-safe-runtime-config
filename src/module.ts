@@ -1,12 +1,16 @@
 /// <reference types="@nuxt/nitro-server" />
 import type { ModuleOptions } from './types'
+import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { addImports, addServerImports, addServerPlugin, addTemplate, addTypeTemplate, createResolver, defineNuxtModule, getNuxtVersion, useLogger } from '@nuxt/kit'
 import defu from 'defu'
 import { isCI, isTest } from 'std-env'
 import { version } from '../package.json'
+import { compileEnvSchema } from './env-schema/nuxt'
+import { parseEnvSchema } from './env-schema/profile'
+import { createEnvSchemaValidator } from './env-schema/standard'
 import safeRuntimeConfigNitroModule, { resolveRuntimeConfigImport } from './nitro'
 import { fetchShelveSecrets, resolveShelveConfig, resolveShelveOptions } from './providers/shelve'
 import { errorMessage } from './utils/error'
@@ -17,6 +21,22 @@ export { transformEnvVars } from './runtime/utils/transform'
 export type { ErrorBehavior, ModuleOptions, SchemaSource, ShelveProviderOptions, ValidationOptions } from './types'
 
 const logger = useLogger('safe-runtime-config')
+
+function applyEnvSchemaDefaults(config: Record<string, unknown>, defaults: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(defaults)) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      const current = config[key]
+      const target = current && typeof current === 'object' && !Array.isArray(current)
+        ? Object.fromEntries(Object.entries(current))
+        : {}
+      applyEnvSchemaDefaults(target, Object.fromEntries(Object.entries(value)))
+      config[key] = target
+    }
+    else {
+      config[key] = value
+    }
+  }
+}
 
 function pushUnique<T>(list: T[], item: T): void {
   if (!list.includes(item))
@@ -83,7 +103,7 @@ export default defineNuxtModule<ModuleOptions>({
   defaults: {
     $schema: undefined,
     validateAtBuild: undefined,
-    validateAtRuntime: false,
+    validateAtRuntime: undefined,
     jsonSchemaTarget: 'draft-2020-12',
     onError: 'throw',
     shelve: undefined,
@@ -163,6 +183,30 @@ export default defineNuxtModule<ModuleOptions>({
         })
         addServerPlugin(shelvePlugin.dst)
       }
+    }
+
+    const envSchemaSource = options.experimental?.envSchema
+    if (envSchemaSource) {
+      if (options.$schema)
+        throw new Error('Choose experimental.envSchema or $schema, not both')
+      if (options.validateAtRuntime === false)
+        throw new Error('experimental.envSchema requires runtime validation of deployed values')
+      const source = typeof envSchemaSource === 'string' ? { file: envSchemaSource } : envSchemaSource
+      const schemaFile = resolve(nuxt.options.rootDir, source.file)
+      const fields = parseEnvSchema(await readFile(schemaFile, 'utf8'), schemaFile)
+      const compiled = compileEnvSchema(fields, { paths: source.paths })
+      options.$schema = createEnvSchemaValidator(compiled.jsonSchema)
+      options.validateAtRuntime = true
+      applyEnvSchemaDefaults(nuxt.options.runtimeConfig, compiled.runtimeConfig)
+      nuxt.hook('nitro:config', (nitroConfig) => {
+        nitroConfig.runtimeConfig ||= {}
+        applyEnvSchemaDefaults(nitroConfig.runtimeConfig, compiled.runtimeConfig)
+      })
+      nuxt.options.watch.push(schemaFile)
+      nuxt.hook('builder:watch', async (_event, path) => {
+        if (resolve(nuxt.options.rootDir, path) === schemaFile)
+          await nuxt.callHook('restart', { hard: true })
+      })
     }
 
     if (!options.$schema)

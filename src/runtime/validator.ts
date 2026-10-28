@@ -3,9 +3,11 @@ import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { ErrorBehavior } from '../types'
 import type { RuntimeConfigValidator } from './config-state'
 import type { RuntimeValidationResult, ValidationLogger } from './validate'
+import process from 'node:process'
 import { Validator } from '@cfworker/json-schema'
 import { coerceRuntimeConfig } from './coerce'
 import { applyValidatedRuntimeConfig, setRuntimeValidationState } from './config-state'
+import { clearAbsentEnvSchemaValues, envSchemaIssueLocation, isEnvSchema, normalizeEnvSchemaConfig } from './env-schema'
 import { isPromiseLike, validateRuntimeConfig } from './validate'
 
 export interface RuntimeConfigValidatorOptions {
@@ -37,12 +39,13 @@ function validateJsonSchema(
   validator: Validator,
   onError: ErrorBehavior,
   logger: ValidationLogger,
+  schema: Record<string, unknown>,
 ): RuntimeValidationResult {
   const result = validator.validate(config)
   if (result.valid)
     return { success: true, value: config }
 
-  const errors = result.errors.map(e => `${e.instanceLocation}: ${e.error}`).join(', ')
+  const errors = result.errors.map(e => `${envSchemaIssueLocation(schema, e)}${e.instanceLocation}: ${e.error}`).join(', ')
   const msg = `Runtime validation failed: ${errors}`
   if (onError === 'throw') {
     logger.error(msg)
@@ -59,19 +62,26 @@ export function createRuntimeConfigValidator(options: RuntimeConfigValidatorOpti
   const jsonValidator = runtimeSchema ? null : new Validator(options.schema, options.draft)
 
   const settle = (config: Record<string, unknown>, validation: RuntimeValidationResult): void => {
-    if (validation.success)
+    if (validation.success) {
+      if (isEnvSchema(options.schema) && validation.value && typeof validation.value === 'object' && !Array.isArray(validation.value))
+        clearAbsentEnvSchemaValues(config, Object.fromEntries(Object.entries(validation.value)), options.schema)
       applyValidatedRuntimeConfig(config, validation.value)
-    else
+    }
+    else {
       setRuntimeValidationState(config, { status: 'invalid' })
+    }
   }
 
-  return (config) => {
-    const coerced = coerceRuntimeConfig(config, coercionSchema)
+  const validate: RuntimeConfigValidator = (config, source) => {
+    const environment = source === 'startup' ? process.env : source
+    const coerced = isEnvSchema(options.schema)
+      ? normalizeEnvSchemaConfig(config, options.schema, environment)
+      : coerceRuntimeConfig(config, coercionSchema)
     let result: RuntimeValidationResult | Promise<RuntimeValidationResult>
     try {
       result = runtimeSchema
         ? validateRuntimeConfig(coerced, runtimeSchema, onError, logger)
-        : validateJsonSchema(coerced, jsonValidator!, onError, logger)
+        : validateJsonSchema(coerced, jsonValidator!, onError, logger, options.schema)
     }
     catch (error) {
       setRuntimeValidationState(config, { status: 'failed', error })
@@ -88,4 +98,15 @@ export function createRuntimeConfigValidator(options: RuntimeConfigValidatorOpti
       .catch(error => setRuntimeValidationState(config, { status: 'failed', error }))
     setRuntimeValidationState(config, { status: 'pending', ready })
   }
+
+  if (isEnvSchema(options.schema)) {
+    validate.reuse = (config, value, environment) => {
+      // Equal parsed values do not prove that a request used the startup env spelling.
+      if (JSON.stringify(normalizeEnvSchemaConfig(config, options.schema, environment)) !== JSON.stringify(value))
+        return false
+      settle(config, { success: true, value })
+      return true
+    }
+  }
+  return validate
 }
