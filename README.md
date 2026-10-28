@@ -190,7 +190,7 @@ import { useSafeRuntimeConfig } from '#imports'
 | `jsonSchemaTarget`  | `string`                        | `'draft-2020-12'`    | JSON Schema version for runtime validation  |
 | `shelve`            | `boolean \| ShelveOptions`      | `undefined`          | Shelve secrets integration (see below)      |
 
-## Experimental environment schemas
+## Environment schemas
 
 A committed `.env.example` can declare runtime config and its generated types. Enable it explicitly:
 
@@ -198,14 +198,14 @@ A committed `.env.example` can declare runtime config and its generated types. E
 export default defineNuxtConfig({
   modules: ['nuxt-safe-runtime-config'],
   safeRuntimeConfig: {
-    experimental: { envSchema: '.env.example' },
+    envSchema: '.env.example',
   },
 })
 ```
 
 Preparation and builds require the schema file, without deployment variables. The built server validates injected `NUXT_*` values at startup. Assignments are real defaults; `@example` values are documentation only.
 
-See the [experimental guide](./docs/content/3.experimental/2.nuxt-env-schema.md), [supported profile](./docs/content/3.experimental/env-schema-profile.md), and [runnable deployment lab](./labs/env-schema). The lab checks generated consumer types, runtime restarts, invalid deployments and secret leakage with `pnpm test:lab:env-schema`.
+See the [environment schema guide](./docs/content/1.guide/5.env-schema.md), [supported profile](./docs/content/2.schemas/5.env-spec.md), and [runnable deployment lab](./labs/env-schema). The lab checks generated consumer types, runtime restarts, invalid deployments and secret leakage with `pnpm test:lab:env-schema`.
 
 ## Shelve Integration
 
