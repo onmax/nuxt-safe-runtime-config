@@ -11,6 +11,7 @@ packages:
   - ./
   - ./playground
   - ./docs
+  - ./labs/*
   - ./test/fixtures/*
 # Nuxt Kit 4.6 deep-clones config classes, breaking Zod schema instances before module setup.
 overrides:
