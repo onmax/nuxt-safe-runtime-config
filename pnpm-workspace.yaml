@@ -47,7 +47,6 @@ catalog:
   '@nuxt/module-builder': ^1.0.3
   '@nuxt/nitro-server': 4.5.0
   '@nuxt/schema': 4.5.0
-  '@nuxt/test-utils': ^4.3.4
   '@standard-community/standard-json': ^0.3.7
   '@standard-schema/spec': ^1.1.0
   '@types/node': ^24.19.2
