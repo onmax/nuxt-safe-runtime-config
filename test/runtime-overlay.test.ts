@@ -26,13 +26,13 @@ function baseConfig() {
 
 const secrets = { databaseUrl: 'postgresql://db', github: { clientSecret: 'shh' } }
 
-function createValidator() {
+function createValidator(onError: 'throw' | 'warn' | 'ignore' = 'throw') {
   return vi.fn(createRuntimeConfigValidator({
     runtimeSchema: null,
     schema: jsonSchema as never,
     draft: '2020-12',
     coercionSchema: jsonSchema,
-    onError: 'throw',
+    onError,
     logger,
   }))
 }
@@ -105,6 +105,36 @@ describe('runtime config overlay', () => {
 
     await expect(waitForRuntimeConfigValidation(shared)).rejects.toThrow('Runtime validation failed')
     expect(logger.error).toHaveBeenCalledOnce()
+  })
+
+  it.each(['warn', 'ignore'] as const)('retains fetched secrets when an unrelated field is invalid with onError=%s', async (onError) => {
+    const invalidConfig = () => ({ ...baseConfig(), public: { siteName: null } })
+    const shared = Object.freeze(invalidConfig())
+    const validator = createValidator(onError)
+    registerRuntimeConfigValidator(validator, shared)
+    load.resolve(secrets)
+    await waitForRuntimeConfigValidation(shared)
+
+    expect(getRuntimeValidationState(shared)?.status).toBe('invalid')
+    expect(useValidatedRuntimeConfig(shared)).toEqual({
+      ...invalidConfig(),
+      databaseUrl: secrets.databaseUrl,
+      github: { clientId: 'id', clientSecret: 'shh' },
+    })
+    expect(shared.databaseUrl).toBe('')
+
+    const eventConfig = invalidConfig()
+    await waitForRuntimeConfigValidation(eventConfig)
+    expect(useValidatedRuntimeConfig(eventConfig)).toBe(eventConfig)
+    expect(eventConfig.databaseUrl).toBe(secrets.databaseUrl)
+
+    const frozenEventConfig = Object.freeze(invalidConfig())
+    await waitForRuntimeConfigValidation(frozenEventConfig)
+    expect(useValidatedRuntimeConfig(frozenEventConfig)).toEqual(useValidatedRuntimeConfig(shared))
+    expect(useValidatedRuntimeConfig(frozenEventConfig)).not.toBe(useValidatedRuntimeConfig(shared))
+    expect(validator).toHaveBeenCalledOnce()
+    expect(logger.warn).toHaveBeenCalledTimes(onError === 'warn' ? 1 : 0)
+    expect(logger.error).not.toHaveBeenCalled()
   })
 
   it('applies the overlay to a mutable config once', async () => {

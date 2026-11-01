@@ -29,7 +29,7 @@ export function mergeTransformedRuntimeConfig(current: unknown, transformed: unk
 export type RuntimeValidationState
   = | { status: 'pending', ready: Promise<void> }
     | { status: 'valid', value: RuntimeConfig }
-    | { status: 'invalid' }
+    | { status: 'invalid', value?: RuntimeConfig }
     | { status: 'failed', error: unknown }
 
 /** Values loaded when the server starts, such as Shelve secrets, that take priority over every runtime config. */
@@ -76,8 +76,10 @@ export function applyValidatedRuntimeConfig(config: RuntimeConfig, value: unknow
 
 export function useValidatedRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
   const state = getRuntimeValidationState(config)
-  if (!state || state.status === 'invalid')
+  if (!state)
     return config
+  if (state.status === 'invalid')
+    return state.value ?? config
   if (state.status === 'valid')
     return state.value
   if (state.status === 'failed')
@@ -125,6 +127,10 @@ function mirrorRuntimeValidationState(from: RuntimeConfig, to: RuntimeConfig): v
   const state = getRuntimeValidationState(from)
   if (!state || from === to)
     return
+  if (state.status === 'invalid') {
+    setRuntimeValidationState(to, { status: 'invalid', value: state.value ?? from })
+    return
+  }
   setRuntimeValidationState(to, state.status === 'pending'
     ? { status: 'pending', ready: state.ready.then(() => mirrorRuntimeValidationState(from, to)) }
     : state)
@@ -220,7 +226,9 @@ export function ensureRuntimeConfigValidation(config: RuntimeConfig, environment
       }
     }
     else if (baselineState && !validator.reuse) {
-      setRuntimeValidationState(config, baselineState)
+      // An invalid request falls back to its own raw config, including its overlay.
+      setRuntimeValidationState(target, baselineState.status === 'invalid' ? { status: 'invalid' } : baselineState)
+      mirrorRuntimeValidationState(target, config)
       return
     }
   }

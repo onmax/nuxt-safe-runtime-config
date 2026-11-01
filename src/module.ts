@@ -101,7 +101,8 @@ export default (nitroApp) => {
   }
 
   // Runtime validation waits for these secrets and validates them with the rest of the config.
-  registerRuntimeConfigOverlay(loadSecrets(token)).then(() => applyRuntimeConfigOverlay(useRuntimeConfig()))${requestHook}
+  const ready = registerRuntimeConfigOverlay(loadSecrets(token)).then(() => applyRuntimeConfigOverlay(useRuntimeConfig()))${requestHook}
+  return ready
 }
 `
 }
