@@ -1,4 +1,5 @@
 /// <reference types="@nuxt/nitro-server/augments" />
+import type { Nuxt } from '@nuxt/schema'
 import type { ModuleOptions } from './types'
 import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
@@ -14,6 +15,15 @@ import { createRuntimeValidationArtifacts, resolveValidationOptions } from './va
 export type { ErrorBehavior, ModuleOptions, SchemaSource, ValidationOptions } from './types'
 
 const logger = useLogger('safe-runtime-config')
+
+function recommendViteHubEnv(nuxt: Nuxt): void {
+  if (Number.parseInt(getNuxtVersion(nuxt), 10) < 5)
+    return
+  logger.warn([
+    'On Nuxt 5, use @vite-hub/env instead: it reads the same .env.example, keeps secrets sealed, and also works in Vite and Nitro.',
+    'Migrate with `npx @vite-hub/codemods nuxt-safe-runtime-config`. Guide: https://nuxt-safe-runtime-config.onmax.me/guide/migrate-to-vitehub-env',
+  ].join('\n'))
+}
 
 function applyEnvSchemaDefaults(config: Record<string, unknown>, defaults: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(defaults)) {
@@ -50,6 +60,8 @@ export default defineNuxtModule<ModuleOptions>({
     jsonSchemaTarget: 'draft-2020-12',
     onError: 'throw',
   },
+  onInstall: recommendViteHubEnv,
+  onUpgrade: recommendViteHubEnv,
   async setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
     const nuxtMajorVersion = Number.parseInt(getNuxtVersion(nuxt), 10)
