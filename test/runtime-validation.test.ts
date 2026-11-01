@@ -1,3 +1,4 @@
+import { type } from 'arktype'
 import { describe, expect, it, vi } from 'vitest'
 import { applyValidatedRuntimeConfig, mergeTransformedRuntimeConfig, useValidatedRuntimeConfig } from '../src/runtime/config-state'
 import { validateRuntimeConfig } from '../src/runtime/validate'
@@ -38,6 +39,16 @@ describe('standard Schema runtime validation', () => {
     })
   })
 
+  it('validates callable ArkType schemas', () => {
+    const schema = type({ secretKey: 'string' })
+
+    expect(validateRuntimeConfig({ secretKey: 'test-secret' }, schema, 'ignore', logger)).toEqual({
+      success: true,
+      value: { secretKey: 'test-secret' },
+    })
+    expect(validateRuntimeConfig({ secretKey: 1 }, schema, 'ignore', logger)).toEqual({ success: false })
+  })
+
   it('keeps exact validated output when Nitro config is frozen', () => {
     const rawConfig = Object.freeze({ enabled: 'true', app: Object.freeze({ baseURL: '/' }) })
     const output = { enabled: true }
@@ -74,7 +85,7 @@ describe('standard Schema runtime validation', () => {
     })
   })
 
-  it('preserves raw config after ignored validation issues', () => {
+  it('reports failure without throwing when onError is ignore', () => {
     const schema = {
       '~standard': {
         version: 1 as const,

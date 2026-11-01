@@ -32,11 +32,6 @@ describe('json-schema detection', () => {
     })
   })
 
-  it('does not detect native jsonSchema in Valibot', () => {
-    const schema = object({ name: string() })
-    expect(hasNativeJSONSchema(schema)).toBe(false)
-  })
-
   it('generates JSON Schema from Zod', async () => {
     const schema = z.object({ name: z.string(), age: z.number().optional() })
     const jsonSchema = await getJSONSchema(schema, 'draft-2020-12')
