@@ -33,6 +33,9 @@ Validate Nuxt runtime config with <b>Valibot</b>, <b>Zod</b>, <b>ArkType</b> or 
   </p>
 </p>
 
+> [!TIP]
+> On Nuxt 5, use [ViteHub Env](https://vitehub.dev/docs/env). Migrate with `npx @vite-hub/codemods nuxt-safe-runtime-config`. See the [migration guide](https://nuxt-safe-runtime-config.onmax.me/guide/migrate-to-vitehub-env).
+
 `useRuntimeConfig()` returns whatever ends up in runtime config. Nothing checks that `NUXT_DATABASE_URL` is set or that `NUXT_PUBLIC_REPLAY_ENABLED=false` arrives as `false`. This module validates runtime config against a schema at build time or when the server starts, and `useSafeRuntimeConfig()` returns the values typed from that schema.
 
 ## Quick start
