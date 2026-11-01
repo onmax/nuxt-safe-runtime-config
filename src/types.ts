@@ -71,11 +71,14 @@ export interface EnvVar {
 
 export type TransformedConfig = Record<string, string | Record<string, unknown>>
 
-export interface ResolvedShelveConfig {
+export interface ShelveTarget {
   project: string
   slug: string
   environment: string
   url: string
+}
+
+export interface ResolvedShelveConfig extends ShelveTarget {
   token: string
 }
 
