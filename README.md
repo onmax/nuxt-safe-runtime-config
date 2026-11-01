@@ -23,7 +23,7 @@ Validate Nuxt runtime config with <b>Valibot</b>, <b>Zod</b>, <b>ArkType</b> or 
     <img src="https://comark-ui.onmax.me/badge.svg?label=license&amp;value=MIT" alt="License" />
   </a>
   <a href="https://nuxt.com">
-    <img src="https://comark-ui.onmax.me/badge.svg?label=Nuxt&amp;value=3+%7C+4+%7C+5+nightly" alt="Nuxt compatibility" />
+    <img src="https://comark-ui.onmax.me/badge.svg?label=Nuxt&amp;value=4+%7C+5+nightly" alt="Nuxt compatibility" />
   </a>
 
   <p align="center">
@@ -89,7 +89,7 @@ If the server starts without a valid `NUXT_DATABASE_URL`, it stops before servin
 - An [ESLint rule](https://nuxt-safe-runtime-config.onmax.me/integrations/eslint) that migrates `useRuntimeConfig()` calls
 - A [Nitro module](https://nuxt-safe-runtime-config.onmax.me/guide/nitro) for Nitro apps without Nuxt
 
-Supports Nuxt 3, 4 and the Nuxt 5 nightly, on Nitro 2 and 3.
+Supports Nuxt 4 and the Nuxt 5 nightly, on Nitro 2 and 3.
 
 ## Contribution
 

@@ -328,7 +328,7 @@ const setup = () => {
       },
       uMouseStrength: { value: props.mouseStrength },
       uUseMouse: { value: props.mouseReact ? 1 : 0 },
-      uPageLoadProgress: { value: props.pageLoadAnimation ? 0 : 1 },
+      uPageLoadProgress: { value: props.pageLoadAnimation && !props.pause ? 0 : 1 },
       uUsePageLoadAnimation: { value: props.pageLoadAnimation ? 1 : 0 },
       uBrightness: { value: props.brightness }
     }
@@ -345,6 +345,10 @@ const setup = () => {
       gl.canvas.height,
       gl.canvas.width / gl.canvas.height
     );
+    if (props.pause) {
+      program.uniforms.iTime.value = frozenTimeRef.value;
+      renderer.render({ scene: mesh });
+    }
   }
 
   const resizeObserver = new ResizeObserver(() => resize());
@@ -352,7 +356,7 @@ const setup = () => {
   resize();
 
   const update = (t: number) => {
-    rafRef.value = requestAnimationFrame(update);
+    if (!props.pause) rafRef.value = requestAnimationFrame(update);
 
     if (props.pageLoadAnimation && loadAnimationStartRef.value === 0) {
       loadAnimationStartRef.value = t;
@@ -387,7 +391,7 @@ const setup = () => {
 
     renderer.render({ scene: mesh });
   };
-  rafRef.value = requestAnimationFrame(update);
+  if (!props.pause) rafRef.value = requestAnimationFrame(update);
   ctn.appendChild(gl.canvas);
 
   if (props.mouseReact) ctn.addEventListener('mousemove', handleMouseMove);
