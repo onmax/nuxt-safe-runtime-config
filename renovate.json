@@ -59,11 +59,7 @@
         "@typescript-eslint/utils",
         "@valibot/to-json-schema",
         "consola",
-        "defu",
         "jiti",
-        "magicast",
-        "ofetch",
-        "std-env",
         "zod-to-json-schema"
       ],
       "matchUpdateTypes": ["patch"],

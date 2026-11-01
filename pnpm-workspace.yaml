@@ -60,19 +60,15 @@ catalog:
   bumpp: ^12.3.0
   changelogen: ^0.6.2
   consola: ^3.4.2
-  defu: ^6.1.7
   docus: ^5.15.0
   eslint: ^10.13.0
   eslint-plugin-format: ^2.0.1
   jiti: ^2.7.0
   lint-staged: ^17.6.0
-  magicast: ^0.5.5
   nitro: 3.0.260429-beta
   nuxt: 4.5.0
-  ofetch: ^1.5.1
   scule: ^1.3.0
   simple-git-hooks: ^2.14.0
-  std-env: ^4.3.0
   typescript: ~6.0.3
   unbuild: ^3.6.1
   valibot: ^1.5.0

@@ -39,6 +39,5 @@ describe('agent context metadata', () => {
     expect(compatibilitySkill).toBe(skill)
     expect(skill).toContain('useSafeRuntimeConfig()')
     expect(skill).toContain('safeRuntimeConfig.$schema')
-    expect(skill.toLowerCase()).not.toContain('shelve')
   })
 })

@@ -29,24 +29,14 @@ export function mergeTransformedRuntimeConfig(current: unknown, transformed: unk
 export type RuntimeValidationState
   = | { status: 'pending', ready: Promise<void> }
     | { status: 'valid', value: RuntimeConfig }
-    | { status: 'invalid', value?: RuntimeConfig }
+    | { status: 'invalid' }
     | { status: 'failed', error: unknown }
-
-/** Values loaded when the server starts, such as Shelve secrets, that take priority over every runtime config. */
-interface RuntimeConfigOverlay {
-  ready: Promise<void>
-  settled: boolean
-  value?: RuntimeConfig
-  /** Mutable configs that already hold the overlay. */
-  applied: WeakSet<RuntimeConfig>
-}
 
 interface RuntimeValidationStore {
   states: WeakMap<RuntimeConfig, RuntimeValidationState>
   validator?: RuntimeConfigValidator
   /** The startup config and its serialized raw values, reused for event configs with equal values. */
   baseline?: { config: RuntimeConfig, snapshot: string }
-  overlay?: RuntimeConfigOverlay
 }
 
 const validationStoreKey = Symbol.for('nuxt-safe-runtime-config.validation-store')
@@ -76,10 +66,8 @@ export function applyValidatedRuntimeConfig(config: RuntimeConfig, value: unknow
 
 export function useValidatedRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
   const state = getRuntimeValidationState(config)
-  if (!state)
+  if (!state || state.status === 'invalid')
     return config
-  if (state.status === 'invalid')
-    return state.value ?? config
   if (state.status === 'valid')
     return state.value
   if (state.status === 'failed')
@@ -88,93 +76,13 @@ export function useValidatedRuntimeConfig(config: RuntimeConfig): RuntimeConfig 
 }
 
 /**
- * Registers values that validation and `applyRuntimeConfigOverlay` merge into every runtime config
- * once `load` resolves. Validation waits for it. `load` must not reject.
- */
-export function registerRuntimeConfigOverlay(load: Promise<RuntimeConfig | undefined>): Promise<void> {
-  const overlay: RuntimeConfigOverlay = { ready: Promise.resolve(), settled: false, applied: new WeakSet() }
-  overlay.ready = load.then((value) => {
-    overlay.value = value
-    overlay.settled = true
-  })
-  validationStore.overlay = overlay
-  return overlay.ready
-}
-
-export function waitForRuntimeConfigOverlay(): Promise<void> | undefined {
-  return validationStore.overlay?.ready
-}
-
-/**
- * Merges the loaded overlay into a mutable config and returns it. Nitro 2 freezes its shared
- * config, so a frozen config gets a merged copy instead.
- */
-export function applyRuntimeConfigOverlay(config: RuntimeConfig): RuntimeConfig {
-  const overlay = validationStore.overlay
-  if (!overlay?.value || overlay.applied.has(config))
-    return config
-  if (Object.isFrozen(config))
-    return mergeTransformedRuntimeConfig(config, overlay.value) as RuntimeConfig
-
-  for (const [key, value] of Object.entries(overlay.value))
-    Reflect.set(config, key, mergeTransformedRuntimeConfig(config[key], value))
-  overlay.applied.add(config)
-  return config
-}
-
-// Validation of a frozen config runs on its merged copy; the original reports the copy's outcome.
-function mirrorRuntimeValidationState(from: RuntimeConfig, to: RuntimeConfig): void {
-  const state = getRuntimeValidationState(from)
-  if (!state || from === to)
-    return
-  if (state.status === 'invalid') {
-    setRuntimeValidationState(to, { status: 'invalid', value: state.value ?? from })
-    return
-  }
-  setRuntimeValidationState(to, state.status === 'pending'
-    ? { status: 'pending', ready: state.ready.then(() => mirrorRuntimeValidationState(from, to)) }
-    : state)
-}
-
-function runValidator(validator: RuntimeConfigValidator, target: RuntimeConfig, config: RuntimeConfig, source: 'startup' | RuntimeConfigEnvironment | undefined): void {
-  try {
-    validator(target, source)
-  }
-  finally {
-    if (target !== config)
-      mirrorRuntimeValidationState(target, config)
-  }
-}
-
-function validateStartupConfig(validator: RuntimeConfigValidator, config: RuntimeConfig): void {
-  const target = applyRuntimeConfigOverlay(config)
-  validationStore.baseline = { config, snapshot: JSON.stringify(target) }
-  runValidator(validator, target, config, 'startup')
-}
-
-/**
- * Registers the validator and validates the startup config with it, after any overlay has loaded.
+ * Registers the validator and validates the startup config with it.
  * Event-scoped configs are validated later through `ensureRuntimeConfigValidation`.
  */
 export function registerRuntimeConfigValidator(validator: RuntimeConfigValidator, config: RuntimeConfig): void {
   validationStore.validator = validator
-  validationStore.baseline = undefined
-  const overlay = validationStore.overlay
-  if (!overlay || overlay.settled) {
-    validateStartupConfig(validator, config)
-    return
-  }
-
-  // Failures are recorded in the config's state, so `ready` never rejects.
-  const ready = overlay.ready
-    .then(() => {
-      validationStore.states.delete(config)
-      validateStartupConfig(validator, config)
-      const state = getRuntimeValidationState(config)
-      return state?.status === 'pending' ? state.ready : undefined
-    })
-    .catch(() => {})
-  setRuntimeValidationState(config, { status: 'pending', ready })
+  validationStore.baseline = { config, snapshot: JSON.stringify(config) }
+  validator(config, 'startup')
 }
 
 // Event configs must not share mutable objects with other requests.
@@ -196,44 +104,32 @@ export function ensureRuntimeConfigValidation(config: RuntimeConfig, environment
   if (state)
     return state.status === 'pending' ? state.ready : undefined
 
-  const { validator, overlay } = validationStore
-  if (!validator)
-    return
-  if (overlay && !overlay.settled)
-    return overlay.ready.then(() => ensureRuntimeConfigValidation(config, environment))
-
-  const baseline = validationStore.baseline
-  if (!baseline)
+  const { validator, baseline } = validationStore
+  if (!validator || !baseline)
     return
 
-  const target = applyRuntimeConfigOverlay(config)
-  if (JSON.stringify(target) === baseline.snapshot) {
+  if (JSON.stringify(config) === baseline.snapshot) {
     const baselineState = getRuntimeValidationState(baseline.config)
     if (baselineState?.status === 'pending')
       return baselineState.ready.then(() => ensureRuntimeConfigValidation(config, environment))
     if (baselineState?.status === 'valid') {
       const value = clonePlain(baselineState.value)
       if (validator.reuse) {
-        if (validator.reuse(target, value, environment)) {
-          mirrorRuntimeValidationState(target, config)
+        if (validator.reuse(config, value, environment))
           return
-        }
       }
       else {
-        applyValidatedRuntimeConfig(target, value)
-        mirrorRuntimeValidationState(target, config)
+        applyValidatedRuntimeConfig(config, value)
         return
       }
     }
     else if (baselineState && !validator.reuse) {
-      // An invalid request falls back to its own raw config, including its overlay.
-      setRuntimeValidationState(target, baselineState.status === 'invalid' ? { status: 'invalid' } : baselineState)
-      mirrorRuntimeValidationState(target, config)
+      setRuntimeValidationState(config, baselineState)
       return
     }
   }
 
-  runValidator(validator, target, config, environment)
+  validator(config, environment)
   const validatedState = getRuntimeValidationState(config)
   return validatedState?.status === 'pending' ? validatedState.ready : undefined
 }
