@@ -22,7 +22,7 @@ links:
 ---
 
 #headline
-:u-badge{label="Nuxt 3, 4 and 5" variant="subtle"}
+:u-badge{label="Nuxt 4 and 5" variant="subtle"}
 ::
 
 ::u-page-section
