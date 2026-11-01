@@ -1,4 +1,4 @@
-import type { ResolvedShelveConfig, ShelveProviderOptions, TransformedConfig } from '../types'
+import type { ResolvedShelveConfig, ShelveProviderOptions, ShelveTarget, TransformedConfig } from '../types'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -59,12 +59,12 @@ export function resolveShelveOptions(options: ShelveProviderOptions | boolean | 
 }
 
 /**
- * Resolve Shelve configuration from multiple sources (priority order):
+ * Resolve the Shelve project, team, environment and API URL (priority order):
  * 1. nuxt.config options
  * 2. Environment variables
  * 3. package.json (for project name only)
  */
-export function resolveShelveConfig(options: ShelveProviderOptions, cwd: string, isDev: boolean): ResolvedShelveConfig {
+export function resolveShelveTarget(options: ShelveProviderOptions, cwd: string, isDev: boolean): ShelveTarget {
   const project = options.project || process.env.SHELVE_PROJECT || readPackageName(cwd)
   if (!project)
     throw new Error('[safe-runtime-config] Shelve project name required. Set in nuxt.config or package.json name')
@@ -75,11 +75,17 @@ export function resolveShelveConfig(options: ShelveProviderOptions, cwd: string,
 
   const environment = options.environment || process.env.SHELVE_ENV || (isDev ? 'development' : 'production')
   const url = (options.url || process.env.SHELVE_URL || DEFAULT_URL).replace(/\/+$/, '')
+  return { project, slug, environment, url }
+}
+
+/** Resolve the Shelve target and the token used to fetch from it: SHELVE_TOKEN, then ~/.shelve. */
+export function resolveShelveConfig(options: ShelveProviderOptions, cwd: string, isDev: boolean): ResolvedShelveConfig {
+  const target = resolveShelveTarget(options, cwd, isDev)
   const token = process.env.SHELVE_TOKEN || getUserToken()
   if (!token)
     throw new Error('[safe-runtime-config] Shelve token required. Set SHELVE_TOKEN env or run `shelve login`')
 
-  return { project, slug, environment, url, token }
+  return { ...target, token }
 }
 
 export async function fetchShelveSecrets(config: ResolvedShelveConfig, useCache = true): Promise<TransformedConfig> {
