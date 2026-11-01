@@ -16,12 +16,3 @@ declare module '#safe-runtime-config/validate' {
   export const onError: 'throw' | 'warn' | 'ignore'
   export const draft: SchemaDraft
 }
-
-declare module '#safe-runtime-config/shelve' {
-  export const shelveRuntimeConfig: {
-    environment: string
-    project: string
-    slug: string
-    url: string
-  }
-}

@@ -1,24 +1,17 @@
 /// <reference types="@nuxt/nitro-server/augments" />
-import type { ModuleOptions, ResolvedShelveConfig, ShelveTarget } from './types'
+import type { ModuleOptions } from './types'
 import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
-import process from 'node:process'
-import { addImports, addServerImports, addServerPlugin, addTemplate, addTypeTemplate, createResolver, defineNuxtModule, getNuxtVersion, useLogger } from '@nuxt/kit'
-import defu from 'defu'
-import { isCI, isTest } from 'std-env'
+import { addImports, addServerImports, addTypeTemplate, createResolver, defineNuxtModule, getNuxtVersion, useLogger } from '@nuxt/kit'
 import { version } from '../package.json'
 import { compileEnvSchema } from './env-schema/nuxt'
 import { parseEnvSchema } from './env-schema/profile'
 import { createEnvSchemaValidator } from './env-schema/standard'
 import safeRuntimeConfigNitroModule, { resolveRuntimeConfigImport } from './nitro'
-import { fetchShelveSecrets, resolveShelveConfig, resolveShelveOptions, resolveShelveTarget } from './providers/shelve'
-import { errorMessage } from './utils/error'
 import { createRuntimeValidationArtifacts, resolveValidationOptions } from './validation'
-import { runShelveWizard } from './wizard/shelve-setup'
 
-export { transformEnvVars } from './runtime/utils/transform'
-export type { ErrorBehavior, ModuleOptions, SchemaSource, ShelveProviderOptions, ValidationOptions } from './types'
+export type { ErrorBehavior, ModuleOptions, SchemaSource, ValidationOptions } from './types'
 
 const logger = useLogger('safe-runtime-config')
 
@@ -43,70 +36,6 @@ function pushUnique<T>(list: T[], item: T): void {
     list.push(item)
 }
 
-function getShelveRuntimePluginContents(
-  shelveClientPath: string,
-  transformPath: string,
-  configStatePath: string,
-  runtimeConfigImport: string,
-  applyToRequests: boolean,
-): string {
-  // Nitro 2 builds each request's config from build-time values. Runtime validation merges the
-  // secrets into request configs itself; without it, a request hook does.
-  const requestHook = applyToRequests
-    ? `
-  nitroApp.hooks?.hook('request', async (event) => {
-    const config = useRuntimeConfig(event)
-    await waitForRuntimeConfigOverlay()
-    applyRuntimeConfigOverlay(config)
-  })`
-    : ''
-  return `import process from 'node:process'
-import { shelveRuntimeConfig } from '#safe-runtime-config/shelve'
-import { consola } from 'consola'
-import { createShelveClient } from ${JSON.stringify(shelveClientPath)}
-import { transformEnvVars } from ${JSON.stringify(transformPath)}
-import { applyRuntimeConfigOverlay, registerRuntimeConfigOverlay, waitForRuntimeConfigOverlay } from ${JSON.stringify(configStatePath)}
-import { useRuntimeConfig } from ${JSON.stringify(runtimeConfigImport)}
-
-const logger = consola.withTag('safe-runtime-config')
-
-async function loadSecrets(token) {
-  const cfg = shelveRuntimeConfig
-  const client = createShelveClient({ token, url: cfg.url })
-  try {
-    const [project, environment] = await Promise.all([
-      client.getProjectByName(cfg.slug, cfg.project),
-      client.getEnvironment(cfg.slug, cfg.environment),
-    ])
-    const variables = await client.getVariables(cfg.slug, project.id, environment.id)
-    if (variables.length === 0) {
-      logger.info('No Shelve variables found')
-      return undefined
-    }
-    logger.success(\`Loaded \${variables.length} secrets from Shelve (runtime)\`)
-    return transformEnvVars(variables)
-  }
-  catch (error) {
-    const msg = error instanceof Error ? error.message : String(error)
-    logger.error(\`Failed to fetch Shelve secrets: \${msg}\`)
-    return undefined
-  }
-}
-
-export default (nitroApp) => {
-  const token = process.env.SHELVE_TOKEN
-  if (!token) {
-    logger.warn('SHELVE_TOKEN not set, skipping runtime secrets fetch')
-    return
-  }
-
-  // Runtime validation waits for these secrets and validates them with the rest of the config.
-  const ready = registerRuntimeConfigOverlay(loadSecrets(token)).then(() => applyRuntimeConfigOverlay(useRuntimeConfig()))${requestHook}
-  return ready
-}
-`
-}
-
 export default defineNuxtModule<ModuleOptions>({
   meta: {
     name: 'nuxt-safe-runtime-config',
@@ -120,91 +49,15 @@ export default defineNuxtModule<ModuleOptions>({
     validateAtRuntime: undefined,
     jsonSchemaTarget: 'draft-2020-12',
     onError: 'throw',
-    shelve: undefined,
-  },
-  // onInstall: Nuxt 4.1+, ignored on older versions
-  async onInstall(nuxt) {
-    if (isCI || isTest || !process.stdin.isTTY || !process.stdout.isTTY)
-      return
-    await runShelveWizard(nuxt)
   },
   async setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
-    const onError = options.onError!
     const nuxtMajorVersion = Number.parseInt(getNuxtVersion(nuxt), 10)
     const rootRequire = createRequire(join(nuxt.options.rootDir, 'package.json'))
     const runtimeConfigImport = resolveRuntimeConfigImport(
       nuxtMajorVersion >= 5 ? 3 : 2,
       rootRequire.resolve('nuxt/package.json'),
     )
-
-    const shelveOpts = resolveShelveOptions(options.shelve)
-    if (shelveOpts) {
-      const fetchAtBuild = shelveOpts.fetchAtBuild !== false
-      let shelveConfig: ShelveTarget | null = null
-      let buildConfig: ResolvedShelveConfig | null = null
-
-      try {
-        // Only a build-time fetch needs a token while building.
-        if (fetchAtBuild)
-          shelveConfig = buildConfig = resolveShelveConfig(shelveOpts, nuxt.options.rootDir, nuxt.options.dev)
-        else
-          shelveConfig = resolveShelveTarget(shelveOpts, nuxt.options.rootDir, nuxt.options.dev)
-      }
-      catch (error) {
-        logger.warn(`Shelve config resolution failed: ${errorMessage(error)}`)
-      }
-
-      if (buildConfig) {
-        try {
-          const secrets = await fetchShelveSecrets(buildConfig)
-          nuxt.options.runtimeConfig = defu(secrets, nuxt.options.runtimeConfig) as typeof nuxt.options.runtimeConfig
-          nuxt.options.nitro!.runtimeConfig = defu(secrets, nuxt.options.nitro!.runtimeConfig)
-          logger.success(`Loaded ${Object.keys(secrets).length} secrets from Shelve (${buildConfig.environment})`)
-        }
-        catch (error) {
-          logger.error(errorMessage(error))
-          if (onError === 'throw')
-            throw error
-        }
-      }
-
-      if (shelveOpts.fetchAtRuntime && shelveConfig) {
-        const tpl = addTemplate({
-          filename: 'safe-runtime-config/shelve.mjs',
-          write: true,
-          getContents: () => `export const shelveRuntimeConfig = ${JSON.stringify({
-            url: shelveConfig!.url,
-            slug: shelveConfig!.slug,
-            project: shelveConfig!.project,
-            environment: shelveConfig!.environment,
-          })}\n`,
-        })
-        addTemplate({
-          filename: 'safe-runtime-config/shelve.d.ts',
-          write: true,
-          getContents: () => `export declare const shelveRuntimeConfig: { url: string, slug: string, project: string, environment: string }\n`,
-        })
-
-        nuxt.options.alias['#safe-runtime-config/shelve'] = tpl.dst
-        nuxt.hook('nitro:config', (nitroConfig) => {
-          nitroConfig.alias ||= {}
-          nitroConfig.alias['#safe-runtime-config/shelve'] = tpl.dst
-        })
-        const shelvePlugin = addTemplate({
-          filename: 'safe-runtime-config/shelve-plugin.mjs',
-          write: true,
-          getContents: () => getShelveRuntimePluginContents(
-            resolver.resolve('./runtime/shelve-client'),
-            resolver.resolve('./runtime/utils/transform'),
-            resolver.resolve('./runtime/config-state'),
-            runtimeConfigImport,
-            !(options.$schema && options.validateAtRuntime),
-          ),
-        })
-        addServerPlugin(shelvePlugin.dst)
-      }
-    }
 
     const envSchemaSource = options.envSchema
     if (envSchemaSource) {

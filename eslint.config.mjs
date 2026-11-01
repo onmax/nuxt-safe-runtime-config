@@ -11,8 +11,6 @@ export default antfu({
   pnpm: true,
   ignores: [
     'docs/**',
-    'playground/.env.shelve-demo',
-    'playground/shelve.json',
     'src/runtime/**/*.d.ts',
     'src/runtime/**/*.js',
     'test/fixtures/**/.nitro/**',

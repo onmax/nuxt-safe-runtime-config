@@ -23,5 +23,4 @@ jobs:
         run: |
           test ! -L dist/runtime
           test -f dist/runtime/composables/useSafeRuntimeConfig.js
-          test -f dist/runtime/utils/transform.js
       - run: pnpm dlx pkg-pr-new publish --pnpm

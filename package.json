@@ -21,7 +21,6 @@
     "zod",
     "arktype",
     "build-time",
-    "shelve",
     "secrets"
   ],
   "sideEffects": false,
@@ -102,12 +101,8 @@
     "@typescript-eslint/utils": "catalog:",
     "@valibot/to-json-schema": "catalog:",
     "consola": "catalog:",
-    "defu": "catalog:",
     "jiti": "catalog:",
-    "magicast": "catalog:",
-    "ofetch": "catalog:",
     "scule": "catalog:",
-    "std-env": "catalog:",
     "zod-to-json-schema": "catalog:"
   },
   "devDependencies": {

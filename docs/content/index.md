@@ -78,10 +78,10 @@ title: What it checks
 
   :::u-page-feature
   ---
-  icon: i-ph-vault
-  title: Shelve secrets
-  to: /integrations/shelve
+  icon: simple-icons:eslint
+  title: ESLint rule
+  to: /integrations/eslint
   ---
-  Fetch secrets from Shelve before validation runs.
+  Flags `useRuntimeConfig()` calls and fixes them to `useSafeRuntimeConfig()`.
   :::
 ::

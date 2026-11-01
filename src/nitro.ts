@@ -8,7 +8,6 @@ import { consola } from 'consola'
 import { createJiti } from 'jiti'
 import { createRuntimeValidationArtifacts, resolveValidationOptions, validateRuntimeConfig } from './validation'
 
-export { transformEnvVars } from './runtime/utils/transform'
 export type { ErrorBehavior, SchemaSource, ValidationOptions } from './types'
 
 const logger = consola.withTag('safe-runtime-config')
@@ -68,10 +67,8 @@ function pushUnique<T>(list: T[], item: T): void {
 }
 
 function orderRuntimePlugins(list: string[]): void {
-  const shelvePluginPattern = /[\\/]safe-runtime-config[\\/]shelve-plugin(?:\.[cm]?[jt]s)?$/
-  const shelvePlugins = list.filter(plugin => shelvePluginPattern.test(plugin))
-  const userPlugins = list.filter(plugin => plugin !== RUNTIME_PLUGIN_PATH && !shelvePluginPattern.test(plugin))
-  list.splice(0, list.length, ...shelvePlugins, RUNTIME_PLUGIN_PATH, ...userPlugins)
+  const userPlugins = list.filter(plugin => plugin !== RUNTIME_PLUGIN_PATH)
+  list.splice(0, list.length, RUNTIME_PLUGIN_PATH, ...userPlugins)
 }
 
 function configureNitro(nitro: Nitro, options: ResolvedValidationOptions, validateModule: string, typeDeclaration: string): void {
