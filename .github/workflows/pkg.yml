@@ -23,5 +23,5 @@ jobs:
         run: |
           test ! -L dist/runtime
           test -f dist/runtime/composables/useSafeRuntimeConfig.js
-          test -f dist/runtime/utils/transform.js
+          test -f dist/runtime/nitro/validate-plugin.js
       - run: pnpm dlx pkg-pr-new publish --pnpm
