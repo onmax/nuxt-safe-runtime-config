@@ -6,10 +6,10 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="relative isolate overflow-hidden bg-[#020420] text-white">
+  <section class="relative isolate overflow-hidden bg-default text-highlighted">
     <ClientOnly>
       <LandingFaultyTerminal
-        class="absolute! inset-0 -z-20 opacity-70"
+        class="absolute! inset-0 -z-20 opacity-90 mix-blend-multiply invert hue-rotate-180 dark:opacity-70 dark:mix-blend-screen dark:invert-0 dark:hue-rotate-0"
         tint="#00DC82"
         :scale="1.6"
         :grid-mul="[2, 1]"
@@ -27,18 +27,18 @@ onMounted(() => {
         :pause="still"
       />
     </ClientOnly>
-    <div class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_60%_55%_at_50%_42%,#020420_15%,rgb(2_4_32/0.75)_55%,transparent_100%)]" />
+    <div class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_60%_55%_at_50%_42%,var(--ui-bg)_15%,color-mix(in_oklab,var(--ui-bg)_75%,transparent)_55%,transparent_100%)]" />
     <div class="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40 bg-linear-to-b from-transparent to-(--ui-bg)" />
 
     <div class="mx-auto flex max-w-5xl flex-col items-center px-6 pt-28 pb-24 text-center sm:pt-36">
-      <span class="rounded-full border border-white/15 bg-white/5 px-3 py-1 font-mono text-xs text-white/70 backdrop-blur">
+      <span class="rounded-full border border-default bg-elevated/60 px-3 py-1 font-mono text-xs text-muted backdrop-blur">
         Nuxt 4 and 5 · Valibot, Zod, ArkType
       </span>
 
       <h1 class="mt-8 text-5xl font-bold tracking-tight text-balance sm:text-7xl">
         Runtime config
         <br>
-        <span v-if="still" class="text-[#00DC82]">you can trust.</span>
+        <span v-if="still" class="text-primary">you can trust.</span>
         <LandingDecryptedText
           v-else
           text="you can trust."
@@ -46,13 +46,13 @@ onMounted(() => {
           sequential
           :speed="45"
           characters="ABCDEF0123456789{}[]$_"
-          :class-name="'text-[#00DC82]'"
-          :encrypted-class-name="'text-[#00DC82]/40'"
+          :class-name="'text-primary'"
+          :encrypted-class-name="'text-primary/40'"
         />
       </h1>
 
-      <p class="mt-6 max-w-2xl text-lg text-pretty text-white/70">
-        A missing secret or a malformed <code class="font-mono text-white/90">NUXT_*</code> flag fails the build or the server start. <code class="font-mono text-white/90">useSafeRuntimeConfig()</code> returns the values typed from your schema.
+      <p class="mt-6 max-w-2xl text-lg text-pretty text-muted">
+        A missing secret or a malformed <code class="font-mono text-highlighted">NUXT_*</code> flag fails the build or the server start. <code class="font-mono text-highlighted">useSafeRuntimeConfig()</code> returns the values typed from your schema.
       </p>
 
       <div class="mt-10 flex flex-wrap justify-center gap-3">
@@ -61,14 +61,13 @@ onMounted(() => {
           to="https://github.com/onmax/nuxt-safe-runtime-config"
           size="xl"
           color="neutral"
-          variant="ghost"
+          variant="outline"
           icon="i-simple-icons-github"
           label="GitHub"
-          class="text-white ring ring-inset ring-white/25 hover:bg-white/10"
         />
       </div>
 
-      <div class="mt-16 w-full max-w-3xl overflow-hidden rounded-xl border border-white/10 bg-[#090b20]/85 text-left shadow-2xl shadow-black/50 backdrop-blur">
+      <div class="mt-16 w-full max-w-3xl overflow-hidden rounded-xl border border-white/10 bg-[#090b20] text-left dark:bg-[#090b20]/85 shadow-2xl shadow-black/20 backdrop-blur dark:shadow-black/50">
         <div class="flex items-center gap-2 border-b border-white/10 px-4 py-3 font-mono text-xs text-white/40">
           <span class="size-2.5 rounded-full bg-red-500" />
           <span class="size-2.5 rounded-full bg-yellow-500" />
