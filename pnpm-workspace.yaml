@@ -13,10 +13,11 @@ packages:
   - ./docs
   - ./labs/*
   - ./test/fixtures/*
-# Nuxt Kit 4.6 deep-clones config classes, breaking Zod schema instances before module setup.
+
 overrides:
   # @nuxt/image 2.2 (docs, through Docus) calls resolveServerVariant from Kit 4.6.
   '@nuxt/image>@nuxt/kit': 4.6.3
+  # Nuxt Kit 4.6 deep-clones config classes, breaking Zod schema instances before module setup.
   '@nuxt/kit': 4.5.0
   # 1.7.2 is rejected by pnpm trustPolicy; keep the last trusted release.
   seroval: 1.7.1
