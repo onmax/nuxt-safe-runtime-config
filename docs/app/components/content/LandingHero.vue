@@ -32,7 +32,7 @@ onMounted(() => {
 
     <div class="mx-auto flex max-w-5xl flex-col items-center px-6 pt-28 pb-24 text-center sm:pt-36">
       <span class="rounded-full border border-white/15 bg-white/5 px-3 py-1 font-mono text-xs text-white/70 backdrop-blur">
-        Nuxt 3, 4 and 5 · Valibot, Zod, ArkType
+        Nuxt 4 and 5 · Valibot, Zod, ArkType
       </span>
 
       <h1 class="mt-8 text-5xl font-bold tracking-tight text-balance sm:text-7xl">
