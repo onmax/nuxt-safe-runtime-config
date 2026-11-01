@@ -72,8 +72,7 @@
     "typecheck": "pnpm clean:runtime-stubs && nuxt typecheck && pnpm -C playground typecheck",
     "lint": "eslint --config eslint.config.mjs .",
     "lint:fix": "eslint --config eslint.config.mjs . --fix",
-    "test": "vitest run --exclude test/env-schema-lab.test.ts",
-    "test:lab:env-schema": "vitest run test/env-schema-lab.test.ts --maxWorkers=1",
+    "test": "vitest run",
     "test:watch": "vitest watch",
     "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
   },
