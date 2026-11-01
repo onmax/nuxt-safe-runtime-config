@@ -23,6 +23,16 @@ links:
 
 #headline
 :u-badge{label="Nuxt 3, 4 and 5" variant="subtle"}
+
+#default
+  :::div{class="mx-auto w-full max-w-3xl text-left"}
+  ```txt [Terminal]
+  $ nuxt build
+  ERROR  [safe-runtime-config] Validation failed!
+    1. databaseUrl: Invalid key: Expected "databaseUrl" but received undefined
+    2. public.apiBase: Invalid URL: Received "not a url"
+  ```
+  :::
 ::
 
 ::u-page-section
