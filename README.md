@@ -1,11 +1,16 @@
-<h1 align="center">
-  <img alt="Nuxt safe runtime config logo" loading="lazy" width="50" height="50" decoding="async" data-nimg="1" style="color:transparent" src="https://raw.githubusercontent.com/onmax/nuxt-safe-runtime-config/refs/heads/main/.github/logo.svg" />
-  </br>
-  Nuxt Safe Runtime Config</h1>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/onmax/nuxt-safe-runtime-config/main/.github/banner.png" alt="Nuxt Safe Runtime Config: runtime config you can trust" width="100%">
+</p>
+
+<h1 align="center"><img src="https://raw.githubusercontent.com/onmax/nuxt-safe-runtime-config/main/.github/logo.svg" alt="" width="32" height="32" style="vertical-align: middle;"> Nuxt Safe Runtime Config</h1>
+
 <p align="center">
 Validate Nuxt runtime config with <b>Valibot</b>, <b>Zod</b>, <b>ArkType</b> or an annotated <code>.env.example</code>, and read it through a typed composable.
 </p>
-<br/>
+
+<p align="center">
+  <a href="https://nuxt-safe-runtime-config.onmax.me">Docs</a>
+</p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/nuxt-safe-runtime-config">
@@ -29,8 +34,6 @@ Validate Nuxt runtime config with <b>Valibot</b>, <b>Zod</b>, <b>ArkType</b> or 
 </p>
 
 `useRuntimeConfig()` returns whatever ends up in runtime config. Nothing checks that `NUXT_DATABASE_URL` is set or that `NUXT_PUBLIC_REPLAY_ENABLED=false` arrives as `false`. This module validates runtime config against a schema at build time or when the server starts, and `useSafeRuntimeConfig()` returns the values typed from that schema.
-
-📖 **[Documentation](https://nuxt-safe-runtime-config.onmax.me)**
 
 ## Quick start
 
