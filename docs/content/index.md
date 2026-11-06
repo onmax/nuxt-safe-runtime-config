@@ -26,10 +26,10 @@ description: Write the schema once. The module checks it against nuxt.config.ts 
   :::u-page-feature
   ---
   icon: i-ph-cloud-check
-  title: At server start
+  title: At runtime
   to: /guide/validation#at-server-start
   ---
-  With `validateAtRuntime`, the server refuses to start when a `NUXT_*` variable is missing or wrong.
+  With `validateAtRuntime`, invalid `NUXT_*` values stop startup with synchronous schemas or fail requests with asynchronous schemas.
   :::
 
   :::u-page-feature
