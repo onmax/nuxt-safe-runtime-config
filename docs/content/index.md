@@ -9,44 +9,45 @@ navigation: false
 
 ::u-page-section
 ---
-title: What it checks
+title: One schema, checked where your values come from
+description: Write the schema once. The module checks it against nuxt.config.ts at build, or against the NUXT_* variables the server starts with, and types useSafeRuntimeConfig() from it.
 ---
 
 #features
   :::u-page-feature
   ---
   icon: i-ph-hammer
-  title: Build validation
-  to: /guide/validation
+  title: At build
+  to: /guide/validation#at-build
   ---
-  Checks the values in `nuxt.config.ts` during `nuxt dev` and `nuxt build`.
+  `nuxt build` stops when a value in `nuxt.config.ts` is missing or malformed.
   :::
 
   :::u-page-feature
   ---
   icon: i-ph-cloud-check
-  title: Runtime validation
-  to: /guide/validation
+  title: At runtime
+  to: /guide/validation#at-server-start
   ---
-  Checks the values the deployed server starts with, after `NUXT_*` overrides.
+  With `validateAtRuntime`, invalid `NUXT_*` values stop startup with synchronous schemas or fail requests with asynchronous schemas.
   :::
 
   :::u-page-feature
   ---
   icon: i-ph-arrows-left-right
-  title: Environment coercion
+  title: NUXT_* strings converted
   to: /guide/environment-overrides
   ---
-  Turns `NUXT_FLAG=true` into `true` and `NUXT_RATE=0.5` into `0.5` when the schema asks for them.
+  `NUXT_FLAG=false` becomes `false` and `NUXT_RATE=0.5` becomes `0.5` when the schema asks for them.
   :::
 
   :::u-page-feature
   ---
   icon: i-ph-shield-check
-  title: Generated types
+  title: Typed from the schema
   to: /guide/type-safety
   ---
-  `useSafeRuntimeConfig()` is typed from your schema in pages, plugins and server routes.
+  `useSafeRuntimeConfig()` has your schema's types in pages, plugins and server routes.
   :::
 
   :::u-page-feature
@@ -55,15 +56,15 @@ title: What it checks
   title: .env.example as schema
   to: /guide/env-schema
   ---
-  Annotate a committed `.env.example` and build without deployment secrets.
+  Add `@type` comments to the file you already commit, and build without secrets.
   :::
 
   :::u-page-feature
   ---
   icon: simple-icons:eslint
-  title: ESLint rule
-  to: /integrations/eslint
+  title: One-command migration
+  to: /guide/eslint
   ---
-  Flags `useRuntimeConfig()` calls and fixes them to `useSafeRuntimeConfig()`.
+  `eslint --fix` rewrites every `useRuntimeConfig()` call to `useSafeRuntimeConfig()`.
   :::
 ::

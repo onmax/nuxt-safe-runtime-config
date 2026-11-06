@@ -89,7 +89,7 @@ If the server starts without a valid `NUXT_DATABASE_URL`, it stops before servin
 - [Coercion of `NUXT_*` strings](https://nuxt-safe-runtime-config.onmax.me/guide/environment-overrides) to the booleans, numbers, enums and JSON values your schema expects, and schema modules for transforms
 - [Generated types](https://nuxt-safe-runtime-config.onmax.me/guide/type-safety) for `useSafeRuntimeConfig()` in the app and in `server/`
 - [`.env.example` as the schema](https://nuxt-safe-runtime-config.onmax.me/guide/env-schema) (experimental), so builds need no secrets
-- An [ESLint rule](https://nuxt-safe-runtime-config.onmax.me/integrations/eslint) that migrates `useRuntimeConfig()` calls
+- An [ESLint rule](https://nuxt-safe-runtime-config.onmax.me/guide/eslint) that migrates `useRuntimeConfig()` calls
 - A [Nitro module](https://nuxt-safe-runtime-config.onmax.me/guide/nitro) for Nitro apps without Nuxt
 
 Supports Nuxt 4 and the Nuxt 5 nightly, on Nitro 2 and 3.
