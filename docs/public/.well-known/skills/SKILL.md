@@ -5,7 +5,9 @@ Use this when modifying a Nuxt app that depends on `nuxt-safe-runtime-config`, o
 ## Core model
 
 - The schema comes from one source: `safeRuntimeConfig.$schema` (a Standard Schema such as Zod, Valibot or ArkType, or a project-relative path to a module that default-exports one) or `safeRuntimeConfig.envSchema` (an annotated `.env.example`, experimental). Never set both.
-- Build validation checks `nuxt.config.ts` values and is the default. Runtime validation (`validateAtRuntime: true`) checks the values the server starts with, after `NUXT_*` overrides, and turns build validation off unless `validateAtBuild: true` is set. `envSchema` always validates at runtime.
+- There is no option for when validation runs. The build check runs the schema on `nuxt.config.ts` values and fails on wrong values, but leaves `undefined` or `''` values to the server. The server start check (also run by the `nuxt generate` prerender server) validates the values after `NUXT_*` overrides, missing ones included. `requireAtBuild: true` makes missing values fail the build too, for CI that has every production value. `envSchema` validates only at server start.
+- `validateAtBuild` and `validateAtRuntime` are deprecated. Remove `validateAtRuntime: true`; replace `validateAtBuild: true` with `requireAtBuild: true`.
+- Leave values that production sets through `NUXT_*` variables as `''` in `runtimeConfig`.
 - `useSafeRuntimeConfig()` is the typed accessor in app code, server routes and server utilities. In server handlers, pass the event: `useSafeRuntimeConfig(event)`.
 - Generated types live in `.nuxt/types/safe-runtime-config.d.ts`. Never edit generated files.
 
@@ -19,8 +21,8 @@ Use this when modifying a Nuxt app that depends on `nuxt-safe-runtime-config`, o
 
 ## Runtime values
 
-- With runtime validation, `NUXT_*` strings are coerced to the schema's booleans, numbers, enums, arrays and objects. Do not add `z.coerce`, manual `=== 'true'` checks or `Number()` calls for these.
-- An inline `$schema` must convert to JSON Schema. For transforms, refinements or other code-only rules, move the schema to a file and set `$schema: './runtime-config.schema'` with `validateAtRuntime: true`. Keep parsing in that schema, not in consumers.
+- At server start, `NUXT_*` strings are coerced to the schema's booleans, numbers, enums, arrays and objects. Do not add `z.coerce`, manual `=== 'true'` checks or `Number()` calls for these.
+- An inline `$schema` must convert to JSON Schema. For transforms, refinements or other code-only rules, move the schema to a file and set `$schema: './runtime-config.schema'`. Keep parsing in that schema, not in consumers.
 
 ## Validation behavior
 

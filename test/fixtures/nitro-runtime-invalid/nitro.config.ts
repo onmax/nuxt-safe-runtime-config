@@ -1,10 +1,11 @@
 import { defineNitroConfig } from 'nitro/config'
 import SafeRuntimeConfig from '../../../src/nitro'
-import { invalidRuntimeConfig, runtimeConfigSchema } from '../_shared/nitro-runtime-config-schema'
+import { runtimeConfigSchema, validRuntimeConfig } from '../_shared/nitro-runtime-config-schema'
 
 export default defineNitroConfig({
   modules: [SafeRuntimeConfig],
-  runtimeConfig: invalidRuntimeConfig,
+  // The port comes from the environment at startup, so the build has only a placeholder.
+  runtimeConfig: { ...validRuntimeConfig, port: '' },
   handlers: [{ route: '/port', handler: './port' }],
-  safeRuntimeConfig: { $schema: runtimeConfigSchema, validateAtBuild: false, validateAtRuntime: true },
+  safeRuntimeConfig: { $schema: runtimeConfigSchema },
 })

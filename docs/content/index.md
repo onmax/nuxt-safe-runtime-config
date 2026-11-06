@@ -10,7 +10,7 @@ navigation: false
 ::u-page-section
 ---
 title: One schema, checked where your values come from
-description: Write the schema once. The module checks it against nuxt.config.ts at build, or against the NUXT_* variables the server starts with, and types useSafeRuntimeConfig() from it.
+description: Write the schema once. The module checks it against nuxt.config.ts while you build and against the NUXT_* variables the server starts with, and types useSafeRuntimeConfig() from it.
 ---
 
 #features
@@ -27,9 +27,9 @@ description: Write the schema once. The module checks it against nuxt.config.ts 
   ---
   icon: i-ph-cloud-check
   title: At runtime
-  to: /guide/validation#at-server-start
+  to: /guide/validation#when-the-server-starts
   ---
-  With `validateAtRuntime`, invalid `NUXT_*` values stop startup with synchronous schemas or fail requests with asynchronous schemas.
+  Invalid `NUXT_*` values stop startup with synchronous schemas or fail requests with asynchronous schemas.
   :::
 
   :::u-page-feature

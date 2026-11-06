@@ -12,13 +12,56 @@ import { getJSONSchema } from './utils/json-schema'
 export { validateRuntimeConfig } from './runtime/validate'
 export type { RuntimeValidationResult, ValidationLogger } from './runtime/validate'
 
+/**
+ * What the build check does with the `nuxt.config.ts` values:
+ * - `'present'` fails on wrong values and leaves missing ones (`undefined`, `''`) to the server start check
+ * - `'all'` also fails on missing values
+ * - `'off'` skips it
+ */
+export type BuildCheck = 'off' | 'present' | 'all'
+
 export interface ResolvedValidationOptions {
   $schema?: StandardSchemaV1
   schemaPath?: string
-  validateAtBuild: boolean
-  validateAtRuntime: boolean
+  buildCheck: BuildCheck
+  /** Coerce and check the config when the server starts */
+  runtimeCheck: boolean
   jsonSchemaTarget: StandardJSONSchemaV1.Target
   onError: ErrorBehavior
+}
+
+type ValidationInput = ValidationOptions & { schemaPath?: string } & Partial<Pick<ResolvedValidationOptions, 'buildCheck' | 'runtimeCheck'>>
+
+export function resolveChecks(
+  options: ValidationInput,
+  warn: (message: string) => void = () => {},
+): Pick<ResolvedValidationOptions, 'buildCheck' | 'runtimeCheck'> {
+  // Already resolved, e.g. the Nuxt module handing its options to the Nitro module.
+  if (options.buildCheck && typeof options.runtimeCheck === 'boolean')
+    return { buildCheck: options.buildCheck, runtimeCheck: options.runtimeCheck }
+
+  const { validateAtBuild, validateAtRuntime, requireAtBuild } = options
+  if (requireAtBuild && validateAtBuild === false)
+    throw new Error('requireAtBuild needs the build check. Remove validateAtBuild: false.')
+
+  if (validateAtRuntime !== undefined || validateAtBuild !== undefined) {
+    const replacement = validateAtRuntime === false
+      ? 'Remove both options; the server start check now always runs. `validateAtRuntime: false` still turns that check off for now.'
+      : validateAtBuild
+        ? 'Replace them with `requireAtBuild: true`.'
+        : 'Remove them.'
+    warn(`validateAtBuild and validateAtRuntime are deprecated. Every schema is checked when the server starts, and the build check skips values the deployment sets. ${replacement}`)
+  }
+
+  const runtimeCheck = validateAtRuntime ?? true
+  let buildCheck: BuildCheck = requireAtBuild ? 'all' : 'present'
+  if (validateAtBuild === false)
+    buildCheck = 'off'
+  // A deprecated build check requires every value, as it did when it was the only check.
+  else if (validateAtBuild === true || !runtimeCheck)
+    buildCheck = 'all'
+
+  return { buildCheck, runtimeCheck }
 }
 
 export interface RuntimeValidationArtifacts {
@@ -32,8 +75,9 @@ export interface RuntimeValidationArtifacts {
 }
 
 export async function resolveValidationOptions(
-  options: ValidationOptions & { schemaPath?: string } = {},
+  options: ValidationInput = {},
   rootDir = process.cwd(),
+  warn?: (message: string) => void,
 ): Promise<ResolvedValidationOptions> {
   let schema = options.$schema
   let schemaPath = options.schemaPath
@@ -51,9 +95,7 @@ export async function resolveValidationOptions(
   return {
     $schema: schema,
     schemaPath,
-    // Runtime validation sees the deployed values, so build-time values are only defaults.
-    validateAtBuild: options.validateAtBuild ?? !options.validateAtRuntime,
-    validateAtRuntime: options.validateAtRuntime ?? false,
+    ...resolveChecks(options, warn),
     jsonSchemaTarget: options.jsonSchemaTarget ?? 'draft-2020-12',
     onError: options.onError ?? 'throw',
   }
@@ -95,7 +137,7 @@ export async function createRuntimeValidationArtifacts(
     ? `import runtimeSchema from '#safe-runtime-config/runtime-schema'\n`
     : 'const runtimeSchema = null\n'
   let coercionSchema: Record<string, unknown> | null = null
-  if (options.validateAtRuntime)
+  if (options.runtimeCheck)
     coercionSchema = options.schemaPath ? await getCoercionSchema(options.$schema, options.jsonSchemaTarget) : jsonSchema
   const coercionSchemaSource = coercionSchema === jsonSchema ? 'schema' : JSON.stringify(coercionSchema)
 
@@ -104,7 +146,7 @@ export async function createRuntimeValidationArtifacts(
     jsonSchema,
     coercionSchema,
     typeDeclaration: options.schemaPath
-      ? generateSchemaTypeDeclaration(options.schemaPath, options.validateAtRuntime ? 'output' : 'input')
+      ? generateSchemaTypeDeclaration(options.schemaPath, options.runtimeCheck ? 'output' : 'input')
       : generateTypeDeclaration(jsonSchema),
     validateTemplate: `${runtimeSchema}export { runtimeSchema }\nexport const schema = ${JSON.stringify(jsonSchema)}\nexport const onError = ${JSON.stringify(options.onError)}\nexport const draft = ${JSON.stringify(draft)}\nexport const coercionSchema = ${coercionSchemaSource}\n`,
     validateTemplateDeclaration: `import type { Schema, SchemaDraft } from '@cfworker/json-schema'\nimport type { StandardSchemaV1 } from '@standard-schema/spec'\nexport declare const runtimeSchema: StandardSchemaV1 | null\nexport declare const schema: Schema\nexport declare const onError: 'throw' | 'warn' | 'ignore'\nexport declare const draft: SchemaDraft\nexport declare const coercionSchema: Record<string, unknown> | null\n`,

@@ -1,3 +1,4 @@
+import process from 'node:process'
 import { array, boolean, minLength, number, object, picklist, pipe, string } from 'valibot'
 import SafeRuntimeConfig from '../../../src/module'
 
@@ -21,6 +22,6 @@ export default defineNuxtConfig({
         logins: array(picklist(['email', 'github'])),
       }),
     }),
-    validateAtRuntime: true,
+    requireAtBuild: process.env.REQUIRE_AT_BUILD === '1',
   },
 })

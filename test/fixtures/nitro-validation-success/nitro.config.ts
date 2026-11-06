@@ -6,5 +6,5 @@ export default defineNitroConfig({
   modules: [SafeRuntimeConfig],
   plugins: ['./plugin'],
   runtimeConfig: validRuntimeConfig,
-  safeRuntimeConfig: { $schema: runtimeConfigSchema, validateAtBuild: true, validateAtRuntime: true },
+  safeRuntimeConfig: { $schema: runtimeConfigSchema, requireAtBuild: true },
 })

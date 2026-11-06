@@ -82,7 +82,7 @@ function configureNitro(nitro: Nitro, options: ResolvedValidationOptions, valida
   ts.tsConfig.include ||= []
   pushUnique(ts.tsConfig.include, `./${relative(nitro.options.buildDir, typeDeclaration)}`)
 
-  if (options.validateAtRuntime) {
+  if (options.runtimeCheck) {
     const majorVersion = nitro.meta?.majorVersion ?? 2
     nitro.options.alias['#safe-runtime-config/nitro-runtime-config'] ||= resolveRuntimeConfigImport(
       majorVersion,
@@ -102,7 +102,7 @@ function configureNitro(nitro: Nitro, options: ResolvedValidationOptions, valida
 const safeRuntimeConfigNitroModule: NitroModule = {
   name: 'nuxt-safe-runtime-config/nitro',
   async setup(nitro) {
-    const options = await resolveValidationOptions(nitro.options.safeRuntimeConfig, nitro.options.rootDir)
+    const options = await resolveValidationOptions(nitro.options.safeRuntimeConfig, nitro.options.rootDir, msg => logger.warn(msg))
     if (!options.$schema)
       return
 
@@ -122,10 +122,13 @@ const safeRuntimeConfigNitroModule: NitroModule = {
 
     nitro.hooks.hook('rollup:before', applyArtifacts)
 
-    if (options.validateAtBuild) {
+    if (options.buildCheck !== 'off') {
       nitro.hooks.hook('build:before', async () => {
         await applyArtifacts()
-        await validateRuntimeConfig(nitro.options.runtimeConfig, options.$schema!, options.onError, logger)
+        await validateRuntimeConfig(nitro.options.runtimeConfig, options.$schema!, options.onError, logger, {
+          // Values the deployment sets are checked by the server start check instead.
+          deferMissing: options.buildCheck === 'present' && options.runtimeCheck,
+        })
       })
     }
   },

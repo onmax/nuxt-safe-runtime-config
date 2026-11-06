@@ -6,9 +6,21 @@ export type SchemaSource = StandardSchemaV1 | string
 export interface ValidationOptions {
   /** Standard Schema or project-relative path to a default-exported schema module */
   $schema?: SchemaSource
-  /** Validate runtime config at build time. Default: `true`, or `false` when `validateAtRuntime` is enabled */
+  /**
+   * Fail the build when a value is missing, not only when a value is wrong.
+   * Without it, an `undefined` or `''` value at build is left for the server start check,
+   * where `NUXT_*` variables fill it in. Enable it in CI that builds with every production value.
+   * Default: false
+   */
+  requireAtBuild?: boolean
+  /**
+   * @deprecated The server start check always runs, and the build check skips values the deployment sets.
+   * Use `requireAtBuild: true` to also require every value at build.
+   */
   validateAtBuild?: boolean
-  /** Validate runtime config when the server starts, coercing env overrides against the schema. Default: false */
+  /**
+   * @deprecated The server start check always runs. Remove this option.
+   */
   validateAtRuntime?: boolean
   /** JSON Schema target version. Default: 'draft-2020-12' */
   jsonSchemaTarget?: StandardJSONSchemaV1.Target
