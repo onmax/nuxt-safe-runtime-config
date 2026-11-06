@@ -25,6 +25,17 @@ function recommendViteHubEnv(nuxt: Nuxt): void {
   ].join('\n'))
 }
 
+// Nuxt 4.2+ runs Nitro through @nuxt/nitro-server, which can resolve a different Nitro copy than `nuxt` does.
+// The runtime config import must come from the copy that builds the server, or prerendering can't resolve its virtual modules.
+function resolveNitroParent(nuxtPackage: string): string {
+  try {
+    return createRequire(nuxtPackage).resolve('@nuxt/nitro-server/package.json')
+  }
+  catch {
+    return nuxtPackage
+  }
+}
+
 function applyEnvSchemaDefaults(config: Record<string, unknown>, defaults: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(defaults)) {
     if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -68,7 +79,7 @@ export default defineNuxtModule<ModuleOptions>({
     const rootRequire = createRequire(join(nuxt.options.rootDir, 'package.json'))
     const runtimeConfigImport = resolveRuntimeConfigImport(
       nuxtMajorVersion >= 5 ? 3 : 2,
-      rootRequire.resolve('nuxt/package.json'),
+      resolveNitroParent(rootRequire.resolve('nuxt/package.json')),
     )
 
     const envSchemaSource = options.envSchema
