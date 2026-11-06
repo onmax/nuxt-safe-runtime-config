@@ -61,6 +61,10 @@ describe('build-time validation', () => {
 
     expect(status).not.toBe(0)
     expect(output).toContain('Runtime config validation failed')
+    // The wrong port fails the build; the missing values are left to the server start check.
+    const issues = output.slice(output.indexOf('Validation failed!'), output.indexOf('Error: Runtime config validation failed'))
+    expect(issues).toContain('1. port: ')
+    expect(issues).not.toMatch(/databaseUrl|secretKey|apiBase/)
   }, 60000)
 })
 
@@ -68,12 +72,10 @@ describe('runtime JSON Schema generation', () => {
   it('types transformed output only when runtime validation applies it', async () => {
     const options = await resolveValidationOptions({
       $schema: './fixtures/runtime-transform/schema',
-      validateAtBuild: false,
-      validateAtRuntime: true,
     }, fileURLToPath(new URL('.', import.meta.url)))
 
     const runtime = await createRuntimeValidationArtifacts(options, () => {})
-    const buildOnly = await createRuntimeValidationArtifacts({ ...options, validateAtRuntime: false }, () => {})
+    const buildOnly = await createRuntimeValidationArtifacts({ ...options, runtimeCheck: false }, () => {})
 
     expect(runtime!.typeDeclaration).toContain('StandardSchemaV1.InferOutput<typeof schema>')
     expect(buildOnly!.typeDeclaration).toContain('StandardSchemaV1.InferInput<typeof schema>')
@@ -95,7 +97,7 @@ describe('runtime JSON Schema generation', () => {
     ['Zod native', zodRuntimeConfigSchema, '2020-12'],
     ['Valibot fallback', valibotRuntimeConfigSchema, '7'],
   ] as const)('emits a %s JSON Schema with a matching draft', async (_name, $schema, expectedDraft) => {
-    const options = await resolveValidationOptions({ $schema, validateAtRuntime: true })
+    const options = await resolveValidationOptions({ $schema })
     const { draft, jsonSchema } = (await createRuntimeValidationArtifacts(options, () => {}))!
     const validator = new Validator(jsonSchema, draft)
 

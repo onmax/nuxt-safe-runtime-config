@@ -25,6 +25,17 @@ function recommendViteHubEnv(nuxt: Nuxt): void {
   ].join('\n'))
 }
 
+// Nuxt 4.2+ runs Nitro through @nuxt/nitro-server, which can resolve a different Nitro copy than `nuxt` does.
+// The runtime config import must come from the copy that builds the server, or prerendering can't resolve its virtual modules.
+function resolveNitroParent(nuxtPackage: string): string {
+  try {
+    return createRequire(nuxtPackage).resolve('@nuxt/nitro-server/package.json')
+  }
+  catch {
+    return nuxtPackage
+  }
+}
+
 function applyEnvSchemaDefaults(config: Record<string, unknown>, defaults: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(defaults)) {
     if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -55,6 +66,7 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: {
     $schema: undefined,
+    requireAtBuild: false,
     validateAtBuild: undefined,
     validateAtRuntime: undefined,
     jsonSchemaTarget: 'draft-2020-12',
@@ -68,7 +80,7 @@ export default defineNuxtModule<ModuleOptions>({
     const rootRequire = createRequire(join(nuxt.options.rootDir, 'package.json'))
     const runtimeConfigImport = resolveRuntimeConfigImport(
       nuxtMajorVersion >= 5 ? 3 : 2,
-      rootRequire.resolve('nuxt/package.json'),
+      resolveNitroParent(rootRequire.resolve('nuxt/package.json')),
     )
 
     const envSchemaSource = options.envSchema
@@ -77,12 +89,13 @@ export default defineNuxtModule<ModuleOptions>({
         throw new Error('Choose envSchema or $schema, not both')
       if (options.validateAtRuntime === false)
         throw new Error('envSchema requires runtime validation of deployed values')
+      if (options.requireAtBuild)
+        throw new Error('envSchema checks deployed values when the server starts. Remove requireAtBuild.')
       const source = typeof envSchemaSource === 'string' ? { file: envSchemaSource } : envSchemaSource
       const schemaFile = resolve(nuxt.options.rootDir, source.file)
       const fields = parseEnvSchema(await readFile(schemaFile, 'utf8'), schemaFile)
       const compiled = compileEnvSchema(fields, { paths: source.paths })
       options.$schema = createEnvSchemaValidator(compiled.jsonSchema)
-      options.validateAtRuntime = true
       applyEnvSchemaDefaults(nuxt.options.runtimeConfig, compiled.runtimeConfig)
       nuxt.hook('nitro:config', (nitroConfig) => {
         nitroConfig.runtimeConfig ||= {}
@@ -98,7 +111,12 @@ export default defineNuxtModule<ModuleOptions>({
     if (!options.$schema)
       return
 
-    const validationOptions = await resolveValidationOptions(options, nuxt.options.rootDir)
+    const validationOptions = await resolveValidationOptions(
+      // envSchema never checks at build: its defaults are documentation for the deployment.
+      envSchemaSource ? { ...options, buildCheck: 'off', runtimeCheck: true } : options,
+      nuxt.options.rootDir,
+      msg => logger.warn(msg),
+    )
     const artifacts = await createRuntimeValidationArtifacts(validationOptions, msg => logger.warn(msg))
     if (!artifacts)
       return

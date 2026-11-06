@@ -22,7 +22,5 @@ export default defineNuxtConfig({
 
   safeRuntimeConfig: {
     $schema: runtimeConfigSchema,
-    validateAtBuild: false, // Skip build validation for this test
-    validateAtRuntime: true,
   },
 })

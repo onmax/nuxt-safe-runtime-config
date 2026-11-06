@@ -18,7 +18,7 @@ afterEach(() => {
 
 describe('runtime env coercion with an inline schema', () => {
   it('builds without runtime secrets and serves coerced, event-scoped config', async () => {
-    // validateAtRuntime turns build validation off by default, so the empty secret does not fail the build.
+    // The empty secret is a placeholder for NUXT_SECRET, so the build leaves it to the server start check.
     const build = spawnSync(process.execPath, [nuxtBin, 'build'], { cwd: fixtureDir, encoding: 'utf8' })
     expect(build.status, `${build.stdout}\n${build.stderr}`).toBe(0)
 
@@ -70,4 +70,49 @@ describe('runtime env coercion with an inline schema', () => {
     expect(logs).toContain('Runtime validation failed')
     expect(logs).toContain('/perfTrace/enabled')
   }, 30000)
+
+  it('fails at startup when a value left for the deployment is missing', async () => {
+    const env = { ...process.env, PORT: await getFreePort() }
+    delete env.NUXT_SECRET
+    const child = spawn('node', [serverEntry], { cwd: fixtureDir, env })
+    children.push(child)
+
+    let logs = ''
+    child.stdout?.on('data', chunk => logs += chunk.toString())
+    child.stderr?.on('data', chunk => logs += chunk.toString())
+    await new Promise(resolve => child.on('exit', resolve))
+
+    expect(logs).toContain('Runtime validation failed')
+    expect(logs).toContain('/secret')
+  }, 30000)
+
+  it('fails the build on the placeholder with requireAtBuild', () => {
+    const build = spawnSync(process.execPath, [nuxtBin, 'build'], {
+      cwd: fixtureDir,
+      encoding: 'utf8',
+      env: { ...process.env, REQUIRE_AT_BUILD: '1' },
+    })
+    const output = `${build.stdout}\n${build.stderr}`
+
+    expect(build.status, output).not.toBe(0)
+    expect(output).toContain('Runtime config validation failed')
+    expect(output).toContain('secret')
+  }, 60000)
+
+  it('runs the server start check while prerendering with nuxt generate', () => {
+    const env = { ...process.env }
+    delete env.NUXT_SECRET
+    const missing = spawnSync(process.execPath, [nuxtBin, 'generate'], { cwd: fixtureDir, encoding: 'utf8', env })
+    const missingOutput = `${missing.stdout}\n${missing.stderr}`
+    expect(missing.status, missingOutput).not.toBe(0)
+    expect(missingOutput).toContain('Runtime validation failed')
+    expect(missingOutput).toContain('/secret')
+
+    const set = spawnSync(process.execPath, [nuxtBin, 'generate'], {
+      cwd: fixtureDir,
+      encoding: 'utf8',
+      env: { ...env, NUXT_SECRET: 'runtime-secret' },
+    })
+    expect(set.status, `${set.stdout}\n${set.stderr}`).toBe(0)
+  }, 120000)
 })

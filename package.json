@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.3.2",
   "packageManager": "pnpm@12.15.0",
-  "description": "Validate Nuxt runtime config with Standard Schema at build time",
+  "description": "Validate Nuxt runtime config with Standard Schema at build and when the server starts",
   "author": {
     "name": "onmax"
   },
