@@ -1,5 +1,7 @@
+import { useSafeRuntimeConfig as useExplicitSafeRuntimeConfig } from '#safe-runtime-config/server'
+
 export default defineEventHandler((event) => {
-  const config = useSafeRuntimeConfig(event)
+  const config = useExplicitSafeRuntimeConfig(event)
 
   return {
     secret: config.secret,
