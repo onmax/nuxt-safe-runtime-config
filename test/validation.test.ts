@@ -107,6 +107,13 @@ describe('runtime JSON Schema generation', () => {
     expect(validator.validate({ secretKey: 123, public: { apiBase: 'https://api.test.com' } }).valid).toBe(false)
   })
 
+  it('loads a Zod schema module, whose schemas have a default() method', async () => {
+    const options = await resolveValidationOptions({ $schema: './test/fixtures/_shared/zod-runtime-config-schema.ts' })
+
+    expect(options.schemaPath).toMatch(/zod-runtime-config-schema\.ts$/)
+    expect(options.$schema?.['~standard'].vendor).toBe('zod')
+  })
+
   it('registers typed useSafeRuntimeConfig in server context', () => {
     const fixtureDir = fixturePath('server-typing')
 

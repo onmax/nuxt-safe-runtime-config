@@ -83,10 +83,11 @@ export async function resolveValidationOptions(
   let schemaPath = options.schemaPath
 
   if (typeof schema === 'string') {
-    const jiti = createJiti(join(rootDir, 'nuxt-safe-runtime-config.loader.mjs'))
+    // jiti's default interop also unwraps a `default` property, and Zod schemas have a `default()` method.
+    const jiti = createJiti(join(rootDir, 'nuxt-safe-runtime-config.loader.mjs'), { interopDefault: false })
     const resolvedPath = jiti.esmResolve(schema)
     schemaPath = resolvedPath.startsWith('file:') ? fileURLToPath(resolvedPath) : resolvedPath
-    schema = await jiti.import<unknown>(schemaPath, { default: true }) as StandardSchemaV1
+    schema = (await jiti.import<{ default?: unknown }>(schemaPath)).default as StandardSchemaV1
 
     if (!isStandardSchema(schema))
       throw new TypeError(`Schema module must default export a Standard Schema: ${schemaPath}`)
