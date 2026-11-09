@@ -139,12 +139,8 @@ export default defineNuxtModule<ModuleOptions>({
       pushUnique(nitroConfig.typescript.tsConfig.include, './types/safe-runtime-config.d.ts')
     })
 
-    const composable = {
-      name: 'useSafeRuntimeConfig',
-      from: resolver.resolve('./runtime/composables/useSafeRuntimeConfig'),
-    }
-    addImports(composable)
-    addServerImports(composable)
+    addImports({ name: 'useSafeRuntimeConfig', from: resolver.resolve('./runtime/composables/useSafeRuntimeConfig') })
+    addServerImports({ name: 'useSafeRuntimeConfig', from: resolver.resolve('./runtime/server/useSafeRuntimeConfig') })
 
     nuxt.hook('eslint:config:addons' as any, (addons: Array<{ name: string, getConfigs: () => unknown }>) => {
       addons.push({
