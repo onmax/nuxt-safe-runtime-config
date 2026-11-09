@@ -134,6 +134,16 @@ export function ensureRuntimeConfigValidation(config: RuntimeConfig, environment
   return validatedState?.status === 'pending' ? validatedState.ready : undefined
 }
 
+/**
+ * The validated values of `config`, for `useSafeRuntimeConfig()`. Event configs, including Nuxt's
+ * server-side `$config`, validate on first read. Asynchronous schemas were already awaited by the
+ * validation middleware.
+ */
+export function readValidatedRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
+  void ensureRuntimeConfigValidation(config)
+  return useValidatedRuntimeConfig(config)
+}
+
 export async function waitForRuntimeConfigValidation(config: RuntimeConfig, environment?: RuntimeConfigEnvironment): Promise<void> {
   await ensureRuntimeConfigValidation(config, environment)
 
