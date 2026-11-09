@@ -77,8 +77,8 @@ describe('runtime JSON Schema generation', () => {
     const runtime = await createRuntimeValidationArtifacts(options, () => {})
     const buildOnly = await createRuntimeValidationArtifacts({ ...options, runtimeCheck: false }, () => {})
 
-    expect(runtime!.typeDeclaration).toContain('StandardSchemaV1.InferOutput<typeof schema>')
-    expect(buildOnly!.typeDeclaration).toContain('StandardSchemaV1.InferInput<typeof schema>')
+    expect(runtime!.typeDeclaration).toContain('SchemaTypes[\'output\']')
+    expect(buildOnly!.typeDeclaration).toContain('SchemaTypes[\'input\']')
   })
 
   it('builds a Nuxt app with Nitro-owned runtime validation artifacts', () => {

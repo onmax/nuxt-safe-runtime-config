@@ -106,13 +106,14 @@ describe('generateTypeDeclaration', () => {
     const result = generateSchemaTypeDeclaration('/app/runtime-config.schema.ts', 'output')
 
     expect(result).toContain('import schema from "/app/runtime-config.schema.ts"')
-    expect(result).toContain('StandardSchemaV1.InferOutput<typeof schema>')
+    expect(result).not.toContain('@standard-schema/spec')
+    expect(result).toContain('SchemaTypes[\'output\']')
   })
 
   it('infers raw input when runtime validation is disabled', () => {
     const result = generateSchemaTypeDeclaration('C:\\app\\runtime-config.schema.ts', 'input')
 
     expect(result).toContain('import schema from "C:/app/runtime-config.schema.ts"')
-    expect(result).toContain('StandardSchemaV1.InferInput<typeof schema>')
+    expect(result).toContain('SchemaTypes[\'input\']')
   })
 })
