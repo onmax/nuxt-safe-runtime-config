@@ -77,8 +77,8 @@ describe('runtime JSON Schema generation', () => {
     const runtime = await createRuntimeValidationArtifacts(options, () => {})
     const buildOnly = await createRuntimeValidationArtifacts({ ...options, runtimeCheck: false }, () => {})
 
-    expect(runtime!.typeDeclaration).toContain('StandardSchemaV1.InferOutput<typeof schema>')
-    expect(buildOnly!.typeDeclaration).toContain('StandardSchemaV1.InferInput<typeof schema>')
+    expect(runtime!.typeDeclaration).toContain('SchemaTypes[\'output\']')
+    expect(buildOnly!.typeDeclaration).toContain('SchemaTypes[\'input\']')
   })
 
   it('builds a Nuxt app with Nitro-owned runtime validation artifacts', () => {
@@ -105,6 +105,13 @@ describe('runtime JSON Schema generation', () => {
     expect(draft).toBe(expectedDraft)
     expect(validator.validate({ secretKey: 'test-key', public: { apiBase: 'https://api.test.com' } }).valid).toBe(true)
     expect(validator.validate({ secretKey: 123, public: { apiBase: 'https://api.test.com' } }).valid).toBe(false)
+  })
+
+  it('loads a Zod schema module, whose schemas have a default() method', async () => {
+    const options = await resolveValidationOptions({ $schema: './test/fixtures/_shared/zod-runtime-config-schema.ts' })
+
+    expect(options.schemaPath).toMatch(/zod-runtime-config-schema\.ts$/)
+    expect(options.$schema?.['~standard'].vendor).toBe('zod')
   })
 
   it('registers typed useSafeRuntimeConfig in server context', () => {

@@ -9,6 +9,7 @@ import { version } from '../package.json'
 import { compileEnvSchema } from './env-schema/nuxt'
 import { parseEnvSchema } from './env-schema/profile'
 import { createEnvSchemaValidator } from './env-schema/standard'
+import { registerEnvSchemaPaths, registerNativeSchema, supportsNativeSchemas } from './native-schema'
 import safeRuntimeConfigNitroModule, { resolveRuntimeConfigImport } from './nitro'
 import { createRuntimeValidationArtifacts, resolveValidationOptions } from './validation'
 
@@ -16,12 +17,12 @@ export type { ErrorBehavior, ModuleOptions, SchemaSource, ValidationOptions } fr
 
 const logger = useLogger('safe-runtime-config')
 
-function recommendViteHubEnv(nuxt: Nuxt): void {
+function explainNuxt5(nuxt: Nuxt): void {
   if (Number.parseInt(getNuxtVersion(nuxt), 10) < 5)
     return
-  logger.warn([
-    'On Nuxt 5, use @vite-hub/env instead: it reads the same .env.example, keeps secrets sealed, and also works in Vite and Nitro.',
-    'Migrate with `npx @vite-hub/codemods nuxt-safe-runtime-config`. Guide: https://nuxt-safe-runtime-config.onmax.me/guide/migrate-to-vitehub-env',
+  logger.info([
+    'Nuxt 5 checks runtimeConfig schemas itself. This module adds the checks Nuxt skips: formats, ranges, patterns, refinements and transforms.',
+    'To move secrets out of runtime config, see @vite-hub/env: https://nuxt-safe-runtime-config.onmax.me/guide/nuxt-5',
   ].join('\n'))
 }
 
@@ -72,16 +73,14 @@ export default defineNuxtModule<ModuleOptions>({
     jsonSchemaTarget: 'draft-2020-12',
     onError: 'throw',
   },
-  onInstall: recommendViteHubEnv,
-  onUpgrade: recommendViteHubEnv,
+  onInstall: explainNuxt5,
+  onUpgrade: explainNuxt5,
   async setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
     const nuxtMajorVersion = Number.parseInt(getNuxtVersion(nuxt), 10)
     const rootRequire = createRequire(join(nuxt.options.rootDir, 'package.json'))
-    const runtimeConfigImport = resolveRuntimeConfigImport(
-      nuxtMajorVersion >= 5 ? 3 : 2,
-      resolveNitroParent(rootRequire.resolve('nuxt/package.json')),
-    )
+    const nuxtPackage = rootRequire.resolve('nuxt/package.json')
+    const runtimeConfigImport = resolveRuntimeConfigImport(nuxtMajorVersion >= 5 ? 3 : 2, resolveNitroParent(nuxtPackage))
 
     const envSchemaSource = options.envSchema
     if (envSchemaSource) {
@@ -97,6 +96,8 @@ export default defineNuxtModule<ModuleOptions>({
       const compiled = compileEnvSchema(fields, { paths: source.paths })
       options.$schema = createEnvSchemaValidator(compiled.jsonSchema)
       applyEnvSchemaDefaults(nuxt.options.runtimeConfig, compiled.runtimeConfig)
+      if (supportsNativeSchemas(nuxt))
+        await registerEnvSchemaPaths(nuxtPackage, compiled.mappings.map(mapping => mapping.path))
       nuxt.hook('nitro:config', (nitroConfig) => {
         nitroConfig.runtimeConfig ||= {}
         applyEnvSchemaDefaults(nitroConfig.runtimeConfig, compiled.runtimeConfig)
@@ -120,6 +121,12 @@ export default defineNuxtModule<ModuleOptions>({
     const artifacts = await createRuntimeValidationArtifacts(validationOptions, msg => logger.warn(msg))
     if (!artifacts)
       return
+
+    if (!envSchemaSource && supportsNativeSchemas(nuxt)) {
+      const rejected = await registerNativeSchema(nuxtPackage, validationOptions.$schema!, validationOptions)
+      if (rejected)
+        logger.info(`Nuxt can't use this schema for useRuntimeConfig(), so only useSafeRuntimeConfig() is typed from it: ${rejected}`)
+    }
 
     addTypeTemplate({
       filename: 'types/safe-runtime-config.d.ts',

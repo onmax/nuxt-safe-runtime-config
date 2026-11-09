@@ -137,7 +137,7 @@ export function generateTypeDeclaration(schema: Record<string, unknown>): string
 
 export function generateSchemaTypeDeclaration(schemaPath: string, inference: 'input' | 'output'): string {
   const schemaSpecifier = schemaPath.replace(/\\/g, '/')
-  const imports = `import type { StandardSchemaV1 } from '@standard-schema/spec'\nimport schema from ${JSON.stringify(schemaSpecifier)}\n\n`
-  const inferredType = inference === 'output' ? 'InferOutput' : 'InferInput'
-  return wrapTypeDeclaration(`StandardSchemaV1.${inferredType}<typeof schema>`, imports)
+  // Reads the Standard Schema types without importing @standard-schema/spec, which the app may not resolve.
+  const imports = `import schema from ${JSON.stringify(schemaSpecifier)}\n\ntype SchemaTypes = NonNullable<(typeof schema)['~standard']['types']>\n\n`
+  return wrapTypeDeclaration(`SchemaTypes['${inference}']`, imports)
 }
