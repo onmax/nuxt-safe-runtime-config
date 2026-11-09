@@ -1,5 +1,6 @@
 import type { Nuxt } from '@nuxt/schema'
 import type { StandardSchemaV1 } from '@standard-schema/spec'
+import type { ResolvedValidationOptions } from './validation'
 import { createJiti } from 'jiti'
 import { errorMessage } from './utils/error'
 
@@ -24,8 +25,16 @@ async function updateNativeRuntimeConfig(nuxtPackage: string, update: object): P
  *
  * Returns why Nuxt can't use the schema, or `undefined` once it took it. Nuxt needs a Standard JSON
  * Schema output and synchronous validation, so schemas with transforms stay with this module.
+ * Native checks are mandatory, so disabled or non-throwing validation also stays with this module.
  */
-export async function registerNativeSchema(nuxtPackage: string, schema: StandardSchemaV1): Promise<string | undefined> {
+export async function registerNativeSchema(
+  nuxtPackage: string,
+  schema: StandardSchemaV1,
+  options: Pick<ResolvedValidationOptions, 'runtimeCheck' | 'onError'>,
+): Promise<string | undefined> {
+  if (!options.runtimeCheck || options.onError !== 'throw')
+    return 'native validation requires runtime validation and onError: "throw"'
+
   const standard: StandardSchemaV1['~standard'] & { jsonSchema?: { output?: unknown } } = schema['~standard']
   const output = standard.jsonSchema?.output
   if (typeof output !== 'function')

@@ -123,7 +123,7 @@ export default defineNuxtModule<ModuleOptions>({
       return
 
     if (!envSchemaSource && supportsNativeSchemas(nuxt)) {
-      const rejected = await registerNativeSchema(nuxtPackage, validationOptions.$schema!)
+      const rejected = await registerNativeSchema(nuxtPackage, validationOptions.$schema!, validationOptions)
       if (rejected)
         logger.info(`Nuxt can't use this schema for useRuntimeConfig(), so only useSafeRuntimeConfig() is typed from it: ${rejected}`)
     }
