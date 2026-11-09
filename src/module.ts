@@ -133,10 +133,12 @@ export default defineNuxtModule<ModuleOptions>({
       getContents: () => artifacts.typeDeclaration,
     })
 
+    const serverComposable = resolver.resolve('./runtime/server/useSafeRuntimeConfig')
     nuxt.hook('nitro:config', (nitroConfig) => {
       ;(nitroConfig as typeof nitroConfig & { safeRuntimeConfig: typeof validationOptions }).safeRuntimeConfig = validationOptions
       nitroConfig.alias ||= {}
       nitroConfig.alias['#safe-runtime-config/nitro-runtime-config'] = runtimeConfigImport
+      nitroConfig.alias['#safe-runtime-config/server'] = serverComposable
       nitroConfig.modules ||= []
       pushUnique(nitroConfig.modules, safeRuntimeConfigNitroModule)
 
@@ -147,7 +149,7 @@ export default defineNuxtModule<ModuleOptions>({
     })
 
     addImports({ name: 'useSafeRuntimeConfig', from: resolver.resolve('./runtime/composables/useSafeRuntimeConfig') })
-    addServerImports({ name: 'useSafeRuntimeConfig', from: resolver.resolve('./runtime/server/useSafeRuntimeConfig') })
+    addServerImports({ name: 'useSafeRuntimeConfig', from: serverComposable })
 
     nuxt.hook('eslint:config:addons' as any, (addons: Array<{ name: string, getConfigs: () => unknown }>) => {
       addons.push({
