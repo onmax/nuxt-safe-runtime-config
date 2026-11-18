@@ -71,9 +71,6 @@ describe('nitro module', () => {
     const validateModule = readFileSync(validateModulePath!, 'utf8')
     expect(validateModule).toContain('export const schema')
     expect(validateModule).toContain('export const onError')
-
-    const serverEntry = readFileSync(join(fixtureDir, '.output/server/index.mjs'), 'utf8')
-    expect(serverEntry).toMatch(/const plugins = \[\s*validate_plugin_default,\s*plugin_default\s*\]/)
   }, 60000)
 
   it.concurrent('fails during build when runtime config does not match the schema', () => {
@@ -115,7 +112,7 @@ describe('nitro module', () => {
     coerced.kill()
 
     expect(coercedOutput).not.toContain('Runtime validation failed')
-    // The validated value is written back into Nitro 3's mutable shared config.
-    expect(body, coercedOutput).toEqual({ port: Number(port), type: 'number' })
+    // The validated value is written back into Nitro 3's mutable shared config, before the app's own plugins run.
+    expect(body, coercedOutput).toEqual({ port: Number(port), type: 'number', typeInPlugin: 'number' })
   }, 60000)
 })
