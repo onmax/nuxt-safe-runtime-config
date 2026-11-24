@@ -1,15 +1,11 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/onmax/nuxt-safe-runtime-config/main/.github/banner.png" alt="Nuxt Safe Runtime Config: runtime config you can trust" width="100%">
-</p>
-
 <h1 align="center"><img src="https://raw.githubusercontent.com/onmax/nuxt-safe-runtime-config/main/.github/logo.svg" alt="" width="32" height="32" style="vertical-align: middle;"> Nuxt Safe Runtime Config</h1>
 
 <p align="center">
-Validate Nuxt runtime config with <b>Valibot</b>, <b>Zod</b>, <b>ArkType</b> or an annotated <code>.env.example</code>, and read it through a typed composable.
+<b>Deprecated.</b> Nuxt 4.7 checks runtimeConfig schemas itself.
 </p>
 
 <p align="center">
-  <a href="https://nuxt-safe-runtime-config.onmax.me">Docs</a>
+  <a href="https://nuxt-safe-runtime-config.onmax.me">Migration guide</a>
 </p>
 
 <p align="center">
@@ -22,27 +18,34 @@ Validate Nuxt runtime config with <b>Valibot</b>, <b>Zod</b>, <b>ArkType</b> or 
   <a href="https://github.com/onmax/nuxt-safe-runtime-config/blob/main/LICENSE">
     <img src="https://comark-ui.onmax.me/badge.svg?label=license&amp;value=MIT" alt="License" />
   </a>
-  <a href="https://nuxt.com">
-    <img src="https://comark-ui.onmax.me/badge.svg?label=Nuxt&amp;value=4+%7C+5+nightly" alt="Nuxt compatibility" />
-  </a>
-
-  <p align="center">
-    <a href="https://github.com/nuxt/nuxt/discussions/32301">
-      🔗 Related Nuxt RFC: Enable Standard Schema Validation in Nuxt Config
-    </a>
-  </p>
 </p>
 
-> [!TIP]
-> Nuxt 5 checks runtime config types itself. Point this module at a schema file and Nuxt types `useRuntimeConfig()` from it, while the module runs the URL formats, ranges, patterns and refinements Nuxt skips. See [Nuxt 5](https://nuxt-safe-runtime-config.onmax.me/guide/nuxt-5).
+> [!WARNING]
+> This module is deprecated. Nuxt 4.7 accepts a Standard Schema in `runtimeConfig`, converts `NUXT_*` strings to its types, refuses to start on a missing or mistyped value, and types `useRuntimeConfig()`. Move your schema there with one command:
+>
+> ```bash
+> npx nuxt-safe-runtime-config migrate --dry-run   # print the changes and the report, write nothing
+> npx nuxt-safe-runtime-config migrate             # apply them
+> ```
+>
+> Pass a directory when the app isn't in the current one: `npx nuxt-safe-runtime-config migrate apps/web`. The codemod needs Nuxt 4.7 or later.
 
-On Nuxt 4, `useRuntimeConfig()` returns whatever ends up in runtime config. Nothing checks that `NUXT_DATABASE_URL` is set or that `NUXT_PUBLIC_REPLAY_ENABLED=false` arrives as `false`. This module validates runtime config against a schema while you build and again when the server starts, and `useSafeRuntimeConfig()` returns the values typed from that schema.
+The [migration guide](https://nuxt-safe-runtime-config.onmax.me) covers what the codemod changes, when it stops, and what Nuxt doesn't check:
 
-## Quick start
+- Nuxt doesn't run URL formats, minimums and maximums, patterns or `.refine()`. The codemod lists each one in its report.
+- A schema in `nuxt.config.ts` always stops the server on a bad value. `onError: 'warn' | 'ignore'` has no equivalent.
+- Apps that use `envSchema` or the standalone Nitro module move to [ViteHub Env](https://nuxt-safe-runtime-config.onmax.me/guide/migrate-to-vitehub-env). Apps whose schema has transforms can pin `nuxt-safe-runtime-config@1.0.0`, which keeps working.
 
-```bash
-npx nuxi module add nuxt-safe-runtime-config
-```
+## Maintenance
+
+The repository and the docs site stay online in maintenance mode:
+
+- Security fixes and severe bugs only. No new features.
+- Report a vulnerability privately, as [SECURITY.md](.github/SECURITY.md) describes. Don't open a public issue for it.
+
+## Reference
+
+For apps that still run the module. The [old guides](https://nuxt-safe-runtime-config.onmax.me/guide) describe it in full.
 
 ```ts
 // nuxt.config.ts
@@ -52,45 +55,18 @@ export default defineNuxtConfig({
   modules: ['nuxt-safe-runtime-config'],
   runtimeConfig: {
     databaseUrl: '',
-    public: { apiBase: 'https://api.example.com', replayEnabled: false },
+    public: { apiBase: 'https://api.example.com' },
   },
   safeRuntimeConfig: {
     $schema: v.object({
       databaseUrl: v.pipe(v.string(), v.url()),
-      public: v.object({
-        apiBase: v.pipe(v.string(), v.url()),
-        replayEnabled: v.boolean(),
-      }),
+      public: v.object({ apiBase: v.pipe(v.string(), v.url()) }),
     }),
   },
 })
 ```
 
-```ts
-// server/api/report.post.ts
-export default defineEventHandler((event) => {
-  const config = useSafeRuntimeConfig(event)
-  config.databaseUrl // string
-  config.public.replayEnabled // boolean, also from NUXT_PUBLIC_REPLAY_ENABLED=false
-})
-```
-
-If the server starts without a valid `NUXT_DATABASE_URL`, it stops before serving a request:
-
-```txt
-[safe-runtime-config] Runtime validation failed: #: Property "databaseUrl" does not match schema., #/databaseUrl: String does not match format "uri".
-```
-
-## What it does
-
-- [Build or runtime validation](https://nuxt-safe-runtime-config.onmax.me/guide/validation) with any [Standard Schema](https://standardschema.dev/) library
-- [Coercion of `NUXT_*` strings](https://nuxt-safe-runtime-config.onmax.me/guide/environment-overrides) to the booleans, numbers, enums and JSON values your schema expects, and schema modules for transforms
-- [Generated types](https://nuxt-safe-runtime-config.onmax.me/guide/type-safety) for `useSafeRuntimeConfig()` in the app and in `server/`
-- [`.env.example` as the schema](https://nuxt-safe-runtime-config.onmax.me/guide/env-schema) (experimental), so builds need no secrets
-- An [ESLint rule](https://nuxt-safe-runtime-config.onmax.me/guide/eslint) that migrates `useRuntimeConfig()` calls
-- A [Nitro module](https://nuxt-safe-runtime-config.onmax.me/guide/nitro) for Nitro apps without Nuxt
-
-Supports Nuxt 4 and the Nuxt 5 nightly, on Nitro 2 and 3.
+The module checks the schema during `nuxt build` and again when the server starts, after `NUXT_*` overrides. `useSafeRuntimeConfig()` returns the values typed from the schema; pass `event` in server handlers. [Configuration](https://nuxt-safe-runtime-config.onmax.me/reference/configuration) lists every option.
 
 ## Contribution
 

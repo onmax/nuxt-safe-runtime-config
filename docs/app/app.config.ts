@@ -8,7 +8,7 @@ export default defineAppConfig({
   seo: {
     title: 'Nuxt Safe Runtime Config',
     titleTemplate: '%s - Nuxt Safe Runtime Config',
-    description: 'Validate Nuxt runtime config with Valibot, Zod, ArkType or an annotated .env.example, and read it typed.',
+    description: 'nuxt-safe-runtime-config is deprecated. Nuxt 4.7 checks runtimeConfig schemas itself. Migrate with npx nuxt-safe-runtime-config migrate.',
   },
   ui: {
     prose: {
