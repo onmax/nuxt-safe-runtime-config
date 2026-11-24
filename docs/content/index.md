@@ -153,7 +153,7 @@ The codemod stops before it changes a file when the app needs something Nuxt doe
 | Nuxt below 4.7 | `npx nuxt upgrade`, then run the codemod again |
 | `envSchema` (a `.env.example` as the schema) | [ViteHub Env](/guide/migrate-to-vitehub-env), which needs Nuxt 5. Nuxt can't read `.env.example`, and Env keeps the file as it is. If you can't move to Nuxt 5 yet and don't need `.env.example` as the schema, write the schema by hand on 4.7: see [`envSchema` by hand](#envschema-by-hand). Otherwise stay on the module |
 | `nuxt-safe-runtime-config/nitro`, in a Nitro app without Nuxt | [ViteHub Env](https://vitehub.dev/docs/getting-started/installation), which needs Nitro 3 with Vite. Nitro has no runtime config schemas. The Nuxt codemods don't cover these apps |
-| Transforms, such as Zod's `.transform()` or Valibot's `v.transform()` and `v.trim()` | Pin `nuxt-safe-runtime-config@1.0.0`, which keeps working, or move each transform to where the value is read and run the codemod again |
+| Transforms, such as Zod's `.transform()` or Valibot's `v.transform()` and `v.trim()` | Pin `nuxt-safe-runtime-config@0.5.0`, which keeps working, or move each transform to where the value is read and run the codemod again |
 | Asynchronous checks | Nuxt validates synchronously. Move the check to where the value is used, then run the codemod again |
 | A `nuxt.config.ts` or schema it can't edit safely | [Do it by hand](#doing-it-by-hand) |
 
@@ -202,7 +202,7 @@ Nuxt 4.7 can't read `.env.example`, but you can write the same rules as a schema
 The module is in maintenance mode. The repository and this site stay online.
 
 - Security fixes and severe bugs only. No new features or schema sources.
-- `nuxt-safe-runtime-config@1.0.0` is the last release. It works as before and warns that the module is deprecated.
+- `nuxt-safe-runtime-config@0.5.0` is the last release. It works as before and warns that the module is deprecated.
 - [Report a vulnerability privately on GitHub](https://github.com/onmax/nuxt-safe-runtime-config/security/advisories/new). Don't open a public issue for it.
 
 The [old guides](/guide) still describe how the module works, for apps that stay on it for now.
