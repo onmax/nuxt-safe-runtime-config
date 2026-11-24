@@ -26,12 +26,12 @@ beforeEach(() => {
 describe('deprecation warning', () => {
   it.each(['5.0.0', '4.7.0', '4.7.0-rc.1'])('points Nuxt %s at the migrate command', async (version) => {
     const { deprecationMessage } = await loadModule()
-    expect(deprecationMessage(version)).toBe('nuxt-safe-runtime-config is deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. Run `npx nuxt-safe-runtime-config migrate`. https://nuxt-safe-runtime-config.onmax.me')
+    expect(deprecationMessage(version)).toBe('nuxt-safe-runtime-config is deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. Run `npx nuxt-safe-runtime-config@latest migrate`. https://nuxt-safe-runtime-config.onmax.me')
   })
 
   it.each(['4.6.4', '4.5.0', '3.17.0'])('asks Nuxt %s to upgrade before migrating', async (version) => {
     const { deprecationMessage } = await loadModule()
-    expect(deprecationMessage(version)).toBe('nuxt-safe-runtime-config is deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. Upgrade Nuxt to 4.7 first (`npx nuxt upgrade`), then run `npx nuxt-safe-runtime-config migrate`. https://nuxt-safe-runtime-config.onmax.me')
+    expect(deprecationMessage(version)).toBe('nuxt-safe-runtime-config is deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. Upgrade Nuxt to 4.7 first (`npx nuxt upgrade`), then run `npx nuxt-safe-runtime-config@latest migrate`. https://nuxt-safe-runtime-config.onmax.me')
   })
 
   it('warns on install and on upgrade', async () => {
@@ -39,7 +39,7 @@ describe('deprecation warning', () => {
     await module.onInstall?.(nuxtWithVersion('4.7.0'))
     await module.onUpgrade?.(nuxtWithVersion('4.7.0'), {}, '0.4.0')
     expect(warn).toHaveBeenCalledTimes(2)
-    expect(warn.mock.calls[0]![0]).toContain('Run `npx nuxt-safe-runtime-config migrate`.')
+    expect(warn.mock.calls[0]![0]).toContain('Run `npx nuxt-safe-runtime-config@latest migrate`.')
   })
 
   it('warns once per process when the module sets up', async () => {

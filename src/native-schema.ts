@@ -8,20 +8,6 @@ interface NuxtKitWithSchemas {
   updateRuntimeConfig: (runtimeConfig: Record<string, unknown>) => void | Promise<void>
 }
 
-interface NativeSchemaNode {
-  p?: Record<string, NativeSchemaNode>
-}
-
-interface NativeSchemaEntry {
-  path: string[]
-  node: NativeSchemaNode
-}
-
-function nativeSchemas(nuxt: Nuxt): NativeSchemaEntry[] | undefined {
-  const entries = (nuxt.options as { _runtimeConfigSchemas?: NativeSchemaEntry[] })._runtimeConfigSchemas
-  return Array.isArray(entries) ? entries : undefined
-}
-
 /**
  * Whether Nuxt stops the server when a value fails a schema that a module registers. Nuxt 4.7
  * compiles runtime config schemas too, but before `compatibilityVersion: 5` it only warns about a
@@ -31,30 +17,9 @@ export function enforcesModuleSchemas(nuxt: Nuxt): boolean {
   return supportsNativeSchemas(nuxt) && (nuxt.options.future?.compatibilityVersion ?? 4) >= 5
 }
 
+/** Nuxt 4.7 and later compile runtime config schemas from the list in `_runtimeConfigSchemas`. */
 export function supportsNativeSchemas(nuxt: Nuxt): boolean {
-  return nativeSchemas(nuxt) !== undefined
-}
-
-export function onlyInferredPaths(nuxt: Nuxt, paths: string[][]): string[][] {
-  const entries = nativeSchemas(nuxt)
-  if (!entries)
-    return []
-  return paths.filter(path => !entries.some((entry) => {
-    if (!Array.isArray(entry.path))
-      return true
-    const commonLength = Math.min(path.length, entry.path.length)
-    if (entry.path.slice(0, commonLength).some((part, index) => part !== path[index]))
-      return false
-    let node = entry.node
-    for (const key of path.slice(commonLength)) {
-      if (!node?.p)
-        return true
-      if (!Object.hasOwn(node.p, key))
-        return false
-      node = node.p[key]!
-    }
-    return true
-  }))
+  return Array.isArray((nuxt.options as { _runtimeConfigSchemas?: unknown })._runtimeConfigSchemas)
 }
 
 async function updateNativeRuntimeConfig(nuxtPackage: string, update: object): Promise<void> {
@@ -108,35 +73,17 @@ const anyValue: StandardSchemaV1 & { '~standard': { jsonSchema: { input: () => o
 }
 
 /**
- * Declares module-owned values as unconstrained for Nuxt instead of letting it infer a type
- * from the defaults. The module still checks these values at startup.
+ * Declares each env schema value as any value for Nuxt. The env schema reads and checks its
+ * `NUXT_*` variables itself, and Nuxt would otherwise infer a type from the placeholder defaults
+ * and reject the variables before that check runs.
  */
-export async function registerPassthroughPaths(nuxt: Nuxt, nuxtPackage: string, paths: string[][]): Promise<void> {
-  const inferredPaths = onlyInferredPaths(nuxt, paths)
-  if (!inferredPaths.length)
-    return
-  const update: Record<string, unknown> = Object.create(null)
-  for (const path of inferredPaths) {
+export async function registerEnvSchemaPaths(nuxtPackage: string, paths: string[][]): Promise<void> {
+  const update: Record<string, unknown> = {}
+  for (const path of paths) {
     let parent = update
     for (const key of path.slice(0, -1))
-      parent = (parent[key] ||= Object.create(null)) as Record<string, unknown>
+      parent = (parent[key] ||= {}) as Record<string, unknown>
     parent[path.at(-1)!] = anyValue
   }
   await updateNativeRuntimeConfig(nuxtPackage, update)
-}
-
-export function inferredSchemaPaths(config: Record<string, unknown>, schema: Record<string, unknown> | null): string[][] {
-  const properties = schema?.properties as Record<string, unknown> | undefined
-  const additional = schema?.additionalProperties
-  const catchall = additional && typeof additional === 'object' && Object.keys(additional).length ? additional : undefined
-  return Object.entries(config).flatMap(([key, value]) => {
-    const property = properties && Object.hasOwn(properties, key) ? properties[key] : catchall
-    if (property === undefined || property === false || typeof value === 'string')
-      return []
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      const childSchema = property && typeof property === 'object' ? property as Record<string, unknown> : null
-      return inferredSchemaPaths(value as Record<string, unknown>, childSchema).map(path => [key, ...path])
-    }
-    return [[key]]
-  })
 }

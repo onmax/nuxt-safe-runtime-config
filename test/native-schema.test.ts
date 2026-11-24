@@ -3,7 +3,7 @@ import type { ResolvedValidationOptions } from '../src/validation'
 import * as v from 'valibot'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { enforcesModuleSchemas, inferredSchemaPaths, onlyInferredPaths, registerNativeSchema } from '../src/native-schema'
+import { enforcesModuleSchemas, registerNativeSchema } from '../src/native-schema'
 
 const strictValidation = { runtimeCheck: true, onError: 'throw' } as const
 
@@ -20,32 +20,6 @@ describe('native runtime config schemas', () => {
     await expect(registerNativeSchema('/nonexistent/package.json', v.object({ port: v.number() }), strictValidation))
       .resolves
       .toBe('the schema does not implement Standard JSON Schema')
-  })
-
-  it('targets module-owned defaults without replacing existing native schema paths', () => {
-    const schema = z.object({
-      quota: z.number(),
-      missing: z.number(),
-      public: z.object({ limit: z.number(), retries: z.number() }),
-    }).toJSONSchema({ io: 'input' })
-    const config = { quota: 3000, other: 100, public: { limit: 10, retries: 3 } }
-    const nuxt = { options: { _runtimeConfigSchemas: [
-      { path: [], node: { p: { public: { p: { limit: {} } } } } },
-      { path: ['other'], node: {} },
-    ] } } as unknown as Nuxt
-
-    expect(onlyInferredPaths(nuxt, inferredSchemaPaths(config, schema))).toEqual([['quota'], ['public', 'retries']])
-  })
-
-  it('keeps native inference for strings and loose extras but targets typed record members', () => {
-    const schema = z.looseObject({
-      apiVersion: z.string(),
-      public: z.looseObject({ limits: z.record(z.string(), z.number()) }),
-    }).toJSONSchema()
-
-    const config = { apiVersion: '1.00', unrelatedEnabled: false, public: { unrelatedEnabled: false, limits: { quota: 3000 } } }
-    expect(inferredSchemaPaths(config, schema)).toEqual([['public', 'limits', 'quota']])
-    expect(inferredSchemaPaths(config, { ...schema, additionalProperties: true })).toEqual([['public', 'limits', 'quota']])
   })
   it('keeps a schema with transforms before Nuxt sees it', async () => {
     const schema = z.object({ origins: z.string().transform(value => value.split(',')) })

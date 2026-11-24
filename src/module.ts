@@ -9,7 +9,7 @@ import { version } from '../package.json'
 import { compileEnvSchema } from './env-schema/nuxt'
 import { parseEnvSchema } from './env-schema/profile'
 import { createEnvSchemaValidator } from './env-schema/standard'
-import { enforcesModuleSchemas, inferredSchemaPaths, registerNativeSchema, registerPassthroughPaths, supportsNativeSchemas } from './native-schema'
+import { enforcesModuleSchemas, registerEnvSchemaPaths, registerNativeSchema, supportsNativeSchemas } from './native-schema'
 import safeRuntimeConfigNitroModule, { resolveRuntimeConfigImport } from './nitro'
 import { createRuntimeValidationArtifacts, resolveValidationOptions } from './validation'
 
@@ -26,8 +26,8 @@ function supportsRuntimeConfigSchemas(nuxtVersion: string): boolean {
 
 export function deprecationMessage(nuxtVersion: string): string {
   const next = supportsRuntimeConfigSchemas(nuxtVersion)
-    ? 'Run `npx nuxt-safe-runtime-config migrate`.'
-    : 'Upgrade Nuxt to 4.7 first (`npx nuxt upgrade`), then run `npx nuxt-safe-runtime-config migrate`.'
+    ? 'Run `npx nuxt-safe-runtime-config@latest migrate`.'
+    : 'Upgrade Nuxt to 4.7 first (`npx nuxt upgrade`), then run `npx nuxt-safe-runtime-config@latest migrate`.'
   return `nuxt-safe-runtime-config is deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. ${next} ${docsUrl}`
 }
 
@@ -120,7 +120,8 @@ export default defineNuxtModule<ModuleOptions>({
       const compiled = compileEnvSchema(fields, { paths: source.paths })
       options.$schema = createEnvSchemaValidator(compiled.jsonSchema)
       applyEnvSchemaDefaults(nuxt.options.runtimeConfig, compiled.runtimeConfig)
-      await registerPassthroughPaths(nuxt, nuxtPackage, compiled.mappings.map(mapping => mapping.path))
+      if (supportsNativeSchemas(nuxt))
+        await registerEnvSchemaPaths(nuxtPackage, compiled.mappings.map(mapping => mapping.path))
       nuxt.hook('nitro:config', (nitroConfig) => {
         nitroConfig.runtimeConfig ||= {}
         applyEnvSchemaDefaults(nitroConfig.runtimeConfig, compiled.runtimeConfig)
@@ -149,9 +150,6 @@ export default defineNuxtModule<ModuleOptions>({
       const rejected = await registerNativeSchema(nuxtPackage, validationOptions.$schema!, validationOptions)
       if (rejected)
         logger.info(`Nuxt can't use this schema for useRuntimeConfig(), so only useSafeRuntimeConfig() is typed from it: ${rejected}`)
-    }
-    else if (!envSchemaSource && nitroMajor >= 3 && supportsNativeSchemas(nuxt) && validationOptions.runtimeCheck) {
-      await registerPassthroughPaths(nuxt, nuxtPackage, inferredSchemaPaths(nuxt.options.runtimeConfig, artifacts.coercionSchema))
     }
 
     addTypeTemplate({
