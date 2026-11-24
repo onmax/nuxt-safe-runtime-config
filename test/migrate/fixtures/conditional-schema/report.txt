@@ -1,0 +1,20 @@
+status: migrated
+
+Migrated nuxt-safe-runtime-config to Nuxt runtimeConfig schemas.
+
+Changed:
+  modify nuxt.config.ts
+  create layers/runtime-config/nuxt.config.ts
+  modify package.json
+
+Nuxt does not check these schema rules. Check them in server code where they matter:
+  - layers/runtime-config/nuxt.config.ts:17 public.siteUrl: format uri
+
+Behaviour changes:
+  - nuxt.config.ts:21 $schema depends on values read when nuxt.config loads, such as process.env or a ternary. Nuxt converts the schema the build sees once
+
+Next:
+  1. Run `pnpm install` to update the lockfile.
+  2. Run your typecheck. Nuxt now types runtimeConfig from the schema, so plain values in nuxt.config and code that reads them can fail it.
+  3. Run your linter with --fix. The files the codemod wrote may not match your code style.
+  4. Run `nuxt build`. Set every required NUXT_* variable when the server starts, or it exits with NUXT_E8014.

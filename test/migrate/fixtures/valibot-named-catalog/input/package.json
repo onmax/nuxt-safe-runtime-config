@@ -1,0 +1,14 @@
+{
+  "name": "fixture",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "nuxt": "catalog:tooling"
+  },
+  "devDependencies": {
+    "@nuxt/kit": "catalog:tooling",
+    "drizzle-kit": "catalog:data",
+    "nuxt-safe-runtime-config": "catalog:tooling",
+    "valibot": "catalog:data"
+  }
+}

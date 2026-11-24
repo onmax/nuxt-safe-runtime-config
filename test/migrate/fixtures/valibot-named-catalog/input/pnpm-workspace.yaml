@@ -1,0 +1,14 @@
+packages:
+  - ./
+
+catalog:
+  vue: ^3.5.17
+
+catalogs:
+  data:
+    drizzle-kit: ^0.31.10
+    valibot: ^1.3.1
+  tooling:
+    "@nuxt/kit": ^4.7.0
+    nuxt: ^4.7.0
+    nuxt-safe-runtime-config: ^0.1.3

@@ -22,6 +22,7 @@ dist
 .nuxt
 .output
 .nuxtrc
+!test/migrate/fixtures/**/.nuxtrc
 .data
 .vercel
 .vercel_build_output
