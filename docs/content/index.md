@@ -176,7 +176,7 @@ If you'd rather not run the codemod, these are the same steps:
 
 ### `envSchema` by hand
 
-Nuxt 4.7 can't read `.env.example`, but you can copy what it declares into a schema. For each key, add a property with its type: `# @type=number` becomes `z.number()`, a value such as `=false` becomes `.default(false)`, `@optional` becomes `.optional()`, and `@public` keys go under `public`. Keys with no value and no `@optional` stay required. Then follow the steps above from step 2, and delete `envSchema` from `safeRuntimeConfig`. The [known limitations](#known-limitations) apply, so formats and patterns in the file aren't checked.
+Nuxt 4.7 can't read `.env.example`, but you can write the same rules as a schema. Keep each value at the path the module uses today: `NUXT_PUBLIC_*` keys under `public`, other keys at the root, and `envSchema.paths` mappings where they point. While the module is still installed, `npx nuxt prepare` writes `.nuxt/types/safe-runtime-config.d.ts`, which lists those paths, their types and which ones are optional. For defaults, take the header rules such as `@defaultRequired` and how each default is parsed from the [env-spec reference](/reference/env-spec). Then follow the steps above from step 2, and delete `envSchema` from `safeRuntimeConfig`. The [known limitations](#known-limitations) apply, so formats and patterns in the file aren't checked.
 
 ## Maintenance
 
