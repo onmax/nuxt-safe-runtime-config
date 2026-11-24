@@ -11,6 +11,11 @@ Changed:
   modify server/utils/cube.ts
   modify package.json
 
+Now required at startup. The codemod removed the '' placeholders of these keys, so the server exits with NUXT_E8014 unless their variables are set. To keep a key optional, make it optional in the schema:
+  - nuxt.config.ts:10 runtimeConfig.betterAuthSecret: set NUXT_BETTER_AUTH_SECRET
+  - nuxt.config.ts:13 runtimeConfig.githubOauth.clientId: set NUXT_GITHUB_OAUTH_CLIENT_ID
+  - nuxt.config.ts:14 runtimeConfig.githubOauth.clientSecret: set NUXT_GITHUB_OAUTH_CLIENT_SECRET
+
 Nuxt does not check these schema rules. Check them in server code where they matter:
   - layers/runtime-config/nuxt.config.ts:9 betterAuthSecret: minLength 32
   - layers/runtime-config/nuxt.config.ts:10 databaseUrl: format uri
@@ -19,6 +24,9 @@ Nuxt does not check these schema rules. Check them in server code where they mat
 
 Behaviour changes:
   - nuxt.config.ts:38 validateAtBuild: false is gone. Nuxt checks runtimeConfig during the build, and a missing value only warns (NUXT_B5032)
+
+Check by hand:
+  - server/utils/auth.ts:4 calls useRuntimeConfig() without the request event. Pass the event if the call runs during a request
 
 Next:
   1. Run `pnpm install` to update the lockfile.

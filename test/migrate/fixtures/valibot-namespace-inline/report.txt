@@ -8,6 +8,9 @@ Changed:
   modify package.json
   modify .nuxtrc
 
+Now required at startup. The codemod removed the '' placeholders of these keys, so the server exits with NUXT_E8014 unless their variables are set. To keep a key optional, make it optional in the schema:
+  - nuxt.config.ts:13 runtimeConfig.googleApiKey: set NUXT_GOOGLE_API_KEY
+
 Nuxt does not check these schema rules. Check them in server code where they matter:
   - layers/runtime-config/nuxt.config.ts:6 googleApiKey: minLength 1
   - layers/runtime-config/nuxt.config.ts:8 public.siteUrl: format uri

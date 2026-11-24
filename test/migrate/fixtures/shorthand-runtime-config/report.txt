@@ -7,6 +7,9 @@ Changed:
   create layers/runtime-config/nuxt.config.ts
   modify package.json
 
+Now required at startup. The codemod removed the '' placeholders of these keys, so the server exits with NUXT_E8014 unless their variables are set. To keep a key optional, make it optional in the schema:
+  - nuxt.config.ts:11 runtimeConfig.apiKey: set NUXT_API_KEY
+
 Next:
   1. Run `pnpm install` to update the lockfile.
   2. Run your typecheck. Nuxt now types runtimeConfig from the schema, so plain values in nuxt.config and code that reads them can fail it.

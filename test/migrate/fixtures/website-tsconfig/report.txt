@@ -10,6 +10,9 @@ Changed:
   modify package.json
   modify tsconfig.json
 
+Now required at startup. The codemod removed the '' placeholders of these keys, so the server exits with NUXT_E8014 unless their variables are set. To keep a key optional, make it optional in the schema:
+  - nuxt.config.ts:8 runtimeConfig.productlaneApiKey: set NUXT_PRODUCTLANE_API_KEY
+
 Behaviour changes:
   - nuxt.config.ts:15 validateAtBuild: true is gone. Nuxt checks runtimeConfig during the build, and a missing value only warns (NUXT_B5032)
   - nuxt.config.ts:17 requireAtBuild: true is gone. Nuxt only warns about a missing value at build (NUXT_B5032), so the build no longer fails

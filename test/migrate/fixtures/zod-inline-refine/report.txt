@@ -10,11 +10,17 @@ Changed:
   modify test/integration/rpc.test.ts
   modify package.json
 
+Now required at startup. The codemod removed the '' placeholders of these keys, so the server exits with NUXT_E8014 unless their variables are set. To keep a key optional, make it optional in the schema:
+  - nuxt.config.ts:6 runtimeConfig.albatrossRpcNodeUrl: set NUXT_ALBATROSS_RPC_NODE_URL
+
 Nuxt does not check these schema rules. Check them in server code where they matter:
   - layers/runtime-config/nuxt.config.ts:6 slackWebhookUrl: a .refine() check
 
 Behaviour changes:
   - nuxt.config.ts:7 runtimeConfig.slackWebhookUrl is required by the schema, but its value is '' when nuxt.config loads. Nuxt takes '' as the default, so the value is no longer required
+
+Check by hand:
+  - server/utils/rpc.ts:4 calls useRuntimeConfig() without the request event. Pass the event if the call runs during a request
 
 Next:
   1. Run `pnpm install` to update the lockfile.

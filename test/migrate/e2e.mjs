@@ -145,7 +145,7 @@ export default defineNuxtConfig({
 `,
       'server/api/config.get.ts': `import { useSafeRuntimeConfig } from '#safe-runtime-config/server'
 
-export default defineEventHandler(() => {
+export default defineEventHandler((event) => {
   const config = useSafeRuntimeConfig()
   return { apiSecret: config.apiSecret, retries: config.retries, verbose: config.verbose, apiBase: config.public.apiBase }
 })
@@ -159,9 +159,10 @@ ${expectError}  const wrong: string = config.retries
 `,
     },
     typecheck: 'server/api/types.get.ts',
+    eventArgument: 'server/api/config.get.ts',
     valid: { vars: { NUXT_API_SECRET: 's3cret', NUXT_RETRIES: '5', NUXT_VERBOSE: 'true' }, expect: { apiSecret: 's3cret', retries: 5, verbose: true, apiBase: 'https://api.example.com' } },
     wrongType: { NUXT_API_SECRET: 's3cret', NUXT_RETRIES: 'abc' },
-    placeholder: { key: 'apiSecret', vars: { NUXT_RETRIES: '5' } },
+    placeholder: { key: 'apiSecret', env: 'NUXT_API_SECRET', vars: { NUXT_RETRIES: '5' } },
     badUrl: { vars: { NUXT_API_SECRET: 's3cret', NUXT_PUBLIC_API_BASE: 'not-a-url' }, field: 'apiBase', refinement: 'public.apiBase: format uri' },
   },
   {
@@ -196,7 +197,7 @@ export default defineNuxtConfig({
     },
     valid: { vars: { NUXT_API_TOKEN: 'token', NUXT_MAX_ITEMS: '25' }, expect: { apiToken: 'token', maxItems: 25, siteUrl: 'https://example.com' } },
     wrongType: { NUXT_API_TOKEN: 'token', NUXT_MAX_ITEMS: 'many' },
-    placeholder: { key: 'apiToken', vars: { NUXT_MAX_ITEMS: '25' } },
+    placeholder: { key: 'apiToken', env: 'NUXT_API_TOKEN', vars: { NUXT_MAX_ITEMS: '25' } },
     badUrl: { vars: { NUXT_API_TOKEN: 'token', NUXT_PUBLIC_SITE_URL: 'not-a-url' }, field: 'siteUrl', refinement: 'public.siteUrl: format uri' },
   },
   {
@@ -246,7 +247,7 @@ ${expectError}  const wrong: string = config.maxItems
     typecheck: 'server/api/types.get.ts',
     valid: { vars: { NUXT_API_TOKEN: 'token', NUXT_MAX_ITEMS: '25' }, expect: { apiToken: 'token', shopName: 'Demo shop', maxItems: 25, siteUrl: 'https://example.com', studio: { allowedIds: ['22'] } } },
     wrongType: { NUXT_API_TOKEN: 'token', NUXT_MAX_ITEMS: 'many' },
-    placeholder: { key: 'apiToken', vars: { NUXT_MAX_ITEMS: '25' } },
+    placeholder: { key: 'apiToken', env: 'NUXT_API_TOKEN', vars: { NUXT_MAX_ITEMS: '25' } },
     badUrl: { vars: { NUXT_API_TOKEN: 'token', NUXT_PUBLIC_SITE_URL: 'not-a-url' }, field: 'siteUrl', refinement: 'public.siteUrl: format uri' },
   },
   {
@@ -280,7 +281,7 @@ export default z.object({
     },
     valid: { vars: { NUXT_DATABASE_URL: 'postgres://db', NUXT_POOL_SIZE: '8' }, expect: { databaseUrl: 'postgres://db', poolSize: 8 } },
     wrongType: { NUXT_DATABASE_URL: 'postgres://db', NUXT_POOL_SIZE: 'eight' },
-    placeholder: { key: 'databaseUrl', vars: { NUXT_POOL_SIZE: '8' } },
+    placeholder: { key: 'databaseUrl', env: 'NUXT_DATABASE_URL', vars: { NUXT_POOL_SIZE: '8' } },
   },
 ]
 
@@ -333,6 +334,8 @@ async function main() {
     check(app.name, `takes the ${app.route} route`, layer === (app.route === 'layer'))
     check(app.name, 'removes every use of the module', leftovers.length === 0 && !pkg.dependencies['nuxt-safe-runtime-config'], leftovers.join(', '))
     const again = await run(cli, ['migrate', dir])
+    if (app.eventArgument)
+      check(app.name, 'passes the handler event to useRuntimeConfig', readFileSync(join(dir, app.eventArgument), 'utf8').includes('useRuntimeConfig(event)'))
     check(app.name, 'second run changes nothing', again.code === 0 && again.output.includes('Nothing to migrate'))
     writeFileSync(join(dir, 'migrate.log'), migrated.output)
 
@@ -352,6 +355,9 @@ async function main() {
 
     const unset = await startServer(dir, app.placeholder.vars)
     check(app.name, `unset former '' placeholder ${app.placeholder.key}: NUXT_E8014`, typeof unset.exitCode === 'number' && unset.exitCode !== 0 && unset.output.includes('NUXT_E8014') && unset.output.includes(app.placeholder.key), `exit ${unset.exitCode ?? 'none'}`)
+    const requiredSection = migrated.output.split('\n\n').find(block => block.startsWith('Now required at startup')) ?? ''
+    const listed = requiredSection.includes(`runtimeConfig.${app.placeholder.key}: set ${app.placeholder.env}`)
+    check(app.name, `the report lists ${app.placeholder.env} as now required`, listed, listed ? '' : migrated.output)
 
     if (app.badUrl) {
       const bad = await startServer(dir, app.badUrl.vars)

@@ -450,6 +450,7 @@ export async function migrateConfig(rootDir: string, configFile: string, report:
         if (requiring.length) {
           info.drops.push(property)
           info.dropPaths.add(path)
+          report.required.push(at(property, `${scopeLabel(scope)}runtimeConfig.${path}: set ${envName(path)}`))
           continue
         }
       }

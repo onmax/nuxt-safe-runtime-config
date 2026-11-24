@@ -16,6 +16,15 @@ const replaceableImports: Record<string, string> = {
 const equivalentSources = new Set(['#imports', '#app', 'nuxt/app', '#app/nuxt', 'nitropack/runtime', 'nitro/runtime', '#internal/nitro'])
 const globalObjects = new Set(['globalThis', 'global', 'window', 'self'])
 const stubCalls = new Set(['stubGlobal', 'mockNuxtImport'])
+/** Nitro factories whose handler gets the request event, and the index of the event parameter. */
+const handlerFactories: Record<string, number> = {
+  defineEventHandler: 0,
+  eventHandler: 0,
+  defineCachedEventHandler: 0,
+  cachedEventHandler: 0,
+  defineNitroErrorHandler: 1,
+}
+const pluginFactories = new Set(['defineNitroPlugin'])
 const skippedKeys = new Set(['loc', 'start', 'end', 'extra', 'leadingComments', 'trailingComments', 'innerComments', 'comments', 'tokens'])
 
 type ImportSpecifierNode = Extract<Node, { type: 'ImportSpecifier' | 'ImportDefaultSpecifier' | 'ImportNamespaceSpecifier' }>
@@ -28,9 +37,31 @@ class Scope {
   lookup(name: string): Binding | undefined {
     return this.names.get(name) ?? this.parent?.lookup(name)
   }
+
+  /** The scope that declares `name`. */
+  owner(name: string): Scope | undefined {
+    return this.names.has(name) ? this : this.parent?.owner(name)
+  }
+}
+
+/** What a function is to Nitro: a request handler with its event parameter, a plugin's setup, or neither. */
+type FunctionRole = { kind: 'handler', event?: string } | { kind: 'plugin' }
+
+interface FunctionFrame { role?: FunctionRole, scope: Scope }
+
+export interface SourceOptions {
+  /**
+   * Pass the request event to useRuntimeConfig() in server handlers, as Nitro 2 expects. Off on Nitro 3, whose
+   * useRuntimeConfig() takes no event.
+   */
+  eventArgument?: boolean
 }
 
 interface TextEdit { start: number, end: number, text: string }
+
+function isFunction(node: Node): node is Extract<Node, { type: 'FunctionExpression' | 'ArrowFunctionExpression' | 'ObjectMethod' }> {
+  return node.type === 'FunctionExpression' || node.type === 'ArrowFunctionExpression' || node.type === 'ObjectMethod'
+}
 
 function isNode(value: unknown): value is Node {
   return typeof value === 'object' && value !== null && typeof (value as { type?: unknown }).type === 'string'
@@ -94,9 +125,11 @@ function importedName(specifier: ImportSpecifierNode): string | undefined {
  * Renames useSafeRuntimeConfig to useRuntimeConfig where it refers to the module's composable: free references (the
  * auto-import), imports from `#imports`, and imports from the module's aliases, which it removes. Also renames the
  * name in `vi.stubGlobal()`, `mockNuxtImport()` and `globalThis.*`. Stops on imports of the module that have no Nuxt
- * equivalent, and where a local `useRuntimeConfig` would capture the renamed call.
+ * equivalent, and where a local `useRuntimeConfig` would capture the renamed call. In server files, passes the
+ * request event of the enclosing Nitro handler to a call without arguments, and reports the calls that have none.
  */
-export function migrateSource(path: string, before: string, report: Report): string {
+export function migrateSource(path: string, before: string, report: Report, options: SourceOptions = {}): string {
+  const serverFile = options.eventArgument === true && /(?:^|\/)server\//.test(path)
   const view = scriptView(path, before)
   let program: File
   try {
@@ -289,8 +322,68 @@ export function migrateSource(path: string, before: string, report: Report): str
     }
   }
 
+  /** Roles of the functions passed to Nitro's handler and plugin factories, and the functions entered so far. */
+  const roles = new Map<Node, FunctionRole>()
+  const frames: FunctionFrame[] = []
+
+  function markFactoryCall(callee: Node, args: readonly Node[], scope: Scope): void {
+    if (!serverFile || callee.type !== 'Identifier' || scope.lookup(callee.name) === 'local')
+      return
+    const first = args[0] && unwrap(args[0])
+    if (!first)
+      return
+    if (pluginFactories.has(callee.name)) {
+      if (isFunction(first))
+        roles.set(first, { kind: 'plugin' })
+      return
+    }
+    const index = handlerFactories[callee.name]
+    if (index === undefined)
+      return
+    let handler: Node | undefined = first
+    if (first.type === 'ObjectExpression') {
+      const property = first.properties.find(item => (item.type === 'ObjectProperty' || item.type === 'ObjectMethod') && !item.computed && item.key.type === 'Identifier' && item.key.name === 'handler')
+      handler = property?.type === 'ObjectMethod' ? property : property?.type === 'ObjectProperty' ? unwrap(property.value) : undefined
+    }
+    if (!handler || !isFunction(handler))
+      return
+    const param = handler.params[index]
+    roles.set(handler, { kind: 'handler', event: param?.type === 'Identifier' ? param.name : undefined })
+  }
+
+  /** Passes the request event to a renamed call in a server file, or reports the call when no event is in scope. */
+  function eventArgument(node: Extract<Node, { type: 'CallExpression' | 'OptionalCallExpression' }>, scope: Scope): void {
+    if (!serverFile || node.arguments.length)
+      return
+    const callee = unwrap(node.callee)
+    if (callee.type !== 'Identifier' || !isTarget(callee.name, scope))
+      return
+    const current = frames.at(-1)
+    // A plugin's setup runs once at startup, outside any request.
+    if (current?.role?.kind === 'plugin')
+      return
+    const handler = [...frames].reverse().find(frame => frame.role?.kind === 'handler')
+    const event = handler?.role?.kind === 'handler' ? handler.role.event : undefined
+    if (handler && event && scope.owner(event) === handler.scope) {
+      const close = code.lastIndexOf(')', node.end! - 1)
+      edits.push({ start: close, end: close, text: event })
+      return
+    }
+    report.manual.push({ file: path, line: lineAt(code, node.start!), text: `calls ${newName}() without the request event. Pass the event if the call runs during a request` })
+  }
+
   function visitFunction(node: Node & { params: Node[], body: Node }, scope: Scope): void {
     const inner = new Scope(scope)
+    frames.push({ role: roles.get(node), scope: inner })
+    try {
+      visitFunctionIn(node, inner)
+    }
+    finally {
+      frames.pop()
+    }
+  }
+
+  function visitFunctionIn(node: Node & { params: Node[], body: Node }, inner: Scope): void {
     if (node.type === 'FunctionExpression' && node.id)
       inner.names.set(node.id.name, 'local')
     for (const param of node.params) declare(inner, param)
@@ -423,6 +516,8 @@ export function migrateSource(path: string, before: string, report: Report): str
           renameString(first)
         if (callee.type === 'Import' || (callee.type === 'Identifier' && callee.name === 'require' && !scope.lookup('require')))
           moduleRequest(first)
+        markFactoryCall(callee, node.arguments, scope)
+        eventArgument(node, scope)
         visitChildren(node, scope)
         return
       }

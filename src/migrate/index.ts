@@ -97,7 +97,7 @@ export async function migrate(dir: string, options: MigrateOptions = {}): Promis
       const before = read(path)
       if (!/useSafeRuntimeConfig|safe-runtime-config\/|nuxt-safe-runtime-config/.test(before))
         continue
-      const after = migrateSource(path, before, report)
+      const after = migrateSource(path, before, report, { eventArgument: !meetsMinimum(nuxt, '5.0.0-0') })
       if (after !== before)
         edits.push({ path, before, after })
     }
@@ -193,6 +193,7 @@ export function formatOutput(status: MigrateResult['status'], edits: FileEdit[],
     '',
     `${verb}:`,
     ...edits.map(edit => `  ${edit.before === null ? 'create' : edit.after === null ? 'delete' : 'modify'} ${edit.path}`),
+    ...section('Now required at startup. The codemod removed the \'\' placeholders of these keys, so the server exits with NUXT_E8014 unless their variables are set. To keep a key optional, make it optional in the schema:', report.required),
     ...section('Nuxt does not check these schema rules. Check them in server code where they matter:', report.refinements),
     ...section('Behaviour changes:', report.changes),
     ...section('Check by hand:', report.manual),

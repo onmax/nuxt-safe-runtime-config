@@ -18,6 +18,8 @@ export interface Report {
   stops: Note[]
   /** Schema rules that Nuxt does not check. */
   refinements: Note[]
+  /** Keys whose '' placeholder the codemod removed, so the server needs their variable at startup. */
+  required: Note[]
   /** Options and schema features whose behaviour changes. */
   changes: Note[]
   /** Leftovers to check by hand. */
@@ -25,7 +27,7 @@ export interface Report {
 }
 
 export function createReport(): Report {
-  return { stops: [], refinements: [], changes: [], manual: [] }
+  return { stops: [], refinements: [], required: [], changes: [], manual: [] }
 }
 
 export function formatNote(note: Note): string {

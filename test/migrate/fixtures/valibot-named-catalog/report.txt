@@ -7,6 +7,9 @@ Changed:
   modify package.json
   modify pnpm-workspace.yaml
 
+Now required at startup. The codemod removed the '' placeholders of these keys, so the server exits with NUXT_E8014 unless their variables are set. To keep a key optional, make it optional in the schema:
+  - nuxt.config.ts:6 runtimeConfig.databaseUrl: set NUXT_DATABASE_URL
+
 Check by hand:
   - pnpm-workspace.yaml:15 the catalog:tooling entry for nuxt-safe-runtime-config stays in the catalog. Remove it if no other package uses it
 

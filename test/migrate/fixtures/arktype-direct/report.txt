@@ -6,6 +6,9 @@ Changed:
   modify nuxt.config.ts
   modify package.json
 
+Now required at startup. The codemod removed the '' placeholders of these keys, so the server exits with NUXT_E8014 unless their variables are set. To keep a key optional, make it optional in the schema:
+  - nuxt.config.ts:6 runtimeConfig.apiToken: set NUXT_API_TOKEN
+
 Nuxt does not check these schema rules. Check them in server code where they matter:
   - nuxt.config.ts:9 public.apiBase: format uri
 
