@@ -26,11 +26,19 @@ function explainNuxt5(nuxt: Nuxt): void {
   ].join('\n'))
 }
 
+// Nuxt 4.7 builds with Nitro 3 when the app installs `nitro`; older Nuxt versions don't set `_nitroMajor`.
+function resolveNitroMajor(nuxt: Nuxt, nuxtMajor: number): number {
+  const nitroMajor = (nuxt.options as { _nitroMajor?: number })._nitroMajor
+  return nitroMajor ?? (nuxtMajor >= 5 ? 3 : 2)
+}
+
 // Nuxt 4.2+ runs Nitro through @nuxt/nitro-server, which can resolve a different Nitro copy than `nuxt` does.
 // The runtime config import must come from the copy that builds the server, or prerendering can't resolve its virtual modules.
-function resolveNitroParent(nuxtPackage: string): string {
+function resolveNitroParent(nuxtPackage: string, nuxtMajor: number, nitroMajor: number): string {
+  // Nuxt 4 builds with Nitro 3 through @nuxt/nitro-v3-server.
+  const builder = nuxtMajor === 4 && nitroMajor >= 3 ? '@nuxt/nitro-v3-server' : '@nuxt/nitro-server'
   try {
-    return createRequire(nuxtPackage).resolve('@nuxt/nitro-server/package.json')
+    return createRequire(nuxtPackage).resolve(`${builder}/package.json`)
   }
   catch {
     return nuxtPackage
@@ -77,10 +85,11 @@ export default defineNuxtModule<ModuleOptions>({
   onUpgrade: explainNuxt5,
   async setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
-    const nuxtMajorVersion = Number.parseInt(getNuxtVersion(nuxt), 10)
     const rootRequire = createRequire(join(nuxt.options.rootDir, 'package.json'))
     const nuxtPackage = rootRequire.resolve('nuxt/package.json')
-    const runtimeConfigImport = resolveRuntimeConfigImport(nuxtMajorVersion >= 5 ? 3 : 2, resolveNitroParent(nuxtPackage))
+    const nuxtMajor = Number.parseInt(getNuxtVersion(nuxt), 10)
+    const nitroMajor = resolveNitroMajor(nuxt, nuxtMajor)
+    const runtimeConfigImport = resolveRuntimeConfigImport(nitroMajor, resolveNitroParent(nuxtPackage, nuxtMajor, nitroMajor))
 
     const envSchemaSource = options.envSchema
     if (envSchemaSource) {
