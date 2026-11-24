@@ -30,12 +30,16 @@ describe('nitroMajor', () => {
     expect(nitroMajor(tree({}), nuxt)).toBe(2)
   })
 
-  it('falls back to the workspace root, as Nuxt 4.7 does', () => {
-    const nitro3 = tree({ 'pnpm-workspace.yaml': 'packages: [apps/*]\n', 'package.json': { devDependencies: { nitro: '^3.0.0' } }, 'apps/web/package.json': nuxt })
-    expect(nitroMajor(join(nitro3, 'apps/web'), nuxt)).toBe(3)
-    const both = tree({ 'pnpm-workspace.yaml': 'packages: [apps/*]\n', 'package.json': { devDependencies: { nitro: '^3.0.0', nitropack: '^2.13.0' } }, 'apps/web/package.json': nuxt })
-    expect(nitroMajor(join(both, 'apps/web'), nuxt)).toBe(2)
-    expect(nitroMajor(join(nitro3, 'apps/web'), { dependencies: { nuxt: '^4.7.0', nitropack: '^2.13.0' } })).toBe(2)
+  it('is unknown when a package.json above the app declares nitro', () => {
+    const nested = tree({
+      'package.json': { workspaces: ['packages/*'] },
+      'packages/package.json': { workspaces: ['web'], devDependencies: { nitro: '^3.0.0' } },
+      'packages/web/package.json': nuxt,
+    })
+    expect(nitroMajor(join(nested, 'packages/web'), nuxt)).toBeUndefined()
+    expect(nitroMajor(join(nested, 'packages/web'), { dependencies: { nuxt: '^4.7.0', nitropack: '^2.13.0' } })).toBe(2)
+    const plain = tree({ 'pnpm-workspace.yaml': 'packages: [apps/*]\n', 'package.json': { devDependencies: { typescript: '^5.0.0' } }, 'apps/web/package.json': nuxt })
+    expect(nitroMajor(join(plain, 'apps/web'), nuxt)).toBe(2)
   })
 })
 

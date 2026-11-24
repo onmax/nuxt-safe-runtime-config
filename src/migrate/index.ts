@@ -82,7 +82,7 @@ export async function migrate(dir: string, options: MigrateOptions = {}): Promis
     return finish('stopped', [], report.stops.length ? manualSteps : [])
 
   const edits: FileEdit[] = [...configResult.edits]
-  // Nitro 2's useRuntimeConfig() takes the request event. Nitro 3's, on Nuxt 5 or on Nuxt 4.7 with `nitro` installed, doesn't.
+  // Nitro 2's useRuntimeConfig() takes the request event. Nitro 3's doesn't, so the call keeps no arguments unless Nitro 2 is certain.
   const eventArgument = !meetsMinimum(nuxt, '5.0.0-0') && nitroMajor(rootDir, pkg) === 2
   const configPath = relative(rootDir, configFile)
   for (const path of files) {
