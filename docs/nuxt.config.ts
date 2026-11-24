@@ -13,5 +13,6 @@ export default defineNuxtConfig({
     '/schemas/env-spec': { redirect: '/reference/env-spec' },
     '/integrations': { redirect: '/guide/eslint' },
     '/integrations/eslint': { redirect: '/guide/eslint' },
+    '/guide/nuxt-5': { redirect: '/' },
   },
 })
