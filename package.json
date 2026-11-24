@@ -1,7 +1,7 @@
 {
   "name": "nuxt-safe-runtime-config",
   "type": "module",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "packageManager": "pnpm@12.15.0",
   "description": "Deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. Migrate with npx nuxt-safe-runtime-config@latest migrate",
   "author": {
