@@ -27,23 +27,22 @@ function explainNuxt5(nuxt: Nuxt): void {
 }
 
 // Nuxt 4.7 builds with Nitro 3 when the app installs `nitro`; older Nuxt versions don't set `_nitroMajor`.
-function resolveNitroMajor(nuxt: Nuxt): number {
+function resolveNitroMajor(nuxt: Nuxt, nuxtMajor: number): number {
   const nitroMajor = (nuxt.options as { _nitroMajor?: number })._nitroMajor
-  return nitroMajor ?? (Number.parseInt(getNuxtVersion(nuxt), 10) >= 5 ? 3 : 2)
+  return nitroMajor ?? (nuxtMajor >= 5 ? 3 : 2)
 }
 
 // Nuxt 4.2+ runs Nitro through @nuxt/nitro-server, which can resolve a different Nitro copy than `nuxt` does.
 // The runtime config import must come from the copy that builds the server, or prerendering can't resolve its virtual modules.
-function resolveNitroParent(nuxtPackage: string, nitroMajor: number): string {
-  const nuxtRequire = createRequire(nuxtPackage)
+function resolveNitroParent(nuxtPackage: string, nuxtMajor: number, nitroMajor: number): string {
   // Nuxt 4 builds with Nitro 3 through @nuxt/nitro-v3-server.
-  for (const builder of nitroMajor >= 3 ? ['@nuxt/nitro-v3-server', '@nuxt/nitro-server'] : ['@nuxt/nitro-server']) {
-    try {
-      return nuxtRequire.resolve(`${builder}/package.json`)
-    }
-    catch {}
+  const builder = nuxtMajor === 4 && nitroMajor >= 3 ? '@nuxt/nitro-v3-server' : '@nuxt/nitro-server'
+  try {
+    return createRequire(nuxtPackage).resolve(`${builder}/package.json`)
   }
-  return nuxtPackage
+  catch {
+    return nuxtPackage
+  }
 }
 
 function applyEnvSchemaDefaults(config: Record<string, unknown>, defaults: Record<string, unknown>): void {
@@ -88,8 +87,9 @@ export default defineNuxtModule<ModuleOptions>({
     const resolver = createResolver(import.meta.url)
     const rootRequire = createRequire(join(nuxt.options.rootDir, 'package.json'))
     const nuxtPackage = rootRequire.resolve('nuxt/package.json')
-    const nitroMajor = resolveNitroMajor(nuxt)
-    const runtimeConfigImport = resolveRuntimeConfigImport(nitroMajor, resolveNitroParent(nuxtPackage, nitroMajor))
+    const nuxtMajor = Number.parseInt(getNuxtVersion(nuxt), 10)
+    const nitroMajor = resolveNitroMajor(nuxt, nuxtMajor)
+    const runtimeConfigImport = resolveRuntimeConfigImport(nitroMajor, resolveNitroParent(nuxtPackage, nuxtMajor, nitroMajor))
 
     const envSchemaSource = options.envSchema
     if (envSchemaSource) {
