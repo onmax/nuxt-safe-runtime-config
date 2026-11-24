@@ -180,7 +180,7 @@ The module is in maintenance mode. The repository and this site stay online.
 
 - Security fixes and severe bugs only. No new features or schema sources.
 - `nuxt-safe-runtime-config@1.0.0` is the last release. It works as before and warns that the module is deprecated.
-- Report a vulnerability privately, as the [security policy](https://github.com/onmax/nuxt-safe-runtime-config/security/policy) describes. Don't open a public issue for it.
+- [Report a vulnerability privately on GitHub](https://github.com/onmax/nuxt-safe-runtime-config/security/advisories/new). Don't open a public issue for it.
 
 The [old guides](/guide) still describe how the module works, for apps that stay on it for now.
 ::

@@ -41,7 +41,7 @@ The [migration guide](https://nuxt-safe-runtime-config.onmax.me) covers what the
 The repository and the docs site stay online in maintenance mode:
 
 - Security fixes and severe bugs only. No new features.
-- Report a vulnerability privately, as [SECURITY.md](.github/SECURITY.md) describes. Don't open a public issue for it.
+- [Report a vulnerability privately on GitHub](https://github.com/onmax/nuxt-safe-runtime-config/security/advisories/new). Don't open a public issue for it.
 
 ## Reference
 
