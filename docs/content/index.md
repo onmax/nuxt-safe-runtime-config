@@ -25,7 +25,7 @@ links:
 ::u-container{class="max-w-4xl pb-24"}
 ## Why
 
-Nuxt 4.7 accepts a [Standard Schema](https://standardschema.dev) anywhere in `runtimeConfig`. From it, Nuxt converts `NUXT_*` strings to the numbers, booleans and JSON the schema asks for, and types `useRuntimeConfig()`. When the server starts with a value that is missing or has the wrong type, it exits with code 1 before it listens:
+Nuxt 4.7 accepts a schema that implements [Standard JSON Schema](https://standardschema.dev/json-schema) anywhere in `runtimeConfig`: Zod 4, ArkType, or Valibot wrapped in `toStandardJsonSchema()`. From it, Nuxt converts `NUXT_*` strings to the numbers, booleans and JSON the schema asks for, and types `useRuntimeConfig()`. When the server starts with a value that is missing or has the wrong type, it exits with code 1 before it listens:
 
 ```txt
 [NUXT_E8014] The runtime config does not match its schema:
@@ -36,22 +36,24 @@ That was most of this module's job. It gets no new features, and the [last relea
 
 ## Run the codemod
 
-The codemod needs Nuxt 4.7 or later. On an older version, run `npx nuxt upgrade` first.
+The codemod needs Nuxt 4.7 or later. On an older version, run `npx nuxt upgrade` first. On Zod 3, upgrade to Zod 4 too: Nuxt rejects a Zod 3 schema with `NUXT_B5031`.
+
+`@latest` makes npx download the release that has the command, instead of running the version your app already has installed.
 
 :::steps
 
 ### Preview the changes
 
 ```bash
-npx nuxt-safe-runtime-config migrate --dry-run
+npx nuxt-safe-runtime-config@latest migrate --dry-run
 ```
 
-`--dry-run` prints what it would change and the report, and writes nothing. Pass a directory when the app isn't in the current one: `npx nuxt-safe-runtime-config migrate apps/web --dry-run`.
+`--dry-run` prints what it would change and the report, and writes nothing. Pass a directory when the app isn't in the current one: `npx nuxt-safe-runtime-config@latest migrate apps/web --dry-run`.
 
 ### Apply them
 
 ```bash
-npx nuxt-safe-runtime-config migrate
+npx nuxt-safe-runtime-config@latest migrate
 ```
 
 ### Install and check
@@ -62,7 +64,7 @@ npx nuxt prepare
 npx nuxt typecheck
 ```
 
-Then build and start the server once with a bad value, such as `NUXT_PORT=abc`, to see Nuxt refuse it. Work through the report's follow-ups. Each one has its `file:line`.
+Then build and start the server once without a value the schema requires, such as `NUXT_DATABASE_URL` in the example below, to see Nuxt refuse it. Work through the report's follow-ups. Each one has its `file:line`.
 
 :::
 
@@ -130,8 +132,8 @@ The codemod stops before it changes a file when the app needs something Nuxt doe
 | The app uses | Go to |
 | --- | --- |
 | Nuxt below 4.7 | `npx nuxt upgrade`, then run the codemod again |
-| `envSchema` (a `.env.example` as the schema) | [ViteHub Env](/guide/migrate-to-vitehub-env). Nuxt can't read `.env.example`, and Env keeps the file as it is |
-| `nuxt-safe-runtime-config/nitro`, in a Nitro app without Nuxt | [ViteHub Env](https://vitehub.dev/docs/env). Nitro has no runtime config schemas |
+| `envSchema` (a `.env.example` as the schema) | [ViteHub Env](/guide/migrate-to-vitehub-env), which needs Nuxt 5. Nuxt can't read `.env.example`, and Env keeps the file as it is. If you can't move to Nuxt 5 yet, stay on the module |
+| `nuxt-safe-runtime-config/nitro`, in a Nitro app without Nuxt | [ViteHub Env](https://vitehub.dev/docs/getting-started/installation), which needs Nitro 3 with Vite. Nitro has no runtime config schemas. The Nuxt codemods don't cover these apps |
 | Transforms, such as Zod's `.transform()` or Valibot's `v.transform()` and `v.trim()` | Pin `nuxt-safe-runtime-config@1.0.0`, which keeps working, or move each transform to where the value is read and run the codemod again |
 | Asynchronous checks | Nuxt validates synchronously. Move the check to where the value is used, then run the codemod again |
 | A `nuxt.config.ts` or schema it can't edit safely | [Do it by hand](#doing-it-by-hand) |
@@ -157,16 +159,16 @@ Nuxt checks types, required values, enums and unions. Some things the module did
 | URL formats, min/max, patterns, `.refine()` | Yes | No, the codemod reports them |
 | Transforms | Yes | No, the schema can't move |
 | `onError: 'warn' \| 'ignore'` | Yes | No. A schema in `nuxt.config.ts` always stops the server |
-| `envSchema` from `.env.example` | Yes (experimental) | No, see [ViteHub Env](/guide/migrate-to-vitehub-env) |
-| Nitro without Nuxt (`/nitro`) | Yes | No, see [ViteHub Env](https://vitehub.dev/docs/env) |
+| `envSchema` from `.env.example` | Yes (experimental) | No, see [ViteHub Env](/guide/migrate-to-vitehub-env) on Nuxt 5 |
+| Nitro without Nuxt (`/nitro`) | Yes | No, see [ViteHub Env](https://vitehub.dev/docs/getting-started/installation) on Nitro 3 |
 
 ## Doing it by hand
 
 If you'd rather not run the codemod, these are the same steps:
 
-1. Upgrade to Nuxt 4.7 or later with `npx nuxt upgrade`.
+1. Upgrade to Nuxt 4.7 or later with `npx nuxt upgrade`, and from Zod 3 to Zod 4.
 2. Remove `nuxt-safe-runtime-config` from `package.json` and from `modules`, and delete the `safeRuntimeConfig` block.
-3. Set `runtimeConfig` to your schema. Import a schema file with its `.ts` extension. Wrap a Valibot schema in `toStandardJsonSchema()` from `@valibot/to-json-schema`.
+3. Set `runtimeConfig` to your schema. Import a schema file with its `.ts` extension. For Valibot, install `@valibot/to-json-schema`, which the module used to bring, and wrap the schema in its `toStandardJsonSchema()`.
 4. Drop the `''` placeholders. Move other defaults into the schema, or put the schema in a layer and keep the plain values in your root `nuxt.config.ts`.
 5. Rename `useSafeRuntimeConfig` to `useRuntimeConfig`, with the same arguments.
 6. Remove `nuxt-safe-runtime-config/eslint` from your ESLint config.

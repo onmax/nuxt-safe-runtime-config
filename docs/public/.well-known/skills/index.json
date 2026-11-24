@@ -2,7 +2,7 @@
   "skills": [
     {
       "name": "nuxt-safe-runtime-config",
-      "description": "nuxt-safe-runtime-config is deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. Use when an app depends on the module, to migrate it with npx nuxt-safe-runtime-config migrate.",
+      "description": "nuxt-safe-runtime-config is deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. Use when an app depends on the module, to migrate it with npx nuxt-safe-runtime-config@latest migrate.",
       "files": ["SKILL.md"]
     }
   ]

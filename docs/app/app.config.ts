@@ -8,7 +8,7 @@ export default defineAppConfig({
   seo: {
     title: 'Nuxt Safe Runtime Config',
     titleTemplate: '%s - Nuxt Safe Runtime Config',
-    description: 'nuxt-safe-runtime-config is deprecated. Nuxt 4.7 checks runtimeConfig schemas itself. Migrate with npx nuxt-safe-runtime-config migrate.',
+    description: 'nuxt-safe-runtime-config is deprecated. Nuxt 4.7 checks runtimeConfig schemas itself. Migrate with npx nuxt-safe-runtime-config@latest migrate.',
   },
   ui: {
     prose: {

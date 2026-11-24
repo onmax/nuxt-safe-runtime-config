@@ -11,7 +11,7 @@ import DocusHeader from 'docus/app/components/app/AppHeader.vue'
     :actions="[{ label: 'Migration guide', to: '/', color: 'neutral', variant: 'outline', trailingIcon: 'i-ph-arrow-right' }]"
   >
     <template #title>
-      Deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. Migrate with <code class="font-mono">npx nuxt-safe-runtime-config migrate</code>
+      Deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. Migrate with <code class="font-mono">npx nuxt-safe-runtime-config@latest migrate</code>
     </template>
   </UBanner>
   <DocusHeader />

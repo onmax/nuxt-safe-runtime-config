@@ -21,20 +21,20 @@
 </p>
 
 > [!WARNING]
-> This module is deprecated. Nuxt 4.7 accepts a Standard Schema in `runtimeConfig`, converts `NUXT_*` strings to its types, refuses to start on a missing or mistyped value, and types `useRuntimeConfig()`. Move your schema there with one command:
+> This module is deprecated. Nuxt 4.7 accepts a Standard JSON Schema (Zod 4, ArkType, or Valibot wrapped in `toStandardJsonSchema()`) in `runtimeConfig`, converts `NUXT_*` strings to its types, refuses to start on a missing or mistyped value, and types `useRuntimeConfig()`. Move your schema there with one command:
 >
 > ```bash
-> npx nuxt-safe-runtime-config migrate --dry-run   # print the changes and the report, write nothing
-> npx nuxt-safe-runtime-config migrate             # apply them
+> npx nuxt-safe-runtime-config@latest migrate --dry-run   # print the changes and the report, write nothing
+> npx nuxt-safe-runtime-config@latest migrate             # apply them
 > ```
 >
-> Pass a directory when the app isn't in the current one: `npx nuxt-safe-runtime-config migrate apps/web`. The codemod needs Nuxt 4.7 or later.
+> Pass a directory when the app isn't in the current one: `npx nuxt-safe-runtime-config@latest migrate apps/web`. The codemod needs Nuxt 4.7 or later, and Zod 4 if you use Zod.
 
 The [migration guide](https://nuxt-safe-runtime-config.onmax.me) covers what the codemod changes, when it stops, and what Nuxt doesn't check:
 
 - Nuxt doesn't run URL formats, minimums and maximums, patterns or `.refine()`. The codemod lists each one in its report.
 - A schema in `nuxt.config.ts` always stops the server on a bad value. `onError: 'warn' | 'ignore'` has no equivalent.
-- Apps that use `envSchema` or the standalone Nitro module move to [ViteHub Env](https://nuxt-safe-runtime-config.onmax.me/guide/migrate-to-vitehub-env). Apps whose schema has transforms can pin `nuxt-safe-runtime-config@1.0.0`, which keeps working.
+- Apps that use `envSchema` move to [ViteHub Env on Nuxt 5](https://nuxt-safe-runtime-config.onmax.me/guide/migrate-to-vitehub-env). Nitro apps without Nuxt move to [ViteHub Env on Nitro 3](https://vitehub.dev/docs/getting-started/installation). Apps whose schema has transforms can pin `nuxt-safe-runtime-config@1.0.0`, which keeps working.
 
 ## Maintenance
 
