@@ -123,6 +123,26 @@ async function getCoercionSchema(
   }
 }
 
+function openObject(schema: unknown): unknown {
+  if (!schema || typeof schema !== 'object' || (schema as Record<string, unknown>).additionalProperties !== false)
+    return schema
+  const { additionalProperties: _, ...open } = schema as Record<string, unknown>
+  return open
+}
+
+/**
+ * Nuxt and other modules add keys such as `app` and `nitro` to the runtime config and to its
+ * `public` object. An output JSON Schema forbids keys the schema doesn't declare (Zod's `z.object()`
+ * drops them when it parses), so the server start check allows extra keys in those two objects.
+ */
+function allowSharedRuntimeConfigKeys(schema: Record<string, unknown>): Record<string, unknown> {
+  const root = openObject(schema) as Record<string, unknown>
+  const properties = root.properties as Record<string, unknown> | undefined
+  if (!properties?.public)
+    return root
+  return { ...root, properties: { ...properties, public: openObject(properties.public) } }
+}
+
 export async function createRuntimeValidationArtifacts(
   options: ResolvedValidationOptions,
   warn: (message: string) => void,
@@ -130,9 +150,10 @@ export async function createRuntimeValidationArtifacts(
   if (!options.$schema)
     return null
 
-  const jsonSchema = options.schemaPath
+  const outputSchema = options.schemaPath
     ? {}
     : await getJSONSchema(options.$schema, options.jsonSchemaTarget, warn)
+  const jsonSchema = allowSharedRuntimeConfigKeys(outputSchema)
   const draft = detectJsonSchemaDraft(jsonSchema.$schema as string | undefined)
   const runtimeSchema = options.schemaPath
     ? `import runtimeSchema from '#safe-runtime-config/runtime-schema'\n`
@@ -148,7 +169,7 @@ export async function createRuntimeValidationArtifacts(
     coercionSchema,
     typeDeclaration: options.schemaPath
       ? generateSchemaTypeDeclaration(options.schemaPath, options.runtimeCheck ? 'output' : 'input')
-      : generateTypeDeclaration(jsonSchema),
+      : generateTypeDeclaration(outputSchema),
     validateTemplate: `${runtimeSchema}export { runtimeSchema }\nexport const schema = ${JSON.stringify(jsonSchema)}\nexport const onError = ${JSON.stringify(options.onError)}\nexport const draft = ${JSON.stringify(draft)}\nexport const coercionSchema = ${coercionSchemaSource}\n`,
     validateTemplateDeclaration: `import type { Schema, SchemaDraft } from '@cfworker/json-schema'\nimport type { StandardSchemaV1 } from '@standard-schema/spec'\nexport declare const runtimeSchema: StandardSchemaV1 | null\nexport declare const schema: Schema\nexport declare const onError: 'throw' | 'warn' | 'ignore'\nexport declare const draft: SchemaDraft\nexport declare const coercionSchema: Record<string, unknown> | null\n`,
   }

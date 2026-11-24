@@ -107,6 +107,16 @@ describe('runtime JSON Schema generation', () => {
     expect(validator.validate({ secretKey: 123, public: { apiBase: 'https://api.test.com' } }).valid).toBe(false)
   })
 
+  it('accepts the keys Nuxt adds to the runtime config when a z.object() schema leaves them out', async () => {
+    const options = await resolveValidationOptions({ $schema: zodRuntimeConfigSchema })
+    const { draft, jsonSchema } = (await createRuntimeValidationArtifacts(options, () => {}))!
+    const validator = new Validator(jsonSchema, draft)
+    const nuxtKeys = { app: { baseURL: '/' }, nitro: { envPrefix: 'NUXT_' }, appSecret: 'generated' }
+
+    expect(validator.validate({ ...nuxtKeys, secretKey: 'test-key', public: { apiBase: 'https://api.test.com', i18n: {} } }).valid).toBe(true)
+    expect(validator.validate({ ...nuxtKeys, secretKey: 123, public: { apiBase: 'https://api.test.com' } }).valid).toBe(false)
+  })
+
   it('loads a Zod schema module, whose schemas have a default() method', async () => {
     const options = await resolveValidationOptions({ $schema: './test/fixtures/_shared/zod-runtime-config-schema.ts' })
 

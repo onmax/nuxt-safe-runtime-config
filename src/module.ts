@@ -9,7 +9,7 @@ import { version } from '../package.json'
 import { compileEnvSchema } from './env-schema/nuxt'
 import { parseEnvSchema } from './env-schema/profile'
 import { createEnvSchemaValidator } from './env-schema/standard'
-import { registerEnvSchemaPaths, registerNativeSchema, supportsNativeSchemas } from './native-schema'
+import { enforcesModuleSchemas, registerEnvSchemaPaths, registerNativeSchema } from './native-schema'
 import safeRuntimeConfigNitroModule, { resolveRuntimeConfigImport } from './nitro'
 import { createRuntimeValidationArtifacts, resolveValidationOptions } from './validation'
 
@@ -105,7 +105,7 @@ export default defineNuxtModule<ModuleOptions>({
       const compiled = compileEnvSchema(fields, { paths: source.paths })
       options.$schema = createEnvSchemaValidator(compiled.jsonSchema)
       applyEnvSchemaDefaults(nuxt.options.runtimeConfig, compiled.runtimeConfig)
-      if (supportsNativeSchemas(nuxt))
+      if (enforcesModuleSchemas(nuxt))
         await registerEnvSchemaPaths(nuxtPackage, compiled.mappings.map(mapping => mapping.path))
       nuxt.hook('nitro:config', (nitroConfig) => {
         nitroConfig.runtimeConfig ||= {}
@@ -131,7 +131,7 @@ export default defineNuxtModule<ModuleOptions>({
     if (!artifacts)
       return
 
-    if (!envSchemaSource && supportsNativeSchemas(nuxt)) {
+    if (!envSchemaSource && enforcesModuleSchemas(nuxt)) {
       const rejected = await registerNativeSchema(nuxtPackage, validationOptions.$schema!, validationOptions)
       if (rejected)
         logger.info(`Nuxt can't use this schema for useRuntimeConfig(), so only useSafeRuntimeConfig() is typed from it: ${rejected}`)

@@ -3,14 +3,17 @@ import type { ResolvedValidationOptions } from '../src/validation'
 import * as v from 'valibot'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { registerNativeSchema, supportsNativeSchemas } from '../src/native-schema'
+import { enforcesModuleSchemas, registerNativeSchema } from '../src/native-schema'
 
 const strictValidation = { runtimeCheck: true, onError: 'throw' } as const
 
 describe('native runtime config schemas', () => {
-  it('detects Nuxt versions that compile runtime config schemas', () => {
-    expect(supportsNativeSchemas({ options: { _runtimeConfigSchemas: [] } } as unknown as Nuxt)).toBe(true)
-    expect(supportsNativeSchemas({ options: {} } as unknown as Nuxt)).toBe(false)
+  it('hands schemas to Nuxt only when Nuxt stops the server on an invalid value', () => {
+    const nuxt = (options: object) => ({ options }) as unknown as Nuxt
+    expect(enforcesModuleSchemas(nuxt({ _runtimeConfigSchemas: [], future: { compatibilityVersion: 5 } }))).toBe(true)
+    // Nuxt 4.7 only warns about a module's schema and starts with the default value.
+    expect(enforcesModuleSchemas(nuxt({ _runtimeConfigSchemas: [], future: { compatibilityVersion: 4 } }))).toBe(false)
+    expect(enforcesModuleSchemas(nuxt({ future: { compatibilityVersion: 4 } }))).toBe(false)
   })
 
   it('keeps a plain Valibot schema, which has no JSON Schema', async () => {
