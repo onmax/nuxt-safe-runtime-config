@@ -29,17 +29,17 @@ function expectStartupFailure(env: NodeJS.ProcessEnv, error: RegExp) {
   expect(output).toMatch(error)
 }
 
-async function expectValidOverride() {
+async function expectValidOverride(env: NodeJS.ProcessEnv, expected: object) {
   const port = await getFreePort()
   const child = spawn(process.execPath, [server], {
     cwd,
-    env: { ...process.env, HOST: '127.0.0.1', NITRO_PORT: port, NUXT_QUOTA: '8080' },
+    env: { ...process.env, HOST: '127.0.0.1', NITRO_PORT: port, ...env },
   })
   let stderr = ''
   child.stderr.on('data', chunk => stderr += chunk.toString())
   try {
     const response = await waitForResponse(`http://127.0.0.1:${port}/api/quota`, child)
-    expect(await response.json()).toEqual({ quota: 8080 })
+    expect(await response.json()).toMatchObject(expected)
     expect(stderr).not.toContain('NUXT_E8014')
   }
   finally {
@@ -51,12 +51,16 @@ describe.skipIf(!cwd)('startup on Nuxt 4.7 with Nitro 3', () => {
   it('validates module-owned overrides without taking over app schemas', async () => {
     build()
     expectStartupFailure({ NUXT_QUOTA: 'abc' }, /safe-runtime-config[\s\S]*quota/)
+    expectStartupFailure({ NUXT_PUBLIC_LIMITS_QUOTA: 'abc' }, /safe-runtime-config[\s\S]*quota/)
     expectStartupFailure({ NUXT_APP_LIMIT: 'abc' }, /NUXT_E8014[\s\S]*app[_ -]?limit/i)
-    await expectValidOverride()
+    await expectValidOverride(
+      { NUXT_QUOTA: '8080', NUXT_API_VERSION: '2.10', NUXT_PUBLIC_LIMITS_QUOTA: '8080' },
+      { quota: 8080, apiVersion: '2.10', limits: { quota: 8080 } },
+    )
   }, 110000)
 
   it('passes valid envSchema overrides through without a Nuxt warning', async () => {
     build({ TEST_ENV_SCHEMA: '1' })
-    await expectValidOverride()
+    await expectValidOverride({ NUXT_QUOTA: '8080' }, { quota: 8080 })
   }, 100000)
 })

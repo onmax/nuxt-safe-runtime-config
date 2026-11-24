@@ -26,15 +26,25 @@ describe('native runtime config schemas', () => {
     const schema = z.object({
       quota: z.number(),
       missing: z.number(),
-      public: z.object({ limit: z.number(), label: z.string() }),
+      public: z.object({ limit: z.number(), retries: z.number() }),
     }).toJSONSchema({ io: 'input' })
-    const config = { quota: 3000, other: 100, public: { limit: 10, label: 'test' } }
+    const config = { quota: 3000, other: 100, public: { limit: 10, retries: 3 } }
     const nuxt = { options: { _runtimeConfigSchemas: [
       { path: [], node: { p: { public: { p: { limit: {} } } } } },
       { path: ['other'], node: {} },
     ] } } as unknown as Nuxt
 
-    expect(onlyInferredPaths(nuxt, inferredSchemaPaths(config, schema))).toEqual([['quota'], ['public', 'label']])
+    expect(onlyInferredPaths(nuxt, inferredSchemaPaths(config, schema))).toEqual([['quota'], ['public', 'retries']])
+  })
+
+  it('keeps inferred strings and targets configured record members rather than the record itself', () => {
+    const schema = z.object({
+      apiVersion: z.string(),
+      public: z.object({ limits: z.record(z.string(), z.number()) }),
+    }).toJSONSchema({ io: 'input' })
+
+    expect(inferredSchemaPaths({ apiVersion: '1.00', public: { limits: { quota: 3000 } } }, schema))
+      .toEqual([['public', 'limits', 'quota']])
   })
   it('keeps a schema with transforms before Nuxt sees it', async () => {
     const schema = z.object({ origins: z.string().transform(value => value.split(',')) })

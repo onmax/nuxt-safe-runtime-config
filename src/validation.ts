@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { createJiti } from 'jiti'
 import { generateSchemaTypeDeclaration, generateTypeDeclaration } from './json-schema-to-ts'
 import { isStandardSchema } from './runtime/validate'
-import { getJSONSchema, getNativeInputJSONSchema } from './utils/json-schema'
+import { getInputJSONSchema, getJSONSchema } from './utils/json-schema'
 
 export { validateRuntimeConfig } from './runtime/validate'
 export type { RuntimeValidationResult, ValidationLogger } from './runtime/validate'
@@ -158,7 +158,7 @@ export async function createRuntimeValidationArtifacts(
   const outputSchema = options.schemaPath
     ? {}
     : await getJSONSchema(options.$schema, options.jsonSchemaTarget, warn)
-  const inputSchema = options.schemaPath ? null : await getNativeInputJSONSchema(options.$schema, options.jsonSchemaTarget)
+  const inputSchema = options.schemaPath ? null : await getInputJSONSchema(options.$schema, options.jsonSchemaTarget)
   const jsonSchema = allowSharedRuntimeConfigKeys(outputSchema, inputSchema)
   const draft = detectJsonSchemaDraft(jsonSchema.$schema as string | undefined)
   const runtimeSchema = options.schemaPath

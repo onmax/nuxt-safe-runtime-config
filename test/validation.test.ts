@@ -6,6 +6,7 @@ import { Validator } from '@cfworker/json-schema'
 import { number, object, optional, string } from 'valibot'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
+import { z as zod3 } from 'zod/v3'
 import { createRuntimeValidationArtifacts, resolveValidationOptions } from '../src/validation'
 
 const zodRuntimeConfigSchema = z.object({
@@ -129,6 +130,22 @@ describe('runtime JSON Schema generation', () => {
 
     expect(validator.validate(valid).valid).toBe(true)
     expect(validator.validate(invalid).valid).toBe(false)
+  })
+
+  it.each([
+    [false, false],
+    [true, false],
+    [false, true],
+  ])('honors Zod 3 input closure (root strict: %s, public strict: %s)', async (strictRoot, strictPublic) => {
+    const publicSchema = zod3.object({ label: zod3.string() })
+    const root = zod3.object({ public: strictPublic ? publicSchema.strict() : publicSchema })
+    const options = await resolveValidationOptions({ $schema: strictRoot ? root.strict() : root })
+    const { draft, jsonSchema } = (await createRuntimeValidationArtifacts(options, () => {}))!
+    const validator = new Validator(jsonSchema, draft)
+
+    expect(validator.validate({ public: { label: 'valid' }, app: {} }).valid).toBe(!strictRoot)
+    expect(validator.validate({ public: { label: 'valid', i18n: {} } }).valid).toBe(!strictPublic)
+    expect(validator.validate({ public: { label: 10 } }).valid).toBe(false)
   })
 
   it('loads a Zod schema module, whose schemas have a default() method', async () => {
