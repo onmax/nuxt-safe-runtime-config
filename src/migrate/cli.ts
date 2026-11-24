@@ -5,7 +5,8 @@ import { migrate } from './index'
 const usage = `Usage: nuxt-safe-runtime-config migrate [dir] [--dry-run]
 
 Moves safeRuntimeConfig.$schema into Nuxt 4.7 runtimeConfig, renames useSafeRuntimeConfig
-to useRuntimeConfig, and removes the module. --dry-run prints the diff and writes nothing.`
+to useRuntimeConfig, and removes the module. --dry-run prints the diff and writes nothing,
+but it still loads nuxt.config the way Nuxt does, so code in it and in the files it imports runs.`
 
 async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv

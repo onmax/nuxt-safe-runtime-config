@@ -8,6 +8,6 @@ export default defineBuildConfig({
   ],
   declaration: true,
   clean: false,
-  rollup: { emitCJS: false, inlineDependencies: ['@babel/parser'] },
+  rollup: { emitCJS: false, inlineDependencies: ['@babel/parser', 'semver'] },
   externals: ['@nuxt/kit', '@typescript-eslint/utils', '@typescript-eslint/types', 'eslint'],
 })

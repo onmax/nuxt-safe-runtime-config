@@ -143,7 +143,9 @@ export default defineNuxtConfig({
   },
 })
 `,
-      'server/api/config.get.ts': `export default defineEventHandler(() => {
+      'server/api/config.get.ts': `import { useSafeRuntimeConfig } from '#safe-runtime-config/server'
+
+export default defineEventHandler(() => {
   const config = useSafeRuntimeConfig()
   return { apiSecret: config.apiSecret, retries: config.retries, verbose: config.verbose, apiBase: config.public.apiBase }
 })

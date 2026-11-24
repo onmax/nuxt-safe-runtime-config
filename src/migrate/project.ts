@@ -1,8 +1,9 @@
 import type { Node } from './ast'
 import type { FileEdit, Note, Report } from './report'
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
-import { applyRemovals, Editor, keyName, lineAt, lineEnd, lineStart, parentMap, parseJsonc, parseModule, removeImportSpecifiers, removeStatement, walk } from './ast'
+import semver from 'semver'
+import { applyRemovals, Editor, keyName, lineEnd, lineStart, parentMap, parseJsonc, parseModule, removeStatement, walk } from './ast'
 import { isModuleName } from './config'
 
 export const moduleName = 'nuxt-safe-runtime-config'
@@ -13,7 +14,10 @@ const textExtensions = /\.(?:md|mdx|json|jsonc|json5|ya?ml|toml|txt)$/
 const lockfiles = new Set(['pnpm-lock.yaml', 'package-lock.json', 'yarn.lock', 'bun.lock', 'npm-shrinkwrap.json'])
 const eslintConfig = /^eslint\.config\.[cm]?[jt]s$/
 
-/** Project files relative to `rootDir`, without dependencies, build output and nested packages other than layers. */
+/**
+ * Project files relative to `rootDir`, without dependencies, build output and nested packages other than layers.
+ * Symbolic links are skipped, so the codemod never edits a file outside the app through one.
+ */
 export function listFiles(rootDir: string): string[] {
   const files: string[] = []
   const visit = (dir: string): void => {
@@ -28,7 +32,7 @@ export function listFiles(rootDir: string): string[] {
       const path = join(dir, entry)
       let stats
       try {
-        stats = statSync(path)
+        stats = lstatSync(path)
       }
       catch {
         continue
@@ -69,19 +73,28 @@ function findUp(from: string, name: string): string | undefined {
 
 // Versions
 
-export interface Version {
-  major: number
-  minor: number
-  patch: number
+export interface FoundVersion {
+  /** The installed version, or the range from package.json or its catalog. */
+  text: string
+  /** The installed version, or the lowest version the range allows. Undefined when the range isn't semver. */
+  version?: string
+  installed: boolean
 }
 
-export function parseVersion(text: string | undefined): Version | undefined {
-  const match = text && /(\d+)\.(\d+)(?:\.(\d+))?/.exec(text)
-  return match ? { major: Number(match[1]), minor: Number(match[2]), patch: Number(match[3] ?? 0) } : undefined
+/** The lowest version a range allows, such as 4.6.0 for `^4.6` and 0.0.0 for `<4.7.0`. */
+export function minimumVersion(range: string | undefined): string | undefined {
+  if (!range)
+    return undefined
+  try {
+    return semver.minVersion(range)?.version
+  }
+  catch {
+    return undefined
+  }
 }
 
-export function atLeast(version: Version, major: number, minor: number): boolean {
-  return version.major > major || (version.major === major && version.minor >= minor)
+export function meetsMinimum(found: FoundVersion | undefined, minimum: string): boolean {
+  return !!found?.version && semver.gte(found.version, minimum)
 }
 
 function installedVersion(rootDir: string, name: string): string | undefined {
@@ -89,23 +102,29 @@ function installedVersion(rootDir: string, name: string): string | undefined {
   if (!path)
     return undefined
   try {
-    return JSON.parse(readFileSync(path, 'utf8')).version
+    return semver.valid(JSON.parse(readFileSync(path, 'utf8')).version) ?? undefined
   }
   catch {
     return undefined
   }
 }
 
-/** The installed version of a dependency, or the lowest version its range allows, resolving pnpm catalogs. */
-export function dependencyVersion(rootDir: string, pkg: Record<string, any>, name: string): { text: string, version?: Version, installed: boolean } | undefined {
+function declaredRange(rootDir: string, pkg: Record<string, any>, name: string): string | undefined {
+  const range = dependencySections.map(section => pkg[section]?.[name]).find(value => typeof value === 'string') as string | undefined
+  if (range?.startsWith('catalog:'))
+    return catalogRange(rootDir, name, range.slice('catalog:'.length)) ?? range
+  return range
+}
+
+/** The installed version of a dependency, or else the lowest version its range allows, resolving pnpm catalogs. */
+export function dependencyVersion(rootDir: string, pkg: Record<string, any>, name: string): FoundVersion | undefined {
   const installed = installedVersion(rootDir, name)
   if (installed)
-    return { text: installed, version: parseVersion(installed), installed: true }
-  const range = dependencySections.map(section => pkg[section]?.[name]).find(value => typeof value === 'string') as string | undefined
+    return { text: installed, version: installed, installed: true }
+  const range = declaredRange(rootDir, pkg, name)
   if (!range)
     return undefined
-  const resolved = range.startsWith('catalog:') ? catalogRange(rootDir, name, range.slice('catalog:'.length)) : range
-  return { text: resolved ?? range, version: parseVersion(resolved), installed: false }
+  return { text: range, version: minimumVersion(range), installed: false }
 }
 
 interface CatalogEntry {
@@ -175,15 +194,31 @@ export function installCommand(rootDir: string): string {
 
 // package.json
 
-/** The @valibot/to-json-schema release that matches the app's Valibot, all of them with toStandardJsonSchema(). */
-function converterRange(valibot: Version | undefined): string {
-  if (!valibot || atLeast(valibot, 1, 5))
-    return '^1.8.0'
-  if (atLeast(valibot, 1, 4))
-    return '^1.7.0'
-  if (atLeast(valibot, 1, 3))
-    return '^1.6.0'
-  return '^1.5.0'
+const converter = '@valibot/to-json-schema'
+
+/** The @valibot/to-json-schema release lines with toStandardJsonSchema(), and the lowest Valibot each one's peer range accepts. */
+const converterLines = [
+  { minor: 5, valibot: '1.2.0' },
+  { minor: 6, valibot: '1.3.0' },
+  { minor: 7, valibot: '1.4.0' },
+  { minor: 8, valibot: '1.5.0' },
+]
+
+/** The newest converter line that accepts `valibot`, and the ranges of the converter that install only compatible releases. */
+function converterFor(valibot: string): { wanted: string, accepted: string } {
+  const index = converterLines.findLastIndex(line => semver.gte(valibot, line.valibot))
+  const line = converterLines[index]!
+  const next = converterLines[index + 1]
+  return { wanted: `~1.${line.minor}.0`, accepted: next ? `>=1.5.0 <1.${next.minor}.0` : '>=1.5.0' }
+}
+
+function fitsRange(range: string, accepted: string): boolean {
+  try {
+    return !!semver.validRange(range) && semver.subset(range, accepted)
+  }
+  catch {
+    return false
+  }
 }
 
 export function migratePackageJson(rootDir: string, valibot: boolean, report: Report): FileEdit | undefined {
@@ -205,31 +240,45 @@ export function migratePackageJson(rootDir: string, valibot: boolean, report: Re
       })
     }
   }
-  if (valibot) {
-    const converter = '@valibot/to-json-schema'
-    const valibotVersion = dependencyVersion(rootDir, pkg, 'valibot')?.version
-    const wanted = converterRange(valibotVersion)
-    if (valibotVersion && !atLeast(valibotVersion, 1, 2))
-      report.manual.push({ file: 'package.json', text: `valibot ${valibotVersion.major}.${valibotVersion.minor} is older than 1.2, which ${converter} needs. Upgrade valibot` })
-    const section = dependencySections.find(name => pkg[name]?.[converter]) ?? dependencySections.find(name => pkg[name]?.valibot) ?? 'dependencies'
-    const existing = pkg[section]?.[converter] as string | undefined
-    if (existing === undefined) {
-      pkg[section] = insertSorted(pkg[section] ?? {}, converter, wanted)
-    }
-    else if (existing.startsWith('catalog:')) {
-      const entry = findCatalogEntry(rootDir, converter, existing.slice('catalog:'.length))
-      const version = parseVersion(entry?.value)
-      if (!version || !atLeast(version, 1, 5))
-        report.manual.push({ file: entry ? relative(rootDir, entry.file) : 'pnpm-workspace.yaml', line: entry?.line, text: `${converter} needs ${wanted} for toStandardJsonSchema(). Update the catalog entry` })
-    }
-    else {
-      const version = parseVersion(existing)
-      if (version && !atLeast(version, 1, 5))
-        pkg[section][converter] = wanted
-    }
-  }
+  if (valibot)
+    addConverter(rootDir, pkg, report)
   const after = `${JSON.stringify(pkg, null, indent)}${before.endsWith('\n') ? '\n' : ''}`
   return after === before ? undefined : { path: 'package.json', before, after }
+}
+
+/** Adds a @valibot/to-json-schema range that installs next to the app's Valibot, bumping Valibot below 1.2. */
+function addConverter(rootDir: string, pkg: Record<string, any>, report: Report): void {
+  const found = dependencyVersion(rootDir, pkg, 'valibot')
+  const valibotSection = dependencySections.find(name => typeof pkg[name]?.valibot === 'string')
+  if (!found?.version) {
+    report.stops.push({ file: 'package.json', text: found ? `valibot ${found.text} is not a version range the codemod can read, so it can't pick a ${converter} release that installs with it` : `the schema uses Valibot, but valibot is not in package.json or node_modules` })
+    return
+  }
+  let valibot = found.version
+  if (semver.lt(valibot, '1.2.0')) {
+    const specifier = valibotSection ? pkg[valibotSection].valibot as string : undefined
+    if (!valibotSection || !specifier || specifier.startsWith('catalog:')) {
+      report.stops.push({ file: specifier ? 'pnpm-workspace.yaml' : 'package.json', text: `valibot ${found.text} is older than 1.2, the oldest release ${converter} supports with toStandardJsonSchema(). Upgrade valibot to ^1.2.0 and run the command again` })
+      return
+    }
+    pkg[valibotSection].valibot = '^1.2.0'
+    report.changes.push({ file: 'package.json', text: `valibot ${specifier} becomes ^1.2.0, the oldest release ${converter} supports with toStandardJsonSchema()` })
+    valibot = '1.2.0'
+  }
+  const { wanted, accepted } = converterFor(valibot)
+  const section = dependencySections.find(name => typeof pkg[name]?.[converter] === 'string') ?? valibotSection ?? 'dependencies'
+  const existing = pkg[section]?.[converter] as string | undefined
+  if (existing === undefined) {
+    pkg[section] = insertSorted(pkg[section] ?? {}, converter, wanted)
+  }
+  else if (existing.startsWith('catalog:')) {
+    const entry = findCatalogEntry(rootDir, converter, existing.slice('catalog:'.length))
+    if (!entry || !fitsRange(entry.value, accepted))
+      report.stops.push({ file: entry ? relative(rootDir, entry.file) : 'pnpm-workspace.yaml', line: entry?.line, text: `${converter} ${entry?.value ?? existing} does not install a release with toStandardJsonSchema() that accepts valibot ${valibot}. Set it to ${wanted} and run the command again` })
+  }
+  else if (!fitsRange(existing, accepted)) {
+    pkg[section][converter] = wanted
+  }
 }
 
 function insertSorted(record: Record<string, string>, key: string, value: string): Record<string, string> {
@@ -280,90 +329,6 @@ export function migrateTsconfig(rootDir: string, path: string): FileEdit | undef
 }
 
 // Source files
-
-const renamePattern = /(?<![\w$])useSafeRuntimeConfig(?![\w$])/g
-
-/** Replaces everything outside `<script>` blocks of a Vue file with spaces, keeping offsets and lines. */
-function scriptView(path: string, code: string): string {
-  if (!path.endsWith('.vue'))
-    return code
-  let output = ''
-  let cursor = 0
-  for (const match of code.matchAll(/(<script\b[^>]*>)([\s\S]*?)<\/script>/g)) {
-    const contentStart = match.index! + match[1]!.length
-    output += code.slice(cursor, contentStart).replace(/[^\n]/g, ' ') + match[2]
-    cursor = contentStart + match[2]!.length
-  }
-  return output + code.slice(cursor).replace(/[^\n]/g, ' ')
-}
-
-function parseFileName(path: string, code: string): string {
-  if (!path.endsWith('.vue'))
-    return path
-  return /<script[^>]*\slang=["']tsx["']/.test(code) ? 'file.tsx' : 'file.ts'
-}
-
-/** Renames useSafeRuntimeConfig, drops duplicate lines and imports it leaves, and cleans ESLint comments. */
-export function migrateSource(path: string, before: string, report: Report): string {
-  let code = before
-  if (renamePattern.test(code)) {
-    renamePattern.lastIndex = 0
-    const output: string[] = []
-    for (const [index, text] of code.split('\n').entries()) {
-      if (!renamePattern.test(text)) {
-        output.push(text)
-        continue
-      }
-      renamePattern.lastIndex = 0
-      const renamed = text.replace(renamePattern, 'useRuntimeConfig')
-      const previous = output.at(-1)
-      if (previous !== undefined && previous.trim() && previous.trim() === renamed.trim())
-        continue
-      if (previous !== undefined && /stubGlobal\(\s*['"`]useRuntimeConfig['"`]/.test(previous) && /stubGlobal\(\s*['"`]useRuntimeConfig['"`]/.test(renamed))
-        report.manual.push({ file: path, line: index + 1, text: 'stubs useRuntimeConfig right after another stub of it. Keep one' })
-      output.push(renamed)
-    }
-    code = output.join('\n')
-    code = fixImports(path, code, report)
-  }
-  return removeDisableComments(code)
-}
-
-function fixImports(path: string, code: string, report: Report): string {
-  const view = scriptView(path, code)
-  let program
-  try {
-    program = parseModule(view, parseFileName(path, code), true)
-  }
-  catch {
-    return code
-  }
-  const editor = new Editor(code)
-  const seen = new Set<string>()
-  for (const statement of program.program.body) {
-    if (statement.type !== 'ImportDeclaration')
-      continue
-    const remove = new Set<typeof statement.specifiers[number]>()
-    for (const specifier of statement.specifiers) {
-      if (seen.has(specifier.local.name))
-        remove.add(specifier)
-      seen.add(specifier.local.name)
-    }
-    if (isModuleName(statement.source.value) && statement.source.value !== `${moduleName}/eslint`) {
-      const rest = code.slice(0, statement.start!) + code.slice(statement.end!)
-      for (const specifier of statement.specifiers) {
-        if (remove.has(specifier))
-          continue
-        if (new RegExp(`(?<![\\w$])${specifier.local.name.replaceAll('$', '\\$')}(?![\\w$])`).test(rest))
-          report.manual.push({ file: path, line: lineAt(code, statement.start!), text: `still imports ${specifier.local.name} from ${statement.source.value}. Replace it by hand` })
-        else
-          remove.add(specifier)
-      }
-    }
-    removeImportSpecifiers(editor, statement, remove)
-  }
-  return editor.toString()
-}
 
 const commentPattern = /\/\/[^\n]*|\/\*[\s\S]*?\*\/|<!--[\s\S]*?-->/g
 

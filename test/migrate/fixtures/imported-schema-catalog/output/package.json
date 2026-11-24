@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@valibot/to-json-schema": "^1.8.0",
+    "@valibot/to-json-schema": "~1.8.0",
     "nuxt": "catalog:nuxt",
     "valibot": "catalog:"
   },

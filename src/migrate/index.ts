@@ -1,12 +1,13 @@
 import type { FileEdit, Note, Report } from './report'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { dirname, join, relative, resolve } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import process from 'node:process'
 import { tidyBlankLines } from './ast'
 import { findConfigFile, layerConfigPath, migrateConfig } from './config'
 import { unifiedDiff } from './diff'
-import { atLeast, dependencySections, dependencyVersion, findMentions, installCommand, isCodeFile, isEslintConfig, listFiles, migrateEslintConfig, migrateNuxtrc, migratePackageJson, migrateSource, migrateTsconfig, moduleName } from './project'
+import { dependencySections, dependencyVersion, findMentions, installCommand, isCodeFile, isEslintConfig, listFiles, meetsMinimum, migrateEslintConfig, migrateNuxtrc, migratePackageJson, migrateTsconfig, moduleName } from './project'
 import { createReport, formatNote } from './report'
+import { migrateSource } from './source'
 
 export type { FileEdit, Note, Report }
 
@@ -52,8 +53,8 @@ export async function migrate(dir: string, options: MigrateOptions = {}): Promis
   }
 
   const nuxt = dependencyVersion(rootDir, pkg, 'nuxt')
-  if (!nuxt?.version || !atLeast(nuxt.version, 4, 7)) {
-    const found = !nuxt ? 'Nuxt is not in package.json' : nuxt.installed ? `Nuxt ${nuxt.text} is installed` : `package.json asks for Nuxt ${nuxt.text}`
+  if (!meetsMinimum(nuxt, '4.7.0')) {
+    const found = !nuxt ? 'Nuxt is not in package.json' : nuxt.installed ? `Nuxt ${nuxt.text} is installed` : `package.json asks for Nuxt ${nuxt.text}, which allows ${nuxt.version ? `versions down to ${nuxt.version}` : 'versions the codemod can\'t read'}`
     report.stops.push({ text: `${found}. Nuxt runtimeConfig schemas need Nuxt 4.7 or newer. Run \`npx nuxt upgrade\`, then run this command again` })
     return finish('stopped', [])
   }
@@ -101,9 +102,6 @@ export async function migrate(dir: string, options: MigrateOptions = {}): Promis
         edits.push({ path, before, after })
     }
   }
-  if (report.stops.length)
-    return finish('stopped', [], manualSteps)
-
   for (const edit of [
     migratePackageJson(rootDir, configResult.valibot, report),
     migrateNuxtrc(rootDir),
@@ -112,6 +110,12 @@ export async function migrate(dir: string, options: MigrateOptions = {}): Promis
     if (edit)
       edits.push(edit)
   }
+  for (const edit of edits) {
+    if (!insideApp(rootDir, edit.path))
+      report.stops.push({ file: edit.path, text: 'is outside the app through a symbolic link, so the codemod won\'t write it' })
+  }
+  if (report.stops.length)
+    return finish('stopped', [], manualSteps)
 
   for (const edit of edits) {
     if (edit.before !== null && edit.after !== null && isCodeFile(edit.path))
@@ -150,6 +154,19 @@ export async function migrate(dir: string, options: MigrateOptions = {}): Promis
   ])
 }
 
+/** Said wherever --dry-run is described: reading the schema means running nuxt.config, as `nuxt build` does. */
+export const dryRunNote = 'loaded nuxt.config the way Nuxt does, so code in it and in the files it imports ran.'
+
+/** Whether `path` stays inside `rootDir` once symbolic links in its existing part are resolved. */
+function insideApp(rootDir: string, path: string): boolean {
+  let existing = join(rootDir, path)
+  while (!existsSync(existing) && existing !== dirname(existing))
+    existing = dirname(existing)
+  const root = realpathSync(rootDir)
+  const target = realpathSync(existing)
+  return target === root || target.startsWith(root + sep)
+}
+
 function section(title: string, notes: Note[]): string[] {
   if (!notes.length)
     return []
@@ -168,7 +185,7 @@ export function formatOutput(status: MigrateResult['status'], edits: FileEdit[],
   }
   const verb = dryRun ? 'Would change' : 'Changed'
   const lines = [
-    `${dryRun ? 'Dry run: nothing was written.' : `Migrated ${moduleName} to Nuxt runtimeConfig schemas.`}`,
+    `${dryRun ? `Dry run: nothing was written. The codemod ${dryRunNote}` : `Migrated ${moduleName} to Nuxt runtimeConfig schemas.`}`,
     '',
     `${verb}:`,
     ...edits.map(edit => `  ${edit.before === null ? 'create' : edit.after === null ? 'delete' : 'modify'} ${edit.path}`),

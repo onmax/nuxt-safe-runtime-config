@@ -1,8 +1,10 @@
 import type { File, Node, ObjectExpression, ObjectProperty, Statement } from './ast'
 import type { FileEdit, Note, Report } from './report'
 import type { SchemaAnalysis } from './schema'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
+import process from 'node:process'
+import { parseEnv } from 'node:util'
 import { createJiti } from 'jiti'
 import { applyRemovals, configRoot, detectStyle, Editor, end, findProperty, freeNames, importText, indentOf, insertImport, isEmptyString, keyName, line, parseModule, reindent, removeUnused, resolveObject, start, unwrap, walk } from './ast'
 import { analyseSchema } from './schema'
@@ -51,11 +53,29 @@ export function findConfigFile(rootDir: string): string | undefined {
   return configFileNames.map(name => join(rootDir, name)).find(file => existsSync(file))
 }
 
+/** Sets the variables of the app's `.env` that are not set yet, as Nuxt does before it loads nuxt.config, and returns a function that undoes it. */
+function applyDotenv(rootDir: string): () => void {
+  const file = join(rootDir, '.env')
+  if (!existsSync(file))
+    return () => {}
+  const added: string[] = []
+  for (const [name, value] of Object.entries(parseEnv(readFileSync(file, 'utf8')))) {
+    if (process.env[name] !== undefined || value === undefined)
+      continue
+    process.env[name] = value
+    added.push(name)
+  }
+  return () => {
+    for (const name of added) delete process.env[name]
+  }
+}
+
 export async function loadNuxtConfig(file: string): Promise<Loose> {
   const jiti = createJiti(file, { interopDefault: false, moduleCache: false, fsCache: false })
   const scope = globalThis as Loose
   const previous = scope.defineNuxtConfig
   scope.defineNuxtConfig = (config: unknown) => config
+  const restoreEnv = applyDotenv(dirname(file))
   try {
     const module = await jiti.import<Loose>(file)
     let config = module.default ?? module
@@ -64,6 +84,7 @@ export async function loadNuxtConfig(file: string): Promise<Loose> {
     return config ?? {}
   }
   finally {
+    restoreEnv()
     if (previous === undefined)
       delete scope.defineNuxtConfig
     else
@@ -76,8 +97,14 @@ async function loadSchemaFile(rootDir: string, path: string): Promise<{ file: st
   const jiti = createJiti(join(rootDir, 'nuxt-safe-runtime-config.loader.mjs'), { interopDefault: false, moduleCache: false, fsCache: false })
   const file = jiti.esmResolve(path)
   const resolved = file.startsWith('file://') ? new URL(file).pathname : file
-  const module = await jiti.import<{ default?: unknown }>(resolved)
-  return { file: resolved, schema: module.default }
+  const restoreEnv = applyDotenv(rootDir)
+  try {
+    const module = await jiti.import<{ default?: unknown }>(resolved)
+    return { file: resolved, schema: module.default }
+  }
+  finally {
+    restoreEnv()
+  }
 }
 
 function scopeLabel(scope: Scope): string {
@@ -157,6 +184,11 @@ export async function migrateConfig(rootDir: string, configFile: string, report:
         stop(holder ?? root, `${scope} is not an object literal, so the codemod can't edit it`)
       continue
     }
+    const spread = spreadSetting(object, scope === 'root' ? ['runtimeConfig', 'safeRuntimeConfig', ...scopes, '$env'] : ['runtimeConfig', 'safeRuntimeConfig'])
+    if (spread) {
+      stop(spread, `${scope === 'root' ? 'nuxt.config' : scope} has a spread that may set runtimeConfig or safeRuntimeConfig, so the codemod can't tell which values the schema would replace. Write them out and run the command again`)
+      continue
+    }
 
     // Module entries.
     const modules = scopeEvaluated.modules
@@ -201,13 +233,15 @@ export async function migrateConfig(rootDir: string, configFile: string, report:
         continue
       }
       info.safe = { property: safeProperty, options }
+      if (!literalOptions(options, `${scopeLabel(scope)}safeRuntimeConfig`))
+        continue
       reportOptions(options, safeEvaluated ?? {}, scope)
       const schemaProperty = findProperty(options, '$schema')
       const schemaValue = safeEvaluated?.$schema
-      if (schemaValue !== undefined && !schemaProperty) {
-        stop(safeProperty, `${scopeLabel(scope)}safeRuntimeConfig.$schema comes from a spread, so the codemod can't move it`)
+      if (schemaProperty && schemaValue === undefined) {
+        stop(schemaProperty, `${scopeLabel(scope)}safeRuntimeConfig.$schema is undefined when nuxt.config loads, so the codemod can't read the schema. Set the variables it depends on (the codemod reads .env like Nuxt does) and run the command again`)
       }
-      else if (schemaProperty && schemaValue !== undefined) {
+      else if (schemaProperty) {
         let schema = schemaValue
         let importPath: string | undefined
         if (typeof schemaValue === 'string') {
@@ -236,10 +270,56 @@ export async function migrateConfig(rootDir: string, configFile: string, report:
   }
 
   for (const tuple of tupleOptions) {
+    if (!literalOptions(tuple.node, `the ${moduleName} options in modules`))
+      continue
     if (tuple.evaluated.$schema !== undefined || tuple.evaluated.envSchema !== undefined)
       stop(tuple.node, `the ${moduleName} options in modules set $schema or envSchema. Move them to safeRuntimeConfig and run the command again`)
     else
       reportOptions(tuple.node, tuple.evaluated, 'root')
+  }
+
+  /** The first spread in `object` that may set one of `keys`, following identifiers to top-level object literals. */
+  function spreadSetting(object: ObjectExpression, keys: readonly string[], depth = 0): Node | undefined {
+    for (const property of object.properties) {
+      if (property.type !== 'SpreadElement')
+        continue
+      const branches = [unwrap(property.argument)]
+      while (branches.some(branch => branch.type === 'ConditionalExpression' || branch.type === 'LogicalExpression')) {
+        const branch = branches.findIndex(item => item.type === 'ConditionalExpression' || item.type === 'LogicalExpression')
+        const node = branches[branch]!
+        branches.splice(branch, 1, ...(node.type === 'ConditionalExpression' ? [node.consequent, node.alternate] : node.type === 'LogicalExpression' ? [node.left, node.right] : []).map(unwrap))
+      }
+      for (const branch of branches) {
+        if (branch.type === 'BooleanLiteral' || branch.type === 'NullLiteral' || (branch.type === 'Identifier' && branch.name === 'undefined'))
+          continue
+        const resolved = resolveObject(program, branch)
+        if (!resolved || depth > 4)
+          return property
+        if (resolved.properties.some(item => item.type !== 'SpreadElement' && keys.includes(keyName(item) ?? '')) || resolved.properties.some(item => item.type !== 'SpreadElement' && keyName(item) === undefined))
+          return property
+        if (spreadSetting(resolved, keys, depth + 1))
+          return property
+      }
+    }
+    return undefined
+  }
+
+  /** Stops on option objects whose keys the codemod can't list: spreads, computed keys and repeated keys. */
+  function literalOptions(options: ObjectExpression, label: string): boolean {
+    const names = new Set<string>()
+    for (const property of options.properties) {
+      const name = property.type === 'SpreadElement' ? undefined : keyName(property)
+      if (name === undefined) {
+        stop(property, `${label} has a spread or a computed key, so the codemod can't tell which options it sets. Write the options out and run the command again`)
+        return false
+      }
+      if (names.has(name)) {
+        stop(property, `${label} sets ${name} twice. Keep one and run the command again`)
+        return false
+      }
+      names.add(name)
+    }
+    return true
   }
 
   function reportOptions(options: ObjectExpression, values: Loose, scope: Scope): void {
@@ -272,8 +352,28 @@ export async function migrateConfig(rootDir: string, configFile: string, report:
   if (!hasSafe && !marked.size)
     return { edits: [], valibot: false, finish: () => {} }
 
-  // Placeholders: drop literal '' for keys a schema requires without a default.
+  // Other layers: Nuxt merges their runtimeConfig under this app's, and a schema replaces the plain values below it.
+  for (const layer of layerConfigs(rootDir, evaluated.extends)) {
+    if (!layer.file) {
+      report.manual.push({ file: rel, text: `extends ${layer.source}. If that layer sets runtimeConfig, the schema now replaces those values: add them to the schema` })
+      continue
+    }
+    const layerCode = readFileSync(layer.file, 'utf8')
+    const layerRel = relative(rootDir, layer.file)
+    if (/safeRuntimeConfig|nuxt-safe-runtime-config/.test(layerCode))
+      report.stops.push({ file: layerRel, text: `registers ${moduleName} or sets safeRuntimeConfig in a layer. Migrate the layer by hand first, then run the command again` })
+    else if (/\bruntimeConfig\b/.test(layerCode))
+      report.stops.push({ file: layerRel, text: 'sets runtimeConfig in a layer, and the schema replaces the plain values of lower layers. Merge them into the schema by hand' })
+  }
+  if (report.stops.length)
+    return
+
+  // Placeholders: drop literal '' for keys a schema requires without a default. A root placeholder applies to every
+  // environment, so it goes only when the schema of each environment requires it.
   const required = new Set(schemaScopes.flatMap(info => [...info.schema!.analysis.required]))
+  const schemaFor = (scope: Scope): SchemaInfo | undefined => infos.find(info => info.scope === scope)?.schema ?? infos.find(info => info.scope === 'root')?.schema
+  const requiredIn = (scope: Scope): ReadonlySet<string> => schemaFor(scope)?.analysis.required ?? new Set()
+  const environments = ['$development', '$production', '$test'] as const
   let anyPlain = false
   let allLiteral = true
   for (const info of infos) {
@@ -289,7 +389,7 @@ export async function migrateConfig(rootDir: string, configFile: string, report:
       info.plain = true
       continue
     }
-    info.plain = scanRuntimeConfig(object, '', info.drops)
+    info.plain = scanRuntimeConfig(object, '', info.drops, info.scope)
     anyPlain ||= info.plain
   }
   for (const envConfig of Object.values((evaluated.$env ?? {}) as Loose)) {
@@ -297,8 +397,9 @@ export async function migrateConfig(rootDir: string, configFile: string, report:
       anyPlain = true
   }
 
-  function scanRuntimeConfig(object: ObjectExpression, prefix: string, drops: ObjectProperty[]): boolean {
+  function scanRuntimeConfig(object: ObjectExpression, prefix: string, drops: ObjectProperty[], scope: Scope): boolean {
     let plain = false
+    const hasSpread = object.properties.some(property => property.type === 'SpreadElement')
     for (const property of object.properties) {
       const key = property.type === 'ObjectProperty' ? keyName(property) : undefined
       if (property.type !== 'ObjectProperty' || key === undefined) {
@@ -308,12 +409,25 @@ export async function migrateConfig(rootDir: string, configFile: string, report:
       const path = joinPath(prefix, key)
       const value = unwrap(property.value)
       if (value.type === 'ObjectExpression') {
-        plain = scanRuntimeConfig(value, path, drops) || plain
+        plain = scanRuntimeConfig(value, path, drops, scope) || plain
         continue
       }
-      if (isEmptyString(value) && required.has(path)) {
-        drops.push(property)
-        continue
+      if (isEmptyString(value)) {
+        const requiring = scope === 'root' ? environments.filter(env => requiredIn(env).has(path)) : requiredIn(scope).has(path) ? [scope] : []
+        if (scope === 'root' && requiring.length && requiring.length < environments.length) {
+          stop(property, `runtimeConfig.${path} is '' and only the ${requiring.join(' and ')} schema requires it. Dropping it leaves the key out of the other environments, and keeping it makes it optional in ${requiring.join(' and ')}. Move it by hand`)
+          plain = true
+          continue
+        }
+        if (requiring.length && hasSpread) {
+          stop(property, `${scopeLabel(scope)}runtimeConfig.${path} is a placeholder next to a spread, which may set it again. Move it by hand`)
+          plain = true
+          continue
+        }
+        if (requiring.length) {
+          drops.push(property)
+          continue
+        }
       }
       plain = true
     }
@@ -433,6 +547,8 @@ export async function migrateConfig(rootDir: string, configFile: string, report:
       return
     }
     layerText = buildLayer(layerFile)
+    if (layerText === undefined)
+      return
     edits.push({ path: layerConfigPath, before: null, after: layerText })
   }
   if (after !== code)
@@ -491,7 +607,7 @@ export async function migrateConfig(rootDir: string, configFile: string, report:
     })
   }
 
-  function buildLayer(layerFile: string): string {
+  function buildLayer(layerFile: string): string | undefined {
     const layerDir = dirname(layerFile)
     const statements = topLevelDeclarations(program)
     const neededImports = new Map<Statement, Set<string>>()
@@ -522,6 +638,20 @@ export async function migrateConfig(rootDir: string, configFile: string, report:
         queue.push(...freeNames(statement))
       }
     }
+    // Code that reads its own location would read the layer's folder after the move.
+    const moved: Node[] = [...neededStatements, ...schemaScopes.filter(info => !info.schema!.importPath).map(info => info.schema!.property.value)]
+    for (const node of moved) {
+      let found: Node | undefined
+      walk(node, (current) => {
+        if (!found && (current.type === 'MetaProperty' || (current.type === 'Identifier' && (current.name === '__dirname' || current.name === '__filename'))))
+          found = current
+      })
+      if (found) {
+        stop(found, `the schema code uses ${found.type === 'MetaProperty' ? 'import.meta' : (found as { name: string }).name}, which would point at ${layerConfigPath} once the schema moves there. Move the schema by hand`)
+        return undefined
+      }
+    }
+
     const imports: string[] = []
     for (const [statement, names] of neededImports) {
       if (statement.type !== 'ImportDeclaration')
@@ -562,6 +692,38 @@ export async function migrateConfig(rootDir: string, configFile: string, report:
     ].filter(Boolean)
     return `${parts.join('\n\n')}\n`
   }
+}
+
+/** The nuxt.config of each layer in `layers/` and of each local `extends` entry; `file` is undefined for remote layers. */
+function layerConfigs(rootDir: string, extendsOption: unknown): Array<{ source: string, file?: string }> {
+  const layers: Array<{ source: string, file?: string }> = []
+  const layersDir = join(rootDir, 'layers')
+  let entries: string[] = []
+  try {
+    entries = readdirSync(layersDir).sort()
+  }
+  catch {}
+  for (const entry of entries) {
+    const file = findConfigFile(join(layersDir, entry))
+    if (file)
+      layers.push({ source: `layers/${entry}`, file })
+  }
+  const list = Array.isArray(extendsOption) && !(extendsOption.length === 2 && typeof extendsOption[0] === 'string' && typeof extendsOption[1] === 'object' && !Array.isArray(extendsOption[1])) ? extendsOption : [extendsOption]
+  for (const item of list) {
+    const source = Array.isArray(item) ? item[0] : item
+    if (typeof source !== 'string')
+      continue
+    if (source.startsWith('.') || source.startsWith('/')) {
+      const dir = resolve(rootDir, source)
+      const file = findConfigFile(dir) ?? (configFileNames.some(name => dir.endsWith(name)) && existsSync(dir) ? dir : undefined)
+      if (file && !layers.some(layer => layer.file === file))
+        layers.push({ source, file })
+    }
+    else {
+      layers.push({ source })
+    }
+  }
+  return layers
 }
 
 function importSource(text: string): string {

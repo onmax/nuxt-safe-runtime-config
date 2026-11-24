@@ -85,9 +85,105 @@ export async function analyseSchema(schema: unknown): Promise<SchemaAnalysis> {
     result.stops.push({ path: '', note: `Nuxt can't convert the $schema to JSON Schema: ${errorText(error)}` })
     return result
   }
+  const shape = rootShape(result.json)
+  if (shape)
+    result.stops.push({ path: '', note: `Nuxt needs one object schema for the whole runtime config, and this one is ${shape} (NUXT_B5031)` })
+  const validate = (converter as { '~standard': { validate?: unknown } })['~standard'].validate
+  if (typeof validate === 'function' && validatesAsync(validate as (value: unknown) => unknown, result.json))
+    result.stops.push({ path: '', note: 'the schema validates asynchronously, through an async refinement or transform, and Nuxt validates runtimeConfig synchronously (NUXT_B5031)' })
   walkJson(result.json, '', result)
   collectRequired(result.json, '', result.required)
   return result
+}
+
+function resolveRef(node: JsonObject, root: JsonObject): JsonObject {
+  let current = node
+  for (let depth = 0; depth < 10 && typeof current.$ref === 'string' && current.$ref.startsWith('#/'); depth++) {
+    let target: unknown = root
+    for (const part of current.$ref.slice(2).split('/'))
+      target = isRecord(target) ? target[part.replaceAll('~1', '/').replaceAll('~0', '~')] : undefined
+    if (!isRecord(target))
+      break
+    current = target
+  }
+  return current
+}
+
+/** What the root is when it isn't one object, as Nuxt reads it: a union, another type, or a constant. Undefined for an object. */
+function rootShape(json: JsonObject): string | undefined {
+  const node = resolveRef(json, json)
+  for (const keyword of ['anyOf', 'oneOf'] as const) {
+    const members = node[keyword]
+    if (!Array.isArray(members))
+      continue
+    const distinct = new Set(members.map(member => JSON.stringify(member)))
+    if (distinct.size > 1)
+      return 'a union'
+    return isRecord(members[0]) ? rootShape({ ...json, ...resolveRef(members[0], json), [keyword]: undefined }) : 'empty'
+  }
+  if (Array.isArray(node.allOf))
+    return node.allOf.map(member => isRecord(member) ? rootShape({ ...json, ...resolveRef(member, json), allOf: undefined }) : 'empty').find(Boolean)
+  if ('const' in node || Array.isArray(node.enum))
+    return 'a constant'
+  if (node.type === 'object' || (node.type === undefined && isRecord(node.properties)))
+    return undefined
+  return node.type === undefined ? 'not an object' : `of type ${JSON.stringify(node.type)}`
+}
+
+/** A value that passes the JSON Schema's types, with defaults applied, so the probe reaches refinements behind them. */
+function sampleValue(node: unknown, root: JsonObject, depth = 0): unknown {
+  if (!isRecord(node) || depth > 8)
+    return undefined
+  const resolved = resolveRef(node, root)
+  if ('default' in resolved)
+    return resolved.default
+  if ('const' in resolved)
+    return resolved.const
+  if (Array.isArray(resolved.enum))
+    return resolved.enum[0]
+  for (const keyword of ['anyOf', 'oneOf', 'allOf']) {
+    const members = resolved[keyword]
+    if (Array.isArray(members) && members.length)
+      return sampleValue(members[0], root, depth + 1)
+  }
+  const type = Array.isArray(resolved.type) ? resolved.type[0] : resolved.type
+  switch (type) {
+    case 'object': {
+      const value: JsonObject = {}
+      if (isRecord(resolved.properties)) {
+        for (const [key, child] of Object.entries(resolved.properties)) value[key] = sampleValue(child, root, depth + 1)
+      }
+      return value
+    }
+    case 'string': return ''
+    case 'number':
+    case 'integer': return typeof resolved.minimum === 'number' ? resolved.minimum : 0
+    case 'boolean': return false
+    case 'array': return []
+    case 'null': return null
+  }
+  return isRecord(resolved.properties) ? sampleValue({ ...resolved, type: 'object' }, root, depth + 1) : undefined
+}
+
+/**
+ * Runs the schema's validation the way Nuxt probes it: with no value, an empty object and a sample of the JSON Schema.
+ * Async checks only show when validation reaches them, such as a refinement after a default.
+ */
+function validatesAsync(validate: (value: unknown) => unknown, json: JsonObject): boolean {
+  for (const value of [undefined, {}, sampleValue(json, json)]) {
+    let output: unknown
+    try {
+      output = validate(value)
+    }
+    catch {
+      continue
+    }
+    if (isRecord(output) && typeof output.then === 'function') {
+      (output as unknown as Promise<unknown>).then(() => {}, () => {})
+      return true
+    }
+  }
+  return false
 }
 
 function collectRequired(node: JsonObject, path: string, out: Set<string>): void {
@@ -208,11 +304,21 @@ function isAsyncFunction(value: unknown): boolean {
   return typeof value === 'function' && value.constructor.name === 'AsyncFunction'
 }
 
-function walkZod(schema: unknown, path: string, result: SchemaAnalysis, seen: Set<unknown>): void {
+/** `ancestors` holds the schemas above `schema`, so a recursive schema ends while one shared by two keys is read at both. */
+function walkZod(schema: unknown, path: string, result: SchemaAnalysis, ancestors: Set<unknown>): void {
   const def = zodDef(schema)
-  if (!def || seen.has(schema))
+  if (!def || ancestors.has(schema))
     return
-  seen.add(schema)
+  ancestors.add(schema)
+  try {
+    walkZodDef(def, path, result, ancestors)
+  }
+  finally {
+    ancestors.delete(schema)
+  }
+}
+
+function walkZodDef(def: JsonObject, path: string, result: SchemaAnalysis, seen: Set<unknown>): void {
   for (const check of Array.isArray(def.checks) ? def.checks : []) {
     const checkDef = zodDef(check)
     if (checkDef?.check === 'overwrite')
