@@ -1,0 +1,12 @@
+{
+  "name": "fixture",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "nuxt": "^4.7.0",
+    "zod": "^4.3.0"
+  },
+  "devDependencies": {
+    "nuxt-safe-runtime-config": "^0.4.0"
+  }
+}

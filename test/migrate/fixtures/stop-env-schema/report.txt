@@ -1,0 +1,10 @@
+status: stopped
+
+Stopped. The codemod changed nothing.
+  - nuxt.config.ts:7 envSchema validates against an env-spec file. Nuxt runtimeConfig schemas have no equivalent: move each variable to a schema by hand, then remove the module.
+
+Do this by hand instead:
+  1. Move each safeRuntimeConfig.$schema to runtimeConfig. Wrap a Valibot schema in toStandardJsonSchema() from @valibot/to-json-schema.
+  2. Drop '' placeholders for keys the schema requires. If other plain values stay in runtimeConfig, put the schema in layers/runtime-config/nuxt.config.ts instead.
+  3. Rename useSafeRuntimeConfig to useRuntimeConfig.
+  4. Remove nuxt-safe-runtime-config from package.json, modules, eslint.config and .nuxtrc.

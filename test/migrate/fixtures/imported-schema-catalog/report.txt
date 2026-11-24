@@ -1,0 +1,21 @@
+status: migrated
+
+Migrated nuxt-safe-runtime-config to Nuxt runtimeConfig schemas.
+
+Changed:
+  modify nuxt.config.ts
+  create layers/runtime-config/nuxt.config.ts
+  modify eslint.config.mjs
+  modify server/utils/session.ts
+  modify test/session.test.ts
+  modify package.json
+  delete .nuxtrc
+
+Check by hand:
+  - pnpm-workspace.yaml:11 the catalog:nuxt entry for nuxt-safe-runtime-config stays in the catalog. Remove it if no other package uses it
+  - .fallowrc.json:2 still mentions nuxt-safe-runtime-config. Update it by hand
+  - AGENTS.md:3 still mentions useSafeRuntimeConfig. Update it by hand
+
+Next:
+  1. Run `pnpm install` to update the lockfile.
+  2. Run `nuxt build`. Set every required NUXT_* variable when the server starts, or it exits with NUXT_E8014.

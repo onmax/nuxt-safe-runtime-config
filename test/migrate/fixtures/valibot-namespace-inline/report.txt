@@ -1,0 +1,20 @@
+status: migrated
+
+Migrated nuxt-safe-runtime-config to Nuxt runtimeConfig schemas.
+
+Changed:
+  modify nuxt.config.ts
+  create layers/runtime-config/nuxt.config.ts
+  modify package.json
+  modify .nuxtrc
+
+Nuxt does not check these schema rules. Check them in server code where they matter:
+  - layers/runtime-config/nuxt.config.ts:6 googleApiKey: minLength 1
+  - layers/runtime-config/nuxt.config.ts:8 public.siteUrl: format uri
+
+Behaviour changes:
+  - nuxt.config.ts:19 runtimeConfig.public.plausibleDomain is required by the schema, but its value is '' when nuxt.config loads. Nuxt takes '' as the default, so the value is no longer required
+
+Next:
+  1. Run `pnpm install` to update the lockfile.
+  2. Run `nuxt build`. Set every required NUXT_* variable when the server starts, or it exits with NUXT_E8014.

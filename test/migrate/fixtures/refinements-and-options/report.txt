@@ -1,0 +1,25 @@
+status: migrated
+
+Migrated nuxt-safe-runtime-config to Nuxt runtimeConfig schemas.
+
+Changed:
+  modify nuxt.config.ts
+  create layers/runtime-config/nuxt.config.ts
+  modify app/components/LoginButtons.vue
+  modify eslint.config.mjs
+  modify server/utils/auth.ts
+  modify server/utils/cube.ts
+  modify package.json
+
+Nuxt does not check these schema rules. Check them in server code where they matter:
+  - layers/runtime-config/nuxt.config.ts:9 betterAuthSecret: minLength 32
+  - layers/runtime-config/nuxt.config.ts:10 databaseUrl: format uri
+  - layers/runtime-config/nuxt.config.ts:16 public.featureFlags: strictObject rejects unknown keys
+  - layers/runtime-config/nuxt.config.ts:18 public.siteUrl: format uri
+
+Behaviour changes:
+  - nuxt.config.ts:38 validateAtBuild: false is gone. Nuxt checks runtimeConfig during the build, and a missing value only warns (NUXT_B5032)
+
+Next:
+  1. Run `pnpm install` to update the lockfile.
+  2. Run `nuxt build`. Set every required NUXT_* variable when the server starts, or it exits with NUXT_E8014.

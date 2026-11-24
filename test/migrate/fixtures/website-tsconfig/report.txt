@@ -1,0 +1,19 @@
+status: migrated
+
+Migrated nuxt-safe-runtime-config to Nuxt runtimeConfig schemas.
+
+Changed:
+  modify nuxt.config.ts
+  create layers/runtime-config/nuxt.config.ts
+  modify eslint.config.mjs
+  modify server/plugins/studio-org.ts
+  modify package.json
+  modify tsconfig.json
+
+Behaviour changes:
+  - nuxt.config.ts:15 validateAtBuild: true is gone. Nuxt checks runtimeConfig during the build, and a missing value only warns (NUXT_B5032)
+  - nuxt.config.ts:17 requireAtBuild: true is gone. Nuxt only warns about a missing value at build (NUXT_B5032), so the build no longer fails
+
+Next:
+  1. Run `pnpm install` to update the lockfile.
+  2. Run `nuxt build`. Set every required NUXT_* variable when the server starts, or it exits with NUXT_E8014.

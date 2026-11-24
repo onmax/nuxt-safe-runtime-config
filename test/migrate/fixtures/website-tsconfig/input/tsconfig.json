@@ -1,0 +1,11 @@
+{
+  // https://nuxt.com/docs/guide/concepts/typescript
+  "files": [],
+  "include": [
+    "./.nuxt/types/safe-runtime-config.d.ts"
+  ],
+  "references": [
+    { "path": "./.nuxt/tsconfig.app.json" },
+    { "path": "./.nuxt/tsconfig.server.json" }
+  ]
+}
