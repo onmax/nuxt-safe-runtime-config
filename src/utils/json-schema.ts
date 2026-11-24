@@ -23,6 +23,18 @@ export function hasNativeJSONSchema(schema: StandardSchemaV1): boolean {
   return Boolean(getNativeJSONSchemaOutput(schema))
 }
 
+export async function getNativeInputJSONSchema(
+  schema: StandardSchemaV1,
+  target: StandardJSONSchemaV1.Target,
+): Promise<Record<string, unknown> | null> {
+  try {
+    return await getNativeJSONSchemaOutput(schema, 'input')?.({ target }) ?? null
+  }
+  catch {
+    return null
+  }
+}
+
 export async function getJSONSchema(
   schema: StandardSchemaV1,
   target: StandardJSONSchemaV1.Target = 'draft-2020-12',

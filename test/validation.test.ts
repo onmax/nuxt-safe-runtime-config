@@ -117,6 +117,20 @@ describe('runtime JSON Schema generation', () => {
     expect(validator.validate({ ...nuxtKeys, secretKey: 123, public: { apiBase: 'https://api.test.com' } }).valid).toBe(false)
   })
 
+  it.each([
+    z.strictObject({ public: z.object({ label: z.string() }) }),
+    z.object({ public: z.strictObject({ label: z.string() }) }),
+  ])('retains explicit input closure at the root and under public', async ($schema) => {
+    const options = await resolveValidationOptions({ $schema })
+    const { draft, jsonSchema } = (await createRuntimeValidationArtifacts(options, () => {}))!
+    const validator = new Validator(jsonSchema, draft)
+    const valid = { public: { label: 'valid' } }
+    const invalid = { public: { label: 'valid', typo: true }, typo: true }
+
+    expect(validator.validate(valid).valid).toBe(true)
+    expect(validator.validate(invalid).valid).toBe(false)
+  })
+
   it('loads a Zod schema module, whose schemas have a default() method', async () => {
     const options = await resolveValidationOptions({ $schema: './test/fixtures/_shared/zod-runtime-config-schema.ts' })
 

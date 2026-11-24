@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { createJiti } from 'jiti'
 import { generateSchemaTypeDeclaration, generateTypeDeclaration } from './json-schema-to-ts'
 import { isStandardSchema } from './runtime/validate'
-import { getJSONSchema } from './utils/json-schema'
+import { getJSONSchema, getNativeInputJSONSchema } from './utils/json-schema'
 
 export { validateRuntimeConfig } from './runtime/validate'
 export type { RuntimeValidationResult, ValidationLogger } from './runtime/validate'
@@ -123,10 +123,12 @@ async function getCoercionSchema(
   }
 }
 
-function openObject(schema: unknown): unknown {
-  if (!schema || typeof schema !== 'object' || (schema as Record<string, unknown>).additionalProperties !== false)
+function openStrippedObject(schema: Record<string, unknown>, input?: Record<string, unknown>): Record<string, unknown> {
+  if (schema.additionalProperties !== false || input?.type !== 'object'
+    || (input.additionalProperties !== undefined && input.additionalProperties !== true)) {
     return schema
-  const { additionalProperties: _, ...open } = schema as Record<string, unknown>
+  }
+  const { additionalProperties: _, ...open } = schema
   return open
 }
 
@@ -135,12 +137,15 @@ function openObject(schema: unknown): unknown {
  * `public` object. An output JSON Schema forbids keys the schema doesn't declare (Zod's `z.object()`
  * drops them when it parses), so the server start check allows extra keys in those two objects.
  */
-function allowSharedRuntimeConfigKeys(schema: Record<string, unknown>): Record<string, unknown> {
-  const root = openObject(schema) as Record<string, unknown>
-  const properties = root.properties as Record<string, unknown> | undefined
+function allowSharedRuntimeConfigKeys(schema: Record<string, unknown>, input: Record<string, unknown> | null): Record<string, unknown> {
+  if (!input)
+    return schema
+  const root = openStrippedObject(schema, input)
+  const properties = root.properties as Record<string, Record<string, unknown>> | undefined
+  const inputProperties = input.properties as Record<string, Record<string, unknown>> | undefined
   if (!properties?.public)
     return root
-  return { ...root, properties: { ...properties, public: openObject(properties.public) } }
+  return { ...root, properties: { ...properties, public: openStrippedObject(properties.public, inputProperties?.public) } }
 }
 
 export async function createRuntimeValidationArtifacts(
@@ -153,7 +158,8 @@ export async function createRuntimeValidationArtifacts(
   const outputSchema = options.schemaPath
     ? {}
     : await getJSONSchema(options.$schema, options.jsonSchemaTarget, warn)
-  const jsonSchema = allowSharedRuntimeConfigKeys(outputSchema)
+  const inputSchema = options.schemaPath ? null : await getNativeInputJSONSchema(options.$schema, options.jsonSchemaTarget)
+  const jsonSchema = allowSharedRuntimeConfigKeys(outputSchema, inputSchema)
   const draft = detectJsonSchemaDraft(jsonSchema.$schema as string | undefined)
   const runtimeSchema = options.schemaPath
     ? `import runtimeSchema from '#safe-runtime-config/runtime-schema'\n`
