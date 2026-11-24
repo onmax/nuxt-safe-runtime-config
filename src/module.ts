@@ -17,13 +17,25 @@ export type { ErrorBehavior, ModuleOptions, SchemaSource, ValidationOptions } fr
 
 const logger = useLogger('safe-runtime-config')
 
-function explainNuxt5(nuxt: Nuxt): void {
-  if (Number.parseInt(getNuxtVersion(nuxt), 10) < 5)
-    return
-  logger.info([
-    'Nuxt 5 checks runtimeConfig schemas itself. This module adds the checks Nuxt skips: formats, ranges, patterns, refinements and transforms.',
-    'To move secrets out of runtime config, see @vite-hub/env: https://nuxt-safe-runtime-config.onmax.me/guide/nuxt-5',
-  ].join('\n'))
+const docsUrl = 'https://nuxt-safe-runtime-config.onmax.me'
+
+function supportsRuntimeConfigSchemas(nuxtVersion: string): boolean {
+  const [major = 0, minor = 0] = nuxtVersion.split('.').map(part => Number.parseInt(part, 10))
+  return major > 4 || (major === 4 && minor >= 7)
+}
+
+export function deprecationMessage(nuxtVersion: string): string {
+  const next = supportsRuntimeConfigSchemas(nuxtVersion)
+    ? 'Run `npx nuxt-safe-runtime-config migrate`.'
+    : 'Upgrade Nuxt to 4.7 first (`npx nuxt upgrade`), then run `npx nuxt-safe-runtime-config migrate`.'
+  return `nuxt-safe-runtime-config is deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. ${next} ${docsUrl}`
+}
+
+let warnedDeprecation = false
+
+function warnDeprecated(nuxt: Nuxt): void {
+  warnedDeprecation = true
+  logger.warn(deprecationMessage(getNuxtVersion(nuxt)))
 }
 
 // Nuxt 4.7 builds with Nitro 3 when the app installs `nitro`; older Nuxt versions don't set `_nitroMajor`.
@@ -81,9 +93,12 @@ export default defineNuxtModule<ModuleOptions>({
     jsonSchemaTarget: 'draft-2020-12',
     onError: 'throw',
   },
-  onInstall: explainNuxt5,
-  onUpgrade: explainNuxt5,
+  onInstall: warnDeprecated,
+  onUpgrade: warnDeprecated,
   async setup(options, nuxt) {
+    // Nuxt restarts in the same process when nuxt.config changes; one warning per process is enough.
+    if (!warnedDeprecation)
+      warnDeprecated(nuxt)
     const resolver = createResolver(import.meta.url)
     const rootRequire = createRequire(join(nuxt.options.rootDir, 'package.json'))
     const nuxtPackage = rootRequire.resolve('nuxt/package.json')
