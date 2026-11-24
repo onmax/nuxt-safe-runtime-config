@@ -1,0 +1,10 @@
+{
+  "name": "fixture",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "nuxt": "catalog:",
+    "nuxt-safe-runtime-config": "catalog:",
+    "valibot": "catalog:"
+  }
+}

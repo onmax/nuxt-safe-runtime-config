@@ -362,11 +362,13 @@ describe('versions', () => {
     expect(check('>=4.7.0 <5')).toBe(true)
   })
 
-  const converterFor = (dependencies: Record<string, string>) => {
-    const dir = outsideDir({ 'package.json': JSON.stringify({ dependencies: { 'nuxt-safe-runtime-config': '^0.4.0', ...dependencies } }, null, 2) })
+  const converterFor = (dependencies: Record<string, string>, files: Record<string, string> = {}) => {
+    const dir = outsideDir({ 'package.json': JSON.stringify({ dependencies: { 'nuxt-safe-runtime-config': '^0.4.0', ...dependencies } }, null, 2), ...files })
     const report = createReport()
-    const edit = migratePackageJson(dir, true, report)
-    return { pkg: edit?.after ? JSON.parse(edit.after) : undefined, report }
+    const edits = migratePackageJson(dir, true, report)
+    const after = (path: string) => edits.find(edit => edit.path === path)?.after ?? undefined
+    const pkg = after('package.json')
+    return { pkg: pkg ? JSON.parse(pkg) : undefined, workspace: after('pnpm-workspace.yaml'), edits, report }
   }
 
   it('picks the converter release line that accepts the app\'s Valibot', () => {
@@ -381,6 +383,42 @@ describe('versions', () => {
     expect(pkg.dependencies.valibot).toBe('^1.2.0')
     expect(pkg.dependencies['@valibot/to-json-schema']).toBe('~1.5.0')
     expect(report.changes.map(note => note.text).join('\n')).toContain('valibot')
+  })
+
+  it('reads the lowest Valibot the range allows, not the one installed now', () => {
+    const { pkg, report } = converterFor({ valibot: '^1.1.0' }, { 'node_modules/valibot/package.json': JSON.stringify({ name: 'valibot', version: '1.2.0' }) })
+    expect(pkg.dependencies.valibot).toBe('^1.2.0')
+    expect(pkg.dependencies['@valibot/to-json-schema']).toBe('~1.5.0')
+    expect(report.stops).toEqual([])
+    expect(converterFor({ valibot: '^1.3.1' }, { 'node_modules/valibot/package.json': JSON.stringify({ name: 'valibot', version: '1.5.0' }) }).pkg.dependencies['@valibot/to-json-schema']).toBe('~1.6.0')
+  })
+
+  it('sets the converter in the catalog that an existing catalog: specifier names', () => {
+    const { pkg, workspace, report } = converterFor({ 'valibot': 'catalog:', '@valibot/to-json-schema': 'catalog:' }, {
+      'pnpm-workspace.yaml': 'catalog:\n  "@valibot/to-json-schema": "^1.0.0"\n  valibot: ^1.4.0\n',
+    })
+    expect(report.stops).toEqual([])
+    expect(pkg.dependencies['@valibot/to-json-schema']).toBe('catalog:')
+    expect(workspace).toBe('catalog:\n  "@valibot/to-json-schema": "~1.7.0"\n  valibot: ^1.4.0\n')
+  })
+
+  it('edits the catalogs of a pnpm-workspace.yaml above the app', () => {
+    const root = outsideDir({ 'pnpm-workspace.yaml': 'packages:\n  - apps/*\n\ncatalogs:\n  forms:\n    valibot: \'^1.1.0\'\n' })
+    write(join(root, 'apps/web'), { 'package.json': JSON.stringify({ dependencies: { 'nuxt-safe-runtime-config': '^0.4.0', 'valibot': 'catalog:forms' } }, null, 2) })
+    const report = createReport()
+    const edits = migratePackageJson(join(root, 'apps/web'), true, report)
+    expect(report.stops).toEqual([])
+    expect(edits.map(edit => edit.path)).toEqual(['package.json', '../../pnpm-workspace.yaml'])
+    expect(edits[1]!.after).toBe('packages:\n  - apps/*\n\ncatalogs:\n  forms:\n    \'@valibot/to-json-schema\': ~1.5.0\n    valibot: \'^1.2.0\'\n')
+    expect(report.changes.map(note => `${note.file}:${note.line} ${note.text}`)).toEqual([expect.stringMatching(/^\.\.\/\.\.\/pnpm-workspace\.yaml:7 valibot \^1\.1\.0 in the forms catalog becomes \^1\.2\.0/)])
+  })
+
+  it('stops on a catalog it can\'t read, and edits a named one', () => {
+    const { report } = converterFor({ valibot: 'catalog:' }, { 'pnpm-workspace.yaml': 'catalog: { valibot: ^1.1.0 }\n' })
+    expect(report.stops.map(note => note.text).join('\n')).toContain('valibot catalog: is not a version range')
+    const named = converterFor({ valibot: 'catalog:forms' }, { 'pnpm-workspace.yaml': 'catalogs:\n  forms:\n    valibot: ^1.1.0\n' })
+    expect(named.report.stops).toEqual([])
+    expect(named.workspace).toContain('valibot: ^1.2.0')
   })
 
   it('narrows an existing converter range that would pull an incompatible release', () => {

@@ -1,5 +1,7 @@
 /** Reads an evaluated `$schema` value: its library, the rules Nuxt can't keep, and the JSON Schema Nuxt will see. */
 
+import { isDeepStrictEqual } from 'node:util'
+
 type JsonObject = Record<string, unknown>
 
 function isRecord(value: unknown): value is JsonObject {
@@ -388,4 +390,93 @@ function walkArkType(schema: unknown, result: SchemaAnalysis): void {
     const morphPath = isRecord(morph) && Array.isArray(morph.path) ? morph.path.map(String).join('.') : ''
     result.stops.push({ path: morphPath, note: 'an ArkType morph changes the value, and Nuxt keeps the raw value' })
   }
+}
+
+// Load-time values
+
+export interface TypeMismatch {
+  /** Dotted path inside runtimeConfig. */
+  path: string
+  expected: string
+  actual: string
+}
+
+function hasType(type: unknown, value: unknown): boolean {
+  switch (type) {
+    case 'null': return value === null
+    case 'array': return Array.isArray(value)
+    case 'object': return isRecord(value)
+    case 'string': return typeof value === 'string'
+    case 'number': return typeof value === 'number'
+    case 'integer': return Number.isInteger(value)
+    case 'boolean': return typeof value === 'boolean'
+  }
+  return true
+}
+
+/** Whether `value` passes the type, const and enum keywords of a JSON Schema node, the part a plain value can fail on its own. */
+function matchesType(node: unknown, value: unknown, root: JsonObject, depth = 0): boolean {
+  if (!isRecord(node) || depth > 8)
+    return true
+  const resolved = resolveRef(node, root)
+  if ('const' in resolved && !isDeepStrictEqual(resolved.const, value))
+    return false
+  if (Array.isArray(resolved.enum) && !resolved.enum.some(item => isDeepStrictEqual(item, value)))
+    return false
+  for (const keyword of ['anyOf', 'oneOf'] as const) {
+    const members = resolved[keyword]
+    if (Array.isArray(members) && members.length && !members.some(member => matchesType(member, value, root, depth + 1)))
+      return false
+  }
+  if (Array.isArray(resolved.allOf) && !resolved.allOf.every(member => matchesType(member, value, root, depth + 1)))
+    return false
+  if (resolved.type === undefined)
+    return true
+  return (Array.isArray(resolved.type) ? resolved.type : [resolved.type]).some(type => hasType(type, value))
+}
+
+const typeNames: Record<string, string> = { null: 'null', array: 'an array', object: 'an object', string: 'a string', number: 'a number', integer: 'an integer', boolean: 'a boolean' }
+
+function describeValue(value: unknown): string {
+  if (value === null)
+    return 'null'
+  if (Array.isArray(value))
+    return 'an array'
+  if (typeof value === 'object')
+    return 'an object'
+  const text = JSON.stringify(value) ?? String(value)
+  return text.length > 40 ? `${text.slice(0, 37)}...` : text
+}
+
+function describeSchema(node: JsonObject, root: JsonObject, depth = 0): string {
+  const resolved = resolveRef(node, root)
+  if ('const' in resolved)
+    return describeValue(resolved.const)
+  if (Array.isArray(resolved.enum))
+    return `one of ${resolved.enum.slice(0, 5).map(describeValue).join(', ')}${resolved.enum.length > 5 ? ', ...' : ''}`
+  const members = resolved.anyOf ?? resolved.oneOf
+  if (Array.isArray(members) && members.length && depth < 3)
+    return [...new Set(members.filter(isRecord).map(member => describeSchema(member, root, depth + 1)))].join(' or ')
+  if (resolved.type !== undefined)
+    return (Array.isArray(resolved.type) ? resolved.type : [resolved.type]).map(type => typeNames[String(type)] ?? String(type)).join(' or ')
+  return 'another value'
+}
+
+/** Plain values whose type the JSON Schema rejects, reported at the highest path that fails. */
+export function typeMismatches(json: JsonObject, value: unknown): TypeMismatch[] {
+  const mismatches: TypeMismatch[] = []
+  const visit = (node: unknown, current: unknown, path: string, depth: number): void => {
+    if (current === undefined || !isRecord(node) || depth > 8)
+      return
+    const resolved = resolveRef(node, json)
+    if (!matchesType(resolved, current, json)) {
+      mismatches.push({ path, expected: describeSchema(resolved, json), actual: describeValue(current) })
+      return
+    }
+    if (isRecord(current) && isRecord(resolved.properties)) {
+      for (const [key, child] of Object.entries(resolved.properties)) visit(child, current[key], join(path, key), depth + 1)
+    }
+  }
+  visit(json, value, '', 0)
+  return mismatches
 }

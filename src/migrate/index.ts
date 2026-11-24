@@ -103,7 +103,7 @@ export async function migrate(dir: string, options: MigrateOptions = {}): Promis
     }
   }
   for (const edit of [
-    migratePackageJson(rootDir, configResult.valibot, report),
+    ...migratePackageJson(rootDir, configResult.valibot, report),
     migrateNuxtrc(rootDir),
     ...files.filter(path => /^tsconfig(?:\.[\w-]+)?\.json$/.test(path)).map(path => migrateTsconfig(rootDir, path)),
   ]) {
@@ -111,7 +111,9 @@ export async function migrate(dir: string, options: MigrateOptions = {}): Promis
       edits.push(edit)
   }
   for (const edit of edits) {
-    if (!insideApp(rootDir, edit.path))
+    // pnpm-workspace.yaml may sit above the app, at the root of its workspace.
+    const base = edit.path.startsWith('../') ? dirname(join(rootDir, edit.path)) : rootDir
+    if (!insideApp(base, relative(base, join(rootDir, edit.path))))
       report.stops.push({ file: edit.path, text: 'is outside the app through a symbolic link, so the codemod won\'t write it' })
   }
   if (report.stops.length)
@@ -150,6 +152,8 @@ export async function migrate(dir: string, options: MigrateOptions = {}): Promis
   }
   return finish('migrated', edits, [
     `Run \`${installCommand(rootDir)}\` to update the lockfile.`,
+    'Run your typecheck. Nuxt now types runtimeConfig from the schema, so plain values in nuxt.config and code that reads them can fail it.',
+    'Run your linter with --fix. The files the codemod wrote may not match your code style.',
     'Run `nuxt build`. Set every required NUXT_* variable when the server starts, or it exits with NUXT_E8014.',
   ])
 }

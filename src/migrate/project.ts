@@ -1,9 +1,10 @@
 import type { Node } from './ast'
 import type { FileEdit, Note, Report } from './report'
 import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs'
-import { dirname, join, relative } from 'node:path'
+import { join, relative } from 'node:path'
 import semver from 'semver'
 import { applyRemovals, Editor, keyName, lineEnd, lineStart, parentMap, parseJsonc, parseModule, removeStatement, walk } from './ast'
+import { catalogName, findUp, Workspace } from './catalog'
 import { isModuleName } from './config'
 
 export const moduleName = 'nuxt-safe-runtime-config'
@@ -58,19 +59,6 @@ export function isCodeFile(path: string): boolean {
   return codeExtensions.test(path) && !path.endsWith('.d.ts')
 }
 
-function findUp(from: string, name: string): string | undefined {
-  let dir = from
-  while (true) {
-    const path = join(dir, name)
-    if (existsSync(path))
-      return path
-    const parent = dirname(dir)
-    if (parent === dir)
-      return undefined
-    dir = parent
-  }
-}
-
 // Versions
 
 export interface FoundVersion {
@@ -109,10 +97,11 @@ function installedVersion(rootDir: string, name: string): string | undefined {
   }
 }
 
-function declaredRange(rootDir: string, pkg: Record<string, any>, name: string): string | undefined {
+function declaredRange(rootDir: string, pkg: Record<string, any>, name: string, workspace = new Workspace(rootDir)): string | undefined {
   const range = dependencySections.map(section => pkg[section]?.[name]).find(value => typeof value === 'string') as string | undefined
-  if (range?.startsWith('catalog:'))
-    return catalogRange(rootDir, name, range.slice('catalog:'.length)) ?? range
+  const catalog = range === undefined ? undefined : catalogName(range)
+  if (catalog !== undefined)
+    return workspace.find(catalog, name)?.value ?? range
   return range
 }
 
@@ -127,59 +116,16 @@ export function dependencyVersion(rootDir: string, pkg: Record<string, any>, nam
   return { text: range, version: minimumVersion(range), installed: false }
 }
 
-interface CatalogEntry {
-  file: string
-  line: number
-  value: string
-}
-
-/** Reads `key: value` from one line of YAML, with an optionally quoted key and a trailing comment. */
-function yamlEntry(text: string): { indent: number, key: string, value: string } | undefined {
-  const rest = text.trimStart()
-  const indent = text.length - rest.length
-  const quote = rest[0] === '"' || rest[0] === '\'' ? rest[0] : undefined
-  const keyEnd = quote ? rest.indexOf(quote, 1) : rest.indexOf(':')
-  if (keyEnd < 0)
-    return undefined
-  const key = quote ? rest.slice(1, keyEnd) : rest.slice(0, keyEnd).trim()
-  const afterKey = rest.slice(quote ? keyEnd + 1 : keyEnd).trimStart()
-  if (!key || key.includes('#') || !afterKey.startsWith(':'))
-    return undefined
-  let value = afterKey.slice(1)
-  const comment = value.search(/\s#/)
-  if (comment >= 0)
-    value = value.slice(0, comment)
-  return { indent, key, value: value.trim() }
-}
-
-/** Finds `name` in the default catalog or a named catalog of pnpm-workspace.yaml. */
-export function findCatalogEntry(rootDir: string, name: string, catalog: string): CatalogEntry | undefined {
-  const file = findUp(rootDir, 'pnpm-workspace.yaml')
-  if (!file)
-    return undefined
-  const lines = readFileSync(file, 'utf8').split('\n')
-  const section = catalog && catalog !== 'default' ? ['catalogs', catalog] : ['catalog']
-  const stack: Array<{ indent: number, key: string }> = []
-  for (const [index, text] of lines.entries()) {
-    if (!text.trim() || text.trim().startsWith('#'))
-      continue
-    const entry = yamlEntry(text)
-    if (!entry)
-      continue
-    const { indent, key } = entry
-    while (stack.length && stack.at(-1)!.indent >= indent) stack.pop()
-    const path = stack.map(item => item.key)
-    const sectionMatch = (path.length === section.length && path.every((part, position) => part === section[position]))
-      || (section[0] === 'catalogs' && section[1] === 'default' && path.length === 1 && path[0] === 'catalog')
-    if (sectionMatch && key === name)
-      return { file, line: index + 1, value: entry.value.replace(/^['"]|['"]$/g, '') }
-    stack.push({ indent, key })
-  }
-  return undefined
-}
-
-function catalogRange(rootDir: string, name: string, catalog: string): string | undefined {
-  return findCatalogEntry(rootDir, name, catalog)?.value
+/** Like dependencyVersion, but the declared range comes first: a fresh install may resolve its lowest version, whatever node_modules holds now. */
+function declaredVersion(rootDir: string, pkg: Record<string, any>, name: string, workspace: Workspace): FoundVersion | undefined {
+  const range = declaredRange(rootDir, pkg, name, workspace)
+  const version = minimumVersion(range)
+  if (range && version)
+    return { text: range, version, installed: false }
+  const installed = installedVersion(rootDir, name)
+  if (installed)
+    return { text: installed, version: installed, installed: true }
+  return range ? { text: range, installed: false } : undefined
 }
 
 export function installCommand(rootDir: string): string {
@@ -221,64 +167,113 @@ function fitsRange(range: string, accepted: string): boolean {
   }
 }
 
-export function migratePackageJson(rootDir: string, valibot: boolean, report: Report): FileEdit | undefined {
+function catalogLabel(catalog: string): string {
+  return catalog ? `the ${catalog} catalog` : 'the default catalog'
+}
+
+/** Edits package.json, and the pnpm catalogs it points at, to drop the module and add the Valibot converter. */
+export function migratePackageJson(rootDir: string, valibot: boolean, report: Report): FileEdit[] {
   const path = join(rootDir, 'package.json')
   const before = readFileSync(path, 'utf8')
   const pkg = JSON.parse(before) as Record<string, any>
   const indent = /^([ \t]+)"/m.exec(before)?.[1] ?? '  '
+  const workspace = new Workspace(rootDir)
+  const catalogSpecifiers: string[] = []
   for (const section of dependencySections) {
     const specifier = pkg[section]?.[moduleName]
     if (typeof specifier !== 'string')
       continue
     delete pkg[section][moduleName]
-    if (specifier.startsWith('catalog:')) {
-      const entry = findCatalogEntry(rootDir, moduleName, specifier.slice('catalog:'.length))
-      report.manual.push({
-        file: entry ? relative(rootDir, entry.file) : 'pnpm-workspace.yaml',
-        line: entry?.line,
-        text: `the ${specifier} entry for ${moduleName} stays in the catalog. Remove it if no other package uses it`,
-      })
-    }
+    if (specifier.startsWith('catalog:'))
+      catalogSpecifiers.push(specifier)
   }
   if (valibot)
-    addConverter(rootDir, pkg, report)
+    addConverter(rootDir, pkg, report, workspace)
+  for (const specifier of catalogSpecifiers) {
+    const entry = workspace.find(catalogName(specifier)!, moduleName)
+    report.manual.push({
+      file: entry ? relative(rootDir, entry.file) : 'pnpm-workspace.yaml',
+      line: entry?.line,
+      text: `the ${specifier} entry for ${moduleName} stays in the catalog. Remove it if no other package uses it`,
+    })
+  }
   const after = `${JSON.stringify(pkg, null, indent)}${before.endsWith('\n') ? '\n' : ''}`
-  return after === before ? undefined : { path: 'package.json', before, after }
+  const edits: FileEdit[] = []
+  if (after !== before)
+    edits.push({ path: 'package.json', before, after })
+  const workspaceEdit = workspace.edit(rootDir)
+  if (workspaceEdit)
+    edits.push(workspaceEdit)
+  return edits
 }
 
-/** Adds a @valibot/to-json-schema range that installs next to the app's Valibot, bumping Valibot below 1.2. */
-function addConverter(rootDir: string, pkg: Record<string, any>, report: Report): void {
-  const found = dependencyVersion(rootDir, pkg, 'valibot')
+/**
+ * Adds a @valibot/to-json-schema range that installs next to the app's Valibot, bumping Valibot below 1.2.
+ * When Valibot comes from a pnpm catalog, both versions go in that catalog.
+ */
+function addConverter(rootDir: string, pkg: Record<string, any>, report: Report, workspace: Workspace): void {
+  const found = declaredVersion(rootDir, pkg, 'valibot', workspace)
   const valibotSection = dependencySections.find(name => typeof pkg[name]?.valibot === 'string')
+  const specifier = valibotSection ? pkg[valibotSection].valibot as string : undefined
+  const catalog = specifier === undefined ? undefined : catalogName(specifier)
+  const workspaceFile = workspace.file ? relative(rootDir, workspace.file) : 'pnpm-workspace.yaml'
   if (!found?.version) {
     report.stops.push({ file: 'package.json', text: found ? `valibot ${found.text} is not a version range the codemod can read, so it can't pick a ${converter} release that installs with it` : `the schema uses Valibot, but valibot is not in package.json or node_modules` })
     return
   }
+  /** Sets `name` in Valibot's catalog, or stops when that catalog can't be edited. */
+  const setInCatalog = (name: string, value: string): boolean => {
+    if (workspace.set(catalog!, name, value))
+      return true
+    report.stops.push({ file: workspaceFile, text: `the codemod can't edit ${catalogLabel(catalog!)}, which valibot comes from. Set ${name} to ${value} there and run the command again` })
+    return false
+  }
   let valibot = found.version
+  let catalogBump: Note | undefined
   if (semver.lt(valibot, '1.2.0')) {
-    const specifier = valibotSection ? pkg[valibotSection].valibot as string : undefined
-    if (!valibotSection || !specifier || specifier.startsWith('catalog:')) {
-      report.stops.push({ file: specifier ? 'pnpm-workspace.yaml' : 'package.json', text: `valibot ${found.text} is older than 1.2, the oldest release ${converter} supports with toStandardJsonSchema(). Upgrade valibot to ^1.2.0 and run the command again` })
+    const because = `the oldest release ${converter} supports with toStandardJsonSchema()`
+    if (!valibotSection || !specifier) {
+      report.stops.push({ file: 'package.json', text: `valibot ${found.text} is older than 1.2, ${because}. Upgrade valibot to ^1.2.0 and run the command again` })
       return
     }
-    pkg[valibotSection].valibot = '^1.2.0'
-    report.changes.push({ file: 'package.json', text: `valibot ${specifier} becomes ^1.2.0, the oldest release ${converter} supports with toStandardJsonSchema()` })
+    if (catalog !== undefined) {
+      if (!setInCatalog('valibot', '^1.2.0'))
+        return
+      catalogBump = { file: workspaceFile, text: `valibot ${found.text} in ${catalogLabel(catalog)} becomes ^1.2.0, ${because}` }
+      report.changes.push(catalogBump)
+    }
+    else {
+      pkg[valibotSection].valibot = '^1.2.0'
+      report.changes.push({ file: 'package.json', text: `valibot ${specifier} becomes ^1.2.0, ${because}` })
+    }
     valibot = '1.2.0'
   }
   const { wanted, accepted } = converterFor(valibot)
   const section = dependencySections.find(name => typeof pkg[name]?.[converter] === 'string') ?? valibotSection ?? 'dependencies'
   const existing = pkg[section]?.[converter] as string | undefined
-  if (existing === undefined) {
+  const existingCatalog = existing === undefined ? undefined : catalogName(existing)
+  if (existing === undefined && catalog !== undefined) {
+    const entry = workspace.find(catalog, converter)
+    if ((!entry || !fitsRange(entry.value, accepted)) && !setInCatalog(converter, wanted))
+      return
+    pkg[section] = insertSorted(pkg[section] ?? {}, converter, specifier!)
+  }
+  else if (existing === undefined) {
     pkg[section] = insertSorted(pkg[section] ?? {}, converter, wanted)
   }
-  else if (existing.startsWith('catalog:')) {
-    const entry = findCatalogEntry(rootDir, converter, existing.slice('catalog:'.length))
-    if (!entry || !fitsRange(entry.value, accepted))
-      report.stops.push({ file: entry ? relative(rootDir, entry.file) : 'pnpm-workspace.yaml', line: entry?.line, text: `${converter} ${entry?.value ?? existing} does not install a release with toStandardJsonSchema() that accepts valibot ${valibot}. Set it to ${wanted} and run the command again` })
+  else if (existingCatalog !== undefined) {
+    const entry = workspace.find(existingCatalog, converter)
+    if (!entry || !fitsRange(entry.value, accepted)) {
+      if (!workspace.set(existingCatalog, converter, wanted))
+        report.stops.push({ file: workspaceFile, line: entry?.line, text: `${converter} ${entry?.value ?? existing} does not install a release with toStandardJsonSchema() that accepts valibot ${valibot}, and the codemod can't edit ${catalogLabel(existingCatalog)}. Set it to ${wanted} and run the command again` })
+    }
   }
   else if (!fitsRange(existing, accepted)) {
     pkg[section][converter] = wanted
   }
+  // Read the line once the converter entry is in, since it may land above Valibot.
+  if (catalogBump)
+    catalogBump.line = workspace.find(catalog!, 'valibot')?.line
 }
 
 function insertSorted(record: Record<string, string>, key: string, value: string): Record<string, string> {

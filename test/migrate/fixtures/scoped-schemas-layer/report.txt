@@ -11,4 +11,6 @@ Changed:
 
 Next:
   1. Run `pnpm install` to update the lockfile.
-  2. Run `nuxt build`. Set every required NUXT_* variable when the server starts, or it exits with NUXT_E8014.
+  2. Run your typecheck. Nuxt now types runtimeConfig from the schema, so plain values in nuxt.config and code that reads them can fail it.
+  3. Run your linter with --fix. The files the codemod wrote may not match your code style.
+  4. Run `nuxt build`. Set every required NUXT_* variable when the server starts, or it exits with NUXT_E8014.

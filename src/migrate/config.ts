@@ -6,8 +6,9 @@ import { dirname, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 import { parseEnv } from 'node:util'
 import { createJiti } from 'jiti'
+import { snakeCase } from 'scule'
 import { applyRemovals, configRoot, detectStyle, Editor, end, findProperty, freeNames, importText, indentOf, insertImport, isEmptyString, keyName, line, parseModule, reindent, removeUnused, resolveObject, start, unwrap, walk } from './ast'
-import { analyseSchema } from './schema'
+import { analyseSchema, typeMismatches } from './schema'
 
 export const configFileNames = ['nuxt.config.ts', 'nuxt.config.mts', 'nuxt.config.js', 'nuxt.config.mjs']
 export const layerConfigPath = 'layers/runtime-config/nuxt.config.ts'
@@ -34,6 +35,8 @@ interface ScopeInfo {
   schema?: SchemaInfo
   runtime?: { property: ObjectProperty, object?: ObjectExpression, literal: boolean }
   drops: ObjectProperty[]
+  /** Paths of the dropped placeholders. */
+  dropPaths: Set<string>
   plain: boolean
 }
 
@@ -125,6 +128,25 @@ function getPath(value: unknown, path: string): unknown {
   return current
 }
 
+function isPlainObject(value: unknown): value is Loose {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** Deep-merges `over` onto `base` the way Nuxt merges an environment's runtimeConfig over the root one. */
+function mergeValues(base: Loose, over: unknown): Loose {
+  if (!isPlainObject(over))
+    return base
+  const result: Loose = { ...base }
+  for (const [key, value] of Object.entries(over))
+    result[key] = isPlainObject(value) && isPlainObject(result[key]) ? mergeValues(result[key], value) : value
+  return result
+}
+
+/** The NUXT_* variable that sets a runtimeConfig path when the server starts. */
+function envName(path: string): string {
+  return `NUXT_${path.split('.').map(part => snakeCase(part).toUpperCase()).join('_')}`
+}
+
 function relativeImport(fromDir: string, file: string): string {
   const path = relative(fromDir, file).replaceAll('\\', '/')
   return path.startsWith('.') ? path : `./${path}`
@@ -175,7 +197,7 @@ export async function migrateConfig(rootDir: string, configFile: string, report:
     const holder = scope === 'root' ? undefined : findProperty(root, scope)
     const object = scope === 'root' ? root : holder && resolveObject(program, holder.value)
     const scopeEvaluated = (scope === 'root' ? evaluated : evaluated[scope]) as Loose | undefined
-    const info: ScopeInfo = { scope, object, evaluated: scopeEvaluated, drops: [], plain: false }
+    const info: ScopeInfo = { scope, object, evaluated: scopeEvaluated, drops: [], dropPaths: new Set(), plain: false }
     infos.push(info)
     if (scopeEvaluated === undefined)
       continue
@@ -389,7 +411,7 @@ export async function migrateConfig(rootDir: string, configFile: string, report:
       info.plain = true
       continue
     }
-    info.plain = scanRuntimeConfig(object, '', info.drops, info.scope)
+    info.plain = scanRuntimeConfig(object, '', info)
     anyPlain ||= info.plain
   }
   for (const envConfig of Object.values((evaluated.$env ?? {}) as Loose)) {
@@ -397,7 +419,8 @@ export async function migrateConfig(rootDir: string, configFile: string, report:
       anyPlain = true
   }
 
-  function scanRuntimeConfig(object: ObjectExpression, prefix: string, drops: ObjectProperty[], scope: Scope): boolean {
+  function scanRuntimeConfig(object: ObjectExpression, prefix: string, info: ScopeInfo): boolean {
+    const scope = info.scope
     let plain = false
     const hasSpread = object.properties.some(property => property.type === 'SpreadElement')
     for (const property of object.properties) {
@@ -409,7 +432,7 @@ export async function migrateConfig(rootDir: string, configFile: string, report:
       const path = joinPath(prefix, key)
       const value = unwrap(property.value)
       if (value.type === 'ObjectExpression') {
-        plain = scanRuntimeConfig(value, path, drops, scope) || plain
+        plain = scanRuntimeConfig(value, path, info) || plain
         continue
       }
       if (isEmptyString(value)) {
@@ -425,7 +448,8 @@ export async function migrateConfig(rootDir: string, configFile: string, report:
           continue
         }
         if (requiring.length) {
-          drops.push(property)
+          info.drops.push(property)
+          info.dropPaths.add(path)
           continue
         }
       }
@@ -463,6 +487,53 @@ export async function migrateConfig(rootDir: string, configFile: string, report:
   }
 
   const direct = !anyPlain && allLiteral
+  if (!direct)
+    checkPlainValues()
+
+  /**
+   * The schema moves to a layer and the plain values stay as defaults. Reports required keys that have no value
+   * when nuxt.config loads, and values whose type the JSON Schema rejects, though the library schema may accept them.
+   */
+  function checkPlainValues(): void {
+    const rootInfo = infos.find(info => info.scope === 'root')!
+    for (const info of schemaScopes) {
+      const layers = info.scope === 'root' ? [rootInfo] : [rootInfo, info]
+      const values = layers.reduce<Loose>((merged, layer) => mergeValues(merged, layer.evaluated?.runtimeConfig), {})
+      const dropped = new Set(layers.flatMap(layer => [...layer.dropPaths]))
+      const valueAt = (path: string): unknown => dropped.has(path) ? undefined : getPath(values, path)
+      const where = (path: string): Note => {
+        const property = [...layers].reverse().map(layer => findPathProperty(layer.runtime?.object, path)).find(Boolean)
+        return at(property ?? info.runtime?.property ?? rootInfo.runtime?.property, '')
+      }
+      const label = `${scopeLabel(info.scope)}runtimeConfig`
+      const { required, json } = info.schema!.analysis
+      const notes: Note[] = []
+      for (const path of [...required].sort()) {
+        const parts = path.split('.')
+        // A missing parent is reported once, or makes the key optional when the parent is.
+        if (dropped.has(path) || parts.slice(0, -1).some((_, index) => valueAt(parts.slice(0, index + 1).join('.')) === undefined))
+          continue
+        if (valueAt(path) === undefined)
+          notes.push({ ...where(path), text: `${label}.${path} has no value when nuxt.config loads, and the schema requires it. Unless it has one at build, the server won't start without ${envName(path)} (NUXT_E8014)` })
+      }
+      for (const mismatch of json ? typeMismatches(json, structuredValues(values, dropped)) : []) {
+        notes.push({ ...where(mismatch.path), text: `${label}.${mismatch.path} is ${mismatch.actual} when nuxt.config loads, but the JSON Schema Nuxt checks expects ${mismatch.expected}. Nuxt warns at build (NUXT_B5032) and the server won't start with it (NUXT_E8014): fix the schema or the value` })
+      }
+      report.changes.push(...notes.sort((a, b) => (a.line ?? 0) - (b.line ?? 0)))
+    }
+  }
+
+  /** `values` without the dropped placeholders. */
+  function structuredValues(values: Loose, dropped: ReadonlySet<string>, prefix = ''): Loose {
+    const result: Loose = {}
+    for (const [key, value] of Object.entries(values)) {
+      const path = joinPath(prefix, key)
+      if (dropped.has(path))
+        continue
+      result[key] = isPlainObject(value) ? structuredValues(value, dropped, path) : value
+    }
+    return result
+  }
   const valibot = schemaScopes.some(info => info.schema!.analysis.vendor === 'valibot')
   const needsWrap = schemaScopes.some(info => info.schema!.analysis.needsWrap)
   const usedIdentifiers = new Set<string>()
