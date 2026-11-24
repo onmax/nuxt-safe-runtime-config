@@ -1,0 +1,10 @@
+status: stopped
+
+Stopped. The codemod changed nothing.
+  - nuxt.config.ts:11 nuxt.config has a spread that may set runtimeConfig or safeRuntimeConfig, so the codemod can't tell which values the schema would replace. Write them out and run the command again.
+
+Do this by hand instead:
+  1. Move each safeRuntimeConfig.$schema to runtimeConfig. Wrap a Valibot schema in toStandardJsonSchema() from @valibot/to-json-schema.
+  2. Drop '' placeholders for keys the schema requires. If other plain values stay in runtimeConfig, put the schema in layers/runtime-config/nuxt.config.ts instead.
+  3. Rename useSafeRuntimeConfig to useRuntimeConfig.
+  4. Remove nuxt-safe-runtime-config from package.json, modules, eslint.config and .nuxtrc.

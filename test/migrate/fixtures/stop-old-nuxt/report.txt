@@ -1,0 +1,4 @@
+status: stopped
+
+Stopped. The codemod changed nothing.
+  - Nuxt 4.6.2 is installed. Nuxt runtimeConfig schemas need Nuxt 4.7 or newer. Run `npx nuxt upgrade`, then run this command again.

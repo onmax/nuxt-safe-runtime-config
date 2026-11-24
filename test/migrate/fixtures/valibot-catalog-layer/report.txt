@@ -1,0 +1,27 @@
+status: migrated
+
+Migrated nuxt-safe-runtime-config to Nuxt runtimeConfig schemas.
+
+Changed:
+  modify nuxt.config.ts
+  create layers/runtime-config/nuxt.config.ts
+  modify package.json
+  modify pnpm-workspace.yaml
+
+Behaviour changes:
+  - nuxt.config.ts:10 runtimeConfig.apiKey is required by the schema, but its value is '' when nuxt.config loads. Nuxt takes '' as the default, so the value is no longer required
+  - nuxt.config.ts:9 runtimeConfig.sessionSecret has no value when nuxt.config loads, and the schema requires it. Unless it has one at build, the server won't start without NUXT_SESSION_SECRET (NUXT_E8014)
+  - nuxt.config.ts:11 runtimeConfig.smtpPassword is a number when nuxt.config loads, but the JSON Schema Nuxt checks expects a string. Nuxt warns at build (NUXT_B5032) and the server won't start with it (NUXT_E8014): fix the schema or the value
+  - nuxt.config.ts:13 runtimeConfig.github.clientId has no value when nuxt.config loads, and the schema requires it. Unless it has one at build, the server won't start without NUXT_GITHUB_CLIENT_ID (NUXT_E8014)
+  - nuxt.config.ts:16 runtimeConfig.public.lessons is an array when nuxt.config loads, but the JSON Schema Nuxt checks expects an object. Nuxt warns at build (NUXT_B5032) and the server won't start with it (NUXT_E8014): fix the schema or the value
+  - nuxt.config.ts:17 runtimeConfig.public.region is "moon" when nuxt.config loads, but the JSON Schema Nuxt checks expects one of "eu", "us". Nuxt warns at build (NUXT_B5032) and the server won't start with it (NUXT_E8014): fix the schema or the value
+  - pnpm-workspace.yaml:10 valibot ^1.1.0 in the default catalog becomes ^1.2.0, the oldest release @valibot/to-json-schema supports with toStandardJsonSchema()
+
+Check by hand:
+  - pnpm-workspace.yaml:9 the catalog: entry for nuxt-safe-runtime-config stays in the catalog. Remove it if no other package uses it
+
+Next:
+  1. Run `pnpm install` to update the lockfile.
+  2. Run your typecheck. Nuxt now types runtimeConfig from the schema, so plain values in nuxt.config and code that reads them can fail it.
+  3. Run your linter with --fix. The files the codemod wrote may not match your code style.
+  4. Run `nuxt build`. Set every required NUXT_* variable when the server starts, or it exits with NUXT_E8014.

@@ -1,0 +1,21 @@
+status: migrated
+
+Migrated nuxt-safe-runtime-config to Nuxt runtimeConfig schemas.
+
+Changed:
+  modify nuxt.config.ts
+  create layers/runtime-config/nuxt.config.ts
+  modify package.json
+  delete .nuxtrc
+
+Behaviour changes:
+  - nuxt.config.ts:22 runtimeConfig.github.owner has no value when nuxt.config loads, and the schema requires it. Unless it has one at build, the server won't start without NUXT_GITHUB_OWNER (NUXT_E8014)
+  - nuxt.config.ts:23 runtimeConfig.github.repo has no value when nuxt.config loads, and the schema requires it. Unless it has one at build, the server won't start without NUXT_GITHUB_REPO (NUXT_E8014)
+  - nuxt.config.ts:24 runtimeConfig.github.token has no value when nuxt.config loads, and the schema requires it. Unless it has one at build, the server won't start without NUXT_GITHUB_TOKEN (NUXT_E8014)
+  - nuxt.config.ts:26 runtimeConfig.productionUrl has no value when nuxt.config loads, and the schema requires it. Unless it has one at build, the server won't start without NUXT_PRODUCTION_URL (NUXT_E8014)
+
+Next:
+  1. Run `pnpm install` to update the lockfile.
+  2. Run your typecheck. Nuxt now types runtimeConfig from the schema, so plain values in nuxt.config and code that reads them can fail it.
+  3. Run your linter with --fix. The files the codemod wrote may not match your code style.
+  4. Run `nuxt build`. Set every required NUXT_* variable when the server starts, or it exits with NUXT_E8014.

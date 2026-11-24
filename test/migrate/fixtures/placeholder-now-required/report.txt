@@ -1,0 +1,18 @@
+status: migrated
+
+Migrated nuxt-safe-runtime-config to Nuxt runtimeConfig schemas.
+
+Changed:
+  modify nuxt.config.ts
+  create layers/runtime-config/nuxt.config.ts
+  modify package.json
+
+Now required at startup. The codemod removed the '' placeholders of these keys, so the server exits with NUXT_E8014 unless their variables are set. To keep a key optional, make it optional in the schema:
+  - nuxt.config.ts:14 runtimeConfig.productlaneApiKey: set NUXT_PRODUCTLANE_API_KEY
+  - nuxt.config.ts:16 runtimeConfig.oauth.githubClientSecret: set NUXT_OAUTH_GITHUB_CLIENT_SECRET
+
+Next:
+  1. Run `pnpm install` to update the lockfile.
+  2. Run your typecheck. Nuxt now types runtimeConfig from the schema, so plain values in nuxt.config and code that reads them can fail it.
+  3. Run your linter with --fix. The files the codemod wrote may not match your code style.
+  4. Run `nuxt build`. Set every required NUXT_* variable when the server starts, or it exits with NUXT_E8014.

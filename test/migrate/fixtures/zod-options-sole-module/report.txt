@@ -1,0 +1,29 @@
+status: migrated
+
+Migrated nuxt-safe-runtime-config to Nuxt runtimeConfig schemas.
+
+Changed:
+  modify nuxt.config.ts
+  create layers/runtime-config/nuxt.config.ts
+  modify package.json
+
+Now required at startup. The codemod removed the '' placeholders of these keys, so the server exits with NUXT_E8014 unless their variables are set. To keep a key optional, make it optional in the schema:
+  - nuxt.config.ts:16 runtimeConfig.githubWebhookSecret: set NUXT_GITHUB_WEBHOOK_SECRET
+  - nuxt.config.ts:17 runtimeConfig.githubPrivateKey: set NUXT_GITHUB_PRIVATE_KEY
+
+Nuxt does not check these schema rules. Check them in server code where they matter:
+  - layers/runtime-config/nuxt.config.ts:5 githubWebhookSecret: minLength 1
+
+Behaviour changes:
+  - nuxt.config.ts:24 validateAtBuild: false is gone. Nuxt checks runtimeConfig during the build, and a missing value only warns (NUXT_B5032)
+  - nuxt.config.ts:25 validateAtRuntime: false is gone. Nuxt always checks runtimeConfig when the server starts
+  - nuxt.config.ts:26 onError: 'warn' is gone. Nuxt stops the server on an invalid value (NUXT_E8014) and has no warn mode
+  - nuxt.config.ts:27 jsonSchemaTarget is gone. Nuxt always converts the schema to JSON Schema draft-2020-12
+  - layers/runtime-config/nuxt.config.ts:8 maxTokens: z.coerce: Nuxt coerces NUXT_* values from the JSON Schema type instead
+  - layers/runtime-config/nuxt.config.ts:9 retry: .catch(): Nuxt fails on an invalid value instead of using the fallback
+
+Next:
+  1. Run `pnpm install` to update the lockfile.
+  2. Run your typecheck. Nuxt now types runtimeConfig from the schema, so plain values in nuxt.config and code that reads them can fail it.
+  3. Run your linter with --fix. The files the codemod wrote may not match your code style.
+  4. Run `nuxt build`. Set every required NUXT_* variable when the server starts, or it exits with NUXT_E8014.
