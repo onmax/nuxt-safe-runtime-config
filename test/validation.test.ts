@@ -6,6 +6,7 @@ import { Validator } from '@cfworker/json-schema'
 import { number, object, optional, string } from 'valibot'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
+import { z as zod3 } from 'zod/v3'
 import { createRuntimeValidationArtifacts, resolveValidationOptions } from '../src/validation'
 
 const zodRuntimeConfigSchema = z.object({
@@ -105,6 +106,46 @@ describe('runtime JSON Schema generation', () => {
     expect(draft).toBe(expectedDraft)
     expect(validator.validate({ secretKey: 'test-key', public: { apiBase: 'https://api.test.com' } }).valid).toBe(true)
     expect(validator.validate({ secretKey: 123, public: { apiBase: 'https://api.test.com' } }).valid).toBe(false)
+  })
+
+  it('accepts the keys Nuxt adds to the runtime config when a z.object() schema leaves them out', async () => {
+    const options = await resolveValidationOptions({ $schema: zodRuntimeConfigSchema })
+    const { draft, jsonSchema } = (await createRuntimeValidationArtifacts(options, () => {}))!
+    const validator = new Validator(jsonSchema, draft)
+    const nuxtKeys = { app: { baseURL: '/' }, nitro: { envPrefix: 'NUXT_' }, appSecret: 'generated' }
+
+    expect(validator.validate({ ...nuxtKeys, secretKey: 'test-key', public: { apiBase: 'https://api.test.com', i18n: {} } }).valid).toBe(true)
+    expect(validator.validate({ ...nuxtKeys, secretKey: 123, public: { apiBase: 'https://api.test.com' } }).valid).toBe(false)
+  })
+
+  it.each([
+    z.strictObject({ public: z.object({ label: z.string() }) }),
+    z.object({ public: z.strictObject({ label: z.string() }) }),
+  ])('retains explicit input closure at the root and under public', async ($schema) => {
+    const options = await resolveValidationOptions({ $schema })
+    const { draft, jsonSchema } = (await createRuntimeValidationArtifacts(options, () => {}))!
+    const validator = new Validator(jsonSchema, draft)
+    const valid = { public: { label: 'valid' } }
+    const invalid = { public: { label: 'valid', typo: true }, typo: true }
+
+    expect(validator.validate(valid).valid).toBe(true)
+    expect(validator.validate(invalid).valid).toBe(false)
+  })
+
+  it.each([
+    [false, false],
+    [true, false],
+    [false, true],
+  ])('honors Zod 3 input closure (root strict: %s, public strict: %s)', async (strictRoot, strictPublic) => {
+    const publicSchema = zod3.object({ label: zod3.string() })
+    const root = zod3.object({ public: strictPublic ? publicSchema.strict() : publicSchema })
+    const options = await resolveValidationOptions({ $schema: strictRoot ? root.strict() : root })
+    const { draft, jsonSchema } = (await createRuntimeValidationArtifacts(options, () => {}))!
+    const validator = new Validator(jsonSchema, draft)
+
+    expect(validator.validate({ public: { label: 'valid' }, app: {} }).valid).toBe(!strictRoot)
+    expect(validator.validate({ public: { label: 'valid', i18n: {} } }).valid).toBe(!strictPublic)
+    expect(validator.validate({ public: { label: 10 } }).valid).toBe(false)
   })
 
   it('loads a Zod schema module, whose schemas have a default() method', async () => {

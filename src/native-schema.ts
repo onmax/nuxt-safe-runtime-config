@@ -8,7 +8,16 @@ interface NuxtKitWithSchemas {
   updateRuntimeConfig: (runtimeConfig: Record<string, unknown>) => void | Promise<void>
 }
 
-/** Nuxt 5 validates runtime config against the schemas it lists in `_runtimeConfigSchemas`. */
+/**
+ * Whether Nuxt stops the server when a value fails a schema that a module registers. Nuxt 4.7
+ * compiles runtime config schemas too, but before `compatibilityVersion: 5` it only warns about a
+ * module's schema and starts with the default, which hides the invalid value from this module.
+ */
+export function enforcesModuleSchemas(nuxt: Nuxt): boolean {
+  return supportsNativeSchemas(nuxt) && (nuxt.options.future?.compatibilityVersion ?? 4) >= 5
+}
+
+/** Nuxt 4.7 and later compile runtime config schemas from the list in `_runtimeConfigSchemas`. */
 export function supportsNativeSchemas(nuxt: Nuxt): boolean {
   return Array.isArray((nuxt.options as { _runtimeConfigSchemas?: unknown })._runtimeConfigSchemas)
 }
