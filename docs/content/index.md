@@ -13,6 +13,12 @@ links:
     to: '#run-the-codemod'
     icon: i-ph-terminal
     size: xl
+  - label: Why it's deprecated
+    to: /blog/deprecating-nuxt-safe-runtime-config
+    color: neutral
+    variant: outline
+    icon: i-ph-newspaper
+    size: xl
   - label: Old guides
     to: /guide
     color: neutral
