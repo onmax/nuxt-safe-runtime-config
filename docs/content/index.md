@@ -114,33 +114,33 @@ export default z.object({
 ```
 
 ```ts [nuxt.config.ts (after)]
-import schema from './runtime-config.schema.ts'
-
 export default defineNuxtConfig({
-  runtimeConfig: schema,
+  modules: [],
+  runtimeConfig: {
+    public: { apiBase: 'https://api.example.com' },
+  },
 })
 ```
 
-```ts [runtime-config.schema.ts (after)]
-import { z } from 'zod'
+```ts [layers/runtime-config/nuxt.config.ts (new)]
+import runtimeConfigSchema from '../../runtime-config.schema.ts'
 
-export default z.object({
-  databaseUrl: z.string(),
-  public: z.object({ apiBase: z.string().default('https://api.example.com') }),
+export default defineNuxtConfig({
+  runtimeConfig: runtimeConfigSchema,
 })
 ```
 
 :::
 
-`databaseUrl` stays required: production sets it through `NUXT_DATABASE_URL`, and Nuxt refuses to start without it. Code that called `useSafeRuntimeConfig(event)` now calls `useRuntimeConfig(event)`, typed from the same schema.
+Your schema file doesn't change. `runtimeConfig` holds either the schema or plain values, so the schema moves to a layer and `apiBase` stays in your `nuxt.config.ts` as its default. `databaseUrl` stays required: production sets it through `NUXT_DATABASE_URL`, and Nuxt refuses to start without it. Code that called `useSafeRuntimeConfig(event)` now calls `useRuntimeConfig(event)`, typed from the same schema.
 
 ## What it changes
 
 - **`package.json`.** It reads the installed Nuxt version and stops below 4.7. It removes `nuxt-safe-runtime-config`. When the schema is Valibot, it adds `@valibot/to-json-schema` and raises a Valibot range below `^1.2.0` to `^1.2.0`, the oldest release `toStandardJsonSchema()` supports. When either one is a `catalog:` dependency, it writes the version into that catalog in `pnpm-workspace.yaml` instead.
 - **`nuxt.config.ts`.** It removes the module from `modules` and the `safeRuntimeConfig` block, and moves `$schema` into `runtimeConfig`. A schema given by path becomes an import that keeps its `.ts` extension, because Nuxt 4.7 loads `nuxt.config.ts` with Node's own loader.
-- **Defaults.** It removes `''` placeholders. Nuxt would take `''` as the schema's default, and the value would stop being required. Other plain values move into the schema as `.default(x)` in Zod or `v.optional(schema, x)` in Valibot. When that isn't possible, the schema goes to `layers/runtime-config/nuxt.config.ts` and the plain values stay in your `nuxt.config.ts` as defaults.
+- **Defaults.** It removes `''` placeholders. Nuxt would take `''` as the schema's default, and the value would stop being required. When other plain values are left, the schema goes to `layers/runtime-config/nuxt.config.ts` and the plain values stay in your `nuxt.config.ts` as defaults. When none are left, the schema goes straight into `runtimeConfig`.
 - **Valibot schemas.** It wraps them in `toStandardJsonSchema()`. Nuxt rejects a raw Valibot schema with `NUXT_B5031`.
-- **Your code.** In `app/`, `server/` and `layers/`, it renames `useSafeRuntimeConfig(…)` to `useRuntimeConfig(…)` and keeps the arguments. When the app builds with Nitro 2 and a call without arguments sits inside a `defineEventHandler` (or a similar Nitro handler) whose event parameter is in scope, it passes that parameter. Any other call keeps no arguments. On Nitro 2, the report lists the server calls that have no event in scope under "Check by hand", so you can pass one yourself.
+- **Your code.** In `app/`, `server/` and `layers/`, it renames `useSafeRuntimeConfig(…)` to `useRuntimeConfig(…)` and keeps the arguments. When the app builds with Nitro 2 and a call without arguments sits inside a `defineEventHandler` (or a similar Nitro handler) whose event parameter is in scope, it passes that parameter. Any other call keeps no arguments. On Nitro 2, the report lists the server calls that have no event in scope under "Check by hand", so you can pass one yourself. Calls inside a Vue `<template>` aren't renamed. The report lists them under "Check by hand".
 - **ESLint.** It removes the `nuxt-safe-runtime-config/eslint` import and the `prefer-safe-runtime-config` rule.
 - **The report.** It lists each refinement Nuxt won't check, and each option whose behaviour changes: `onError`, `validateAtRuntime: false` and `requireAtBuild`. When plain values stay in `nuxt.config.ts`, it checks them against the schema as they are when the config loads, and lists the required values that have none and the values of the wrong type that it finds. This check doesn't cover every schema, such as the items of an array, so the server start check is the one to rely on. It doesn't change your schema for them.
 
@@ -153,7 +153,7 @@ The codemod stops before it changes a file when the app needs something Nuxt doe
 | Nuxt below 4.7 | `npx nuxt upgrade`, then run the codemod again |
 | `envSchema` (a `.env.example` as the schema) | [ViteHub Env](/guide/migrate-to-vitehub-env), which needs Nuxt 5. Nuxt can't read `.env.example`, and Env keeps the file as it is. If you can't move to Nuxt 5 yet and don't need `.env.example` as the schema, write the schema by hand on 4.7: see [`envSchema` by hand](#envschema-by-hand). Otherwise stay on the module |
 | `nuxt-safe-runtime-config/nitro`, in a Nitro app without Nuxt | [ViteHub Env](https://vitehub.dev/docs/getting-started/installation), which needs Nitro 3 with Vite. Nitro has no runtime config schemas. The Nuxt codemods don't cover these apps |
-| Transforms, such as Zod's `.transform()` or Valibot's `v.transform()` and `v.trim()` | Pin `nuxt-safe-runtime-config@1.0.0`, which keeps working, or move each transform to where the value is read and run the codemod again |
+| Transforms, such as Zod's `.transform()` or Valibot's `v.transform()` and `v.trim()` | Pin `nuxt-safe-runtime-config@0.5.0`, which keeps working, or move each transform to where the value is read and run the codemod again |
 | Asynchronous checks | Nuxt validates synchronously. Move the check to where the value is used, then run the codemod again |
 | A `nuxt.config.ts` or schema it can't edit safely | [Do it by hand](#doing-it-by-hand) |
 
@@ -164,7 +164,7 @@ Nuxt checks types, required values, enums and unions. Some things the module did
 - **Refinements aren't checked.** Nuxt doesn't run URL and email formats, minimums and maximums, patterns, `.refine()` or `.trim()`. `NUXT_PUBLIC_API_BASE=not-a-url` starts fine. The codemod lists each one in its report. Check the values that matter where your code reads them.
 - **No `onError: 'warn'` or `'ignore'`.** A schema in `nuxt.config.ts` always stops the server on a bad value. `validateAtRuntime: false` has no equivalent either.
 - **No `requireAtBuild`.** A missing required value prints a `NUXT_B5032` warning during `nuxt build`, and the server refuses to start without it.
-- **Plain defaults move to a layer.** `runtimeConfig` holds one value, so a whole-config schema and plain values can't share it in one `nuxt.config.ts`. Across layers, the plain values become the schema's defaults, which is why the codemod writes `layers/runtime-config/nuxt.config.ts` when it can't move a default into the schema.
+- **Plain defaults move to a layer.** `runtimeConfig` holds one value, so a whole-config schema and plain values can't share it in one `nuxt.config.ts`. Across layers, the plain values become the schema's defaults, which is why the codemod writes `layers/runtime-config/nuxt.config.ts` when plain values are left.
 
 ## What Nuxt 4.7 replaces
 
@@ -202,7 +202,7 @@ Nuxt 4.7 can't read `.env.example`, but you can write the same rules as a schema
 The module is in maintenance mode. The repository and this site stay online.
 
 - Security fixes and severe bugs only. No new features or schema sources.
-- `nuxt-safe-runtime-config@1.0.0` is the last release. It works as before and warns that the module is deprecated.
+- `nuxt-safe-runtime-config@0.5.0` is the last release. It works as before and warns that the module is deprecated.
 - [Report a vulnerability privately on GitHub](https://github.com/onmax/nuxt-safe-runtime-config/security/advisories/new). Don't open a public issue for it.
 
 The [old guides](/guide) still describe how the module works, for apps that stay on it for now.
