@@ -34,7 +34,7 @@ The [migration guide](https://nuxt-safe-runtime-config.onmax.me) covers what the
 
 - Nuxt doesn't run URL formats, minimums and maximums, patterns or `.refine()`. The codemod lists each one in its report.
 - A schema in `nuxt.config.ts` always stops the server on a bad value. `onError: 'warn' | 'ignore'` has no equivalent.
-- Apps that use `envSchema` move to [ViteHub Env on Nuxt 5](https://nuxt-safe-runtime-config.onmax.me/guide/migrate-to-vitehub-env). Nitro apps without Nuxt move to [ViteHub Env on Nitro 3](https://vitehub.dev/docs/getting-started/installation). Apps whose schema has transforms can pin `nuxt-safe-runtime-config@1.0.0`, which keeps working.
+- Apps that use `envSchema` move to [ViteHub Env on Nuxt 5](https://nuxt-safe-runtime-config.onmax.me/guide/migrate-to-vitehub-env). Nitro apps without Nuxt move to [ViteHub Env on Nitro 3](https://vitehub.dev/docs/getting-started/installation). Apps whose schema has transforms can pin `nuxt-safe-runtime-config@0.5.0`, which keeps working.
 
 ## Maintenance
 
