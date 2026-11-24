@@ -120,7 +120,12 @@ const safeRuntimeConfigNitroModule: NitroModule = {
 
     await applyArtifacts()
 
-    nitro.hooks.hook('rollup:before', applyArtifacts)
+    // Nitro 3 betas before 3.0.261103-rc still emit only `rollup:before`.
+    const nitro3Prerelease = /^3\.0\.(\d+)-/.exec(nitro.meta?.version ?? '')
+    if ((nitro.meta?.majorVersion ?? 2) >= 3 && (!nitro3Prerelease || Number(nitro3Prerelease[1]) >= 261103))
+      nitro.hooks.hook('build:config', applyArtifacts)
+    else
+      nitro.hooks.hook('rollup:before', applyArtifacts)
 
     if (options.buildCheck !== 'off') {
       nitro.hooks.hook('build:before', async () => {
