@@ -1,11 +1,14 @@
 import type { Buffer } from 'node:buffer'
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { createRequire } from 'node:module'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { resolveRuntimeConfigImport } from '../src/nitro'
+import SafeRuntimeConfig, { resolveRuntimeConfigImport } from '../src/nitro'
+import { runtimeConfigSchema } from './fixtures/_shared/nitro-runtime-config-schema'
 import { getFreePort } from './utils/free-port'
 
 const nitroBin = fileURLToPath(new URL('../node_modules/.bin/nitro', import.meta.url))
@@ -51,6 +54,38 @@ describe('nitro module', () => {
     expect(nitro3RuntimeConfig).toMatch(/nitro[/\\]dist[/\\]runtime[/\\]runtime-config\.mjs$/)
   })
 
+  it.each([
+    ['Nitro 2', undefined, 'rollup:before'],
+    ['Nitro 3 beta', { majorVersion: 3, version: '3.0.260429-beta' }, 'rollup:before'],
+    ['Nitro 3 RC', { majorVersion: 3, version: '3.0.261103-rc' }, 'build:config'],
+  ] as const)('regenerates validation files after output cleanup on %s', async (_name, meta, hook) => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'safe-runtime-config-'))
+    const outputDir = join(rootDir, '.output')
+    const buildDir = join(outputDir, '.build')
+    const hooks = new Map<string, () => Promise<void>>()
+    const validateModule = join(buildDir, 'safe-runtime-config/validate.mjs')
+    try {
+      await SafeRuntimeConfig.setup({
+        meta,
+        options: {
+          rootDir,
+          buildDir,
+          safeRuntimeConfig: { $schema: runtimeConfigSchema, buildCheck: 'off', runtimeCheck: false },
+        },
+        hooks: { hook: (name: string, callback: () => Promise<void>) => hooks.set(name, callback) },
+      })
+
+      expect([...hooks.keys()]).toEqual([hook])
+      expect(existsSync(validateModule)).toBe(true)
+      await rm(outputDir, { recursive: true })
+      await hooks.get(hook)!()
+      expect(readFileSync(validateModule, 'utf8')).toContain('export const schema')
+    }
+    finally {
+      await rm(rootDir, { recursive: true, force: true })
+    }
+  })
+
   it.concurrent('validates build config and generates runtime validation files', () => {
     const fixtureDir = fixturePath('nitro-validation-success')
     const result = runNitroBuild(fixtureDir)
@@ -86,6 +121,7 @@ describe('nitro module', () => {
     const fixtureDir = fixturePath('nitro-runtime-invalid')
     const build = runNitroBuild(fixtureDir)
     expect(build.status, `${build.stdout}\n${build.stderr}`).toBe(0)
+    expect(`${build.stdout}\n${build.stderr}`).not.toContain('rollup:before')
 
     const child = spawn('node', [join(fixtureDir, '.output/server/index.mjs')], {
       cwd: fixtureDir,

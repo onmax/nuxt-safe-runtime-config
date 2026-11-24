@@ -120,8 +120,9 @@ const safeRuntimeConfigNitroModule: NitroModule = {
 
     await applyArtifacts()
 
-    // Nitro 3 renamed `rollup:before` to `build:config`, and skips the old name for builders other than Rollup and Vite.
-    if ((nitro.meta?.majorVersion ?? 2) >= 3)
+    // Nitro 3 betas before 3.0.261103-rc still emit only `rollup:before`.
+    const nitro3Prerelease = /^3\.0\.(\d+)-/.exec(nitro.meta?.version ?? '')
+    if ((nitro.meta?.majorVersion ?? 2) >= 3 && (!nitro3Prerelease || Number(nitro3Prerelease[1]) >= 261103))
       nitro.hooks.hook('build:config', applyArtifacts)
     else
       nitro.hooks.hook('rollup:before', applyArtifacts)
