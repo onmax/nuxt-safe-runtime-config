@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.5.0",
   "packageManager": "pnpm@12.15.0",
-  "description": "Validate Nuxt runtime config with Standard Schema at build and when the server starts",
+  "description": "Deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. Migrate with npx nuxt-safe-runtime-config@latest migrate",
   "author": {
     "name": "onmax"
   },
