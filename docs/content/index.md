@@ -121,9 +121,9 @@ export default z.object({
 - **`nuxt.config.ts`.** It removes the module from `modules` and the `safeRuntimeConfig` block, and moves `$schema` into `runtimeConfig`. A schema given by path becomes an import that keeps its `.ts` extension, because Nuxt 4.7 loads `nuxt.config.ts` with Node's own loader.
 - **Defaults.** It removes `''` placeholders. Nuxt would take `''` as the schema's default, and the value would stop being required. Other plain values move into the schema as `.default(x)` in Zod or `v.optional(schema, x)` in Valibot. When that isn't possible, the schema goes to `layers/runtime-config/nuxt.config.ts` and the plain values stay in your `nuxt.config.ts` as defaults.
 - **Valibot schemas.** It wraps them in `toStandardJsonSchema()`. Nuxt rejects a raw Valibot schema with `NUXT_B5031`.
-- **Your code.** In `app/`, `server/` and `layers/`, it renames `useSafeRuntimeConfig(…)` to `useRuntimeConfig(…)` and keeps the arguments.
+- **Your code.** In `app/`, `server/` and `layers/`, it renames `useSafeRuntimeConfig(…)` to `useRuntimeConfig(…)` and keeps the arguments. When the app builds with Nitro 2, a call inside an event handler that passed no event gets the handler's `event`. When it can't tell which Nitro the app builds with, the call keeps no arguments.
 - **ESLint.** It removes the `nuxt-safe-runtime-config/eslint` import and the `prefer-safe-runtime-config` rule.
-- **The report.** It lists each refinement Nuxt won't check, and each option whose behaviour changes: `onError`, `validateAtRuntime: false` and `requireAtBuild`. When plain values stay in `nuxt.config.ts`, it checks them against the schema as they are when the config loads, and lists each required value that has none and each value of the wrong type. It doesn't change your schema for them.
+- **The report.** It lists each refinement Nuxt won't check, and each option whose behaviour changes: `onError`, `validateAtRuntime: false` and `requireAtBuild`. When plain values stay in `nuxt.config.ts`, it checks them against the schema as they are when the config loads, and lists the required values that have none and the values of the wrong type that it finds. This check doesn't cover every schema, such as the items of an array, so the server start check is the one to rely on. It doesn't change your schema for them.
 
 ## When it stops
 
