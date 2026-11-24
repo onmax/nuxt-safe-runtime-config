@@ -64,7 +64,7 @@ npx nuxt prepare
 npx nuxt typecheck
 ```
 
-Then build and start the server once without a value the schema requires, such as `NUXT_DATABASE_URL` in the example below, to see Nuxt refuse it. Work through the report's follow-ups. Each one has its `file:line`.
+Then run your linter with `--fix`, since the files the codemod wrote may not match your code style. Build and start the server once without a value the schema requires, such as `NUXT_DATABASE_URL` in the example below, to see Nuxt refuse it. Work through the report's follow-ups. Each one has its `file:line`.
 
 :::
 
@@ -117,13 +117,13 @@ export default z.object({
 
 ## What it changes
 
-- **`package.json`.** It reads the installed Nuxt version and stops below 4.7. It removes `nuxt-safe-runtime-config`, and adds `@valibot/to-json-schema` when the schema is Valibot.
+- **`package.json`.** It reads the installed Nuxt version and stops below 4.7. It removes `nuxt-safe-runtime-config`. When the schema is Valibot, it adds `@valibot/to-json-schema` and raises a Valibot range below `^1.2.0` to `^1.2.0`, the oldest release `toStandardJsonSchema()` supports. When either one is a `catalog:` dependency, it writes the version into that catalog in `pnpm-workspace.yaml` instead.
 - **`nuxt.config.ts`.** It removes the module from `modules` and the `safeRuntimeConfig` block, and moves `$schema` into `runtimeConfig`. A schema given by path becomes an import that keeps its `.ts` extension, because Nuxt 4.7 loads `nuxt.config.ts` with Node's own loader.
 - **Defaults.** It removes `''` placeholders. Nuxt would take `''` as the schema's default, and the value would stop being required. Other plain values move into the schema as `.default(x)` in Zod or `v.optional(schema, x)` in Valibot. When that isn't possible, the schema goes to `layers/runtime-config/nuxt.config.ts` and the plain values stay in your `nuxt.config.ts` as defaults.
 - **Valibot schemas.** It wraps them in `toStandardJsonSchema()`. Nuxt rejects a raw Valibot schema with `NUXT_B5031`.
 - **Your code.** In `app/`, `server/` and `layers/`, it renames `useSafeRuntimeConfig(…)` to `useRuntimeConfig(…)` and keeps the arguments.
 - **ESLint.** It removes the `nuxt-safe-runtime-config/eslint` import and the `prefer-safe-runtime-config` rule.
-- **The report.** It lists each refinement Nuxt won't check, and each option whose behaviour changes: `onError`, `validateAtRuntime: false` and `requireAtBuild`.
+- **The report.** It lists each refinement Nuxt won't check, and each option whose behaviour changes: `onError`, `validateAtRuntime: false` and `requireAtBuild`. When plain values stay in `nuxt.config.ts`, it checks them against the schema as they are when the config loads, and lists each required value that has none and each value of the wrong type. It doesn't change your schema for them.
 
 ## When it stops
 

@@ -13,10 +13,10 @@ Nuxt 4.7 accepts a Standard JSON Schema (Zod 4.2+, ArkType 2.1.28+, or Valibot w
 
 1. Check the installed Nuxt version. Below 4.7, run `npx nuxt upgrade` first. Upgrade Zod to 4.2+ and ArkType to 2.1.28+: Nuxt rejects older versions, Zod 3 included, with `NUXT_B5031`.
 2. Run `npx nuxt-safe-runtime-config@latest migrate --dry-run` and read the report. Pass the app directory when it isn't the current one: `npx nuxt-safe-runtime-config@latest migrate <dir> --dry-run`.
-3. Run `npx nuxt-safe-runtime-config@latest migrate`, then install dependencies, `npx nuxt prepare` and the project typecheck.
+3. Run `npx nuxt-safe-runtime-config@latest migrate`, then install dependencies, `npx nuxt prepare`, the project typecheck and the linter with `--fix`.
 4. Work through each follow-up in the report. Each has a `file:line`.
 
-The codemod removes the module, moves `safeRuntimeConfig.$schema` into `runtimeConfig`, drops `''` placeholders, moves plain defaults into the schema or into `layers/runtime-config/nuxt.config.ts`, wraps Valibot schemas, renames `useSafeRuntimeConfig(…)` to `useRuntimeConfig(…)`, and removes the `nuxt-safe-runtime-config/eslint` rule.
+The codemod removes the module, moves `safeRuntimeConfig.$schema` into `runtimeConfig`, drops `''` placeholders, moves plain defaults into the schema or into `layers/runtime-config/nuxt.config.ts`, wraps Valibot schemas (raising Valibot to `^1.2.0` and writing `catalog:` versions into `pnpm-workspace.yaml`), renames `useSafeRuntimeConfig(…)` to `useRuntimeConfig(…)`, and removes the `nuxt-safe-runtime-config/eslint` rule.
 
 ## When the codemod stops
 
