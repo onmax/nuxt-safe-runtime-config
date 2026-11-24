@@ -25,7 +25,7 @@ links:
 ::u-container{class="max-w-4xl pb-24"}
 ## Why
 
-Nuxt 4.7 accepts a schema that implements [Standard JSON Schema](https://standardschema.dev/json-schema) anywhere in `runtimeConfig`: Zod 4, ArkType, or Valibot wrapped in `toStandardJsonSchema()`. From it, Nuxt converts `NUXT_*` strings to the numbers, booleans and JSON the schema asks for, and types `useRuntimeConfig()`. When the server starts with a value that is missing or has the wrong type, it exits with code 1 before it listens:
+Nuxt 4.7 accepts a schema that implements [Standard JSON Schema](https://standardschema.dev/json-schema) anywhere in `runtimeConfig`: Zod 4.2 or later, ArkType 2.1.28 or later, or Valibot wrapped in `toStandardJsonSchema()`. From it, Nuxt converts `NUXT_*` strings to the numbers, booleans and JSON the schema asks for, and types `useRuntimeConfig()`. When the server starts with a value that is missing or has the wrong type, it exits with code 1 before it listens:
 
 ```txt
 [NUXT_E8014] The runtime config does not match its schema:
@@ -36,7 +36,7 @@ That was most of this module's job. It gets no new features, and the [last relea
 
 ## Run the codemod
 
-The codemod needs Nuxt 4.7 or later. On an older version, run `npx nuxt upgrade` first. On Zod 3, upgrade to Zod 4 too: Nuxt rejects a Zod 3 schema with `NUXT_B5031`.
+The codemod needs Nuxt 4.7 or later. On an older version, run `npx nuxt upgrade` first. Upgrade Zod to 4.2 and ArkType to 2.1.28 too. Nuxt rejects older versions, Zod 3 included, with `NUXT_B5031`.
 
 `@latest` makes npx download the release that has the command, instead of running the version your app already has installed.
 
@@ -154,7 +154,7 @@ Nuxt checks types, required values, enums and unions. Some things the module did
 | Types, required values, enums, unions | Yes | Yes |
 | `NUXT_*` coercion to number, boolean, JSON | Yes | Yes, for values with a schema (all values with `compatibilityVersion: 5`) |
 | Typed config | `useSafeRuntimeConfig()` | `useRuntimeConfig()` |
-| Zod 4, ArkType | Yes | Yes |
+| Zod, ArkType | Yes | Zod 4.2+, ArkType 2.1.28+ |
 | Valibot | Yes | Wrapped in `toStandardJsonSchema()` |
 | URL formats, min/max, patterns, `.refine()` | Yes | No, the codemod reports them |
 | Transforms | Yes | No, the schema can't move |
@@ -166,7 +166,7 @@ Nuxt checks types, required values, enums and unions. Some things the module did
 
 If you'd rather not run the codemod, these are the same steps:
 
-1. Upgrade to Nuxt 4.7 or later with `npx nuxt upgrade`, and from Zod 3 to Zod 4.
+1. Upgrade to Nuxt 4.7 or later with `npx nuxt upgrade`, Zod to 4.2 or later, and ArkType to 2.1.28 or later.
 2. Remove `nuxt-safe-runtime-config` from `package.json` and from `modules`, and delete the `safeRuntimeConfig` block.
 3. Set `runtimeConfig` to your schema. Import a schema file with its `.ts` extension. For Valibot, install `@valibot/to-json-schema`, which the module used to bring, and wrap the schema in its `toStandardJsonSchema()`.
 4. Drop the `''` placeholders. Move other defaults into the schema, or put the schema in a layer and keep the plain values in your root `nuxt.config.ts`.

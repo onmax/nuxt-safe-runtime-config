@@ -21,14 +21,14 @@
 </p>
 
 > [!WARNING]
-> This module is deprecated. Nuxt 4.7 accepts a Standard JSON Schema (Zod 4, ArkType, or Valibot wrapped in `toStandardJsonSchema()`) in `runtimeConfig`, converts `NUXT_*` strings to its types, refuses to start on a missing or mistyped value, and types `useRuntimeConfig()`. Move your schema there with one command:
+> This module is deprecated. Nuxt 4.7 accepts a Standard JSON Schema (Zod 4.2+, ArkType 2.1.28+, or Valibot wrapped in `toStandardJsonSchema()`) in `runtimeConfig`, converts `NUXT_*` strings to its types, refuses to start on a missing or mistyped value, and types `useRuntimeConfig()`. Move your schema there with one command:
 >
 > ```bash
 > npx nuxt-safe-runtime-config@latest migrate --dry-run   # print the changes and the report, write nothing
 > npx nuxt-safe-runtime-config@latest migrate             # apply them
 > ```
 >
-> Pass a directory when the app isn't in the current one: `npx nuxt-safe-runtime-config@latest migrate apps/web`. The codemod needs Nuxt 4.7 or later, and Zod 4 if you use Zod.
+> Pass a directory when the app isn't in the current one: `npx nuxt-safe-runtime-config@latest migrate apps/web`. The codemod needs Nuxt 4.7 or later. If you use Zod or ArkType, upgrade to Zod 4.2 or ArkType 2.1.28 first.
 
 The [migration guide](https://nuxt-safe-runtime-config.onmax.me) covers what the codemod changes, when it stops, and what Nuxt doesn't check:
 
