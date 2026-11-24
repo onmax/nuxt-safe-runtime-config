@@ -25,6 +25,11 @@ const handlerFactories: Record<string, number> = {
   defineNitroErrorHandler: 1,
 }
 const pluginFactories = new Set(['defineNitroPlugin'])
+/**
+ * Where a handler factory's callback gets Nitro 2's H3Event. A factory imported from anywhere else, such as a local
+ * wrapper or `nuxt/server` with its portable RequestEvent, says nothing about what its callback receives.
+ */
+const nitroFactorySources = new Set(['#imports', 'h3', 'nitropack', 'nitropack/runtime', '#internal/nitro'])
 const skippedKeys = new Set(['loc', 'start', 'end', 'extra', 'leadingComments', 'trailingComments', 'innerComments', 'comments', 'tokens'])
 
 type ImportSpecifierNode = Extract<Node, { type: 'ImportSpecifier' | 'ImportDefaultSpecifier' | 'ImportNamespaceSpecifier' }>
@@ -327,17 +332,23 @@ export function migrateSource(path: string, before: string, report: Report, opti
   const frames: FunctionFrame[] = []
 
   function markFactoryCall(callee: Node, args: readonly Node[], scope: Scope): void {
-    if (!serverFile || callee.type !== 'Identifier' || scope.lookup(callee.name) === 'local')
+    if (!serverFile || callee.type !== 'Identifier')
+      return
+    const binding = scope.lookup(callee.name)
+    if (binding === 'local' || (binding !== undefined && !nitroFactorySources.has(sourceOf(binding))))
+      return
+    const factory = binding === undefined ? callee.name : importedName(binding)
+    if (factory === undefined)
       return
     const first = args[0] && unwrap(args[0])
     if (!first)
       return
-    if (pluginFactories.has(callee.name)) {
+    if (pluginFactories.has(factory)) {
       if (isFunction(first))
         roles.set(first, { kind: 'plugin' })
       return
     }
-    const index = handlerFactories[callee.name]
+    const index = handlerFactories[factory]
     if (index === undefined)
       return
     let handler: Node | undefined = first

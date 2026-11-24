@@ -3,12 +3,16 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as v from 'valibot'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { migrate } from '../../src/migrate'
 import { dependencyVersion, meetsMinimum, migratePackageJson } from '../../src/migrate/project'
 import { createReport } from '../../src/migrate/report'
 import { analyseSchema } from '../../src/migrate/schema'
+
+// These apps sit inside this repository, whose package.json declares `nitro`, so Nuxt would build them with Nitro 3.
+// They stand for standalone apps on Nitro 2; nitro.test.ts covers the detection.
+vi.mock('../../src/migrate/project', async importOriginal => ({ ...await importOriginal<typeof import('../../src/migrate/project')>(), nitroMajor: () => 2 }))
 
 const here = fileURLToPath(new URL('.', import.meta.url))
 const tmpRoot = join(here, '.tmp', 'review')

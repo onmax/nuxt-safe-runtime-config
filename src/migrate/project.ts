@@ -1,7 +1,7 @@
 import type { Node } from './ast'
 import type { FileEdit, Note, Report } from './report'
 import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { dirname, join, relative } from 'node:path'
 import semver from 'semver'
 import { applyRemovals, Editor, keyName, lineEnd, lineStart, parentMap, parseJsonc, parseModule, removeStatement, walk } from './ast'
 import { catalogName, findUp, Workspace } from './catalog'
@@ -114,6 +114,58 @@ export function dependencyVersion(rootDir: string, pkg: Record<string, any>, nam
   if (!range)
     return undefined
   return { text: range, version: minimumVersion(range), installed: false }
+}
+
+/**
+ * How pkg-types 2 finds Nuxt's `workspaceDir`: the first test that matches wins, searching up from the app and taking
+ * the furthest match, except for `.git`, where the closest wins.
+ */
+const workspaceTests: { files: string[], closest?: boolean }[] = [
+  { files: ['pnpm-workspace.yaml', 'lerna.json', 'turbo.json', 'rush.json', 'deno.json', 'deno.jsonc'] },
+  { files: ['.git/config'], closest: true },
+  { files: ['yarn.lock', 'package-lock.json', 'pnpm-lock.yaml', 'npm-shrinkwrap.json', 'bun.lockb', 'bun.lock', 'deno.lock', 'upm.lock'] },
+  { files: ['package.json', 'package.json5', 'package.yaml'] },
+]
+
+function workspaceDir(rootDir: string): string {
+  const ancestors: string[] = []
+  for (let dir = rootDir; ; dir = dirname(dir)) {
+    ancestors.push(dir)
+    if (dirname(dir) === dir)
+      break
+  }
+  for (const test of workspaceTests) {
+    const matches = ancestors.filter(dir => test.files.some(file => existsSync(join(dir, file))))
+    if (matches.length)
+      return test.closest ? matches[0]! : matches.at(-1)!
+  }
+  return rootDir
+}
+
+function declares(pkg: Record<string, any> | undefined, name: string): boolean {
+  return !!(pkg?.dependencies?.[name] || pkg?.devDependencies?.[name])
+}
+
+/**
+ * The Nitro major Nuxt 4.7 builds with, read like its `_nitroMajor` resolver does: Nitro 3 when the app declares
+ * `nitro`, or when it declares neither and its workspace root declares `nitro` but not `nitropack`.
+ */
+export function nitroMajor(rootDir: string, pkg: Record<string, any> | undefined): 2 | 3 {
+  if (declares(pkg, 'nitro'))
+    return 3
+  if (declares(pkg, 'nitropack'))
+    return 2
+  const workspace = workspaceDir(rootDir)
+  if (workspace === rootDir)
+    return 2
+  let root: Record<string, any> | undefined
+  try {
+    root = JSON.parse(readFileSync(join(workspace, 'package.json'), 'utf8'))
+  }
+  catch {
+    return 2
+  }
+  return declares(root, 'nitro') && !declares(root, 'nitropack') ? 3 : 2
 }
 
 /** Like dependencyVersion, but the declared range comes first: a fresh install may resolve its lowest version, whatever node_modules holds now. */

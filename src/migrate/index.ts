@@ -5,7 +5,7 @@ import process from 'node:process'
 import { tidyBlankLines } from './ast'
 import { findConfigFile, layerConfigPath, migrateConfig } from './config'
 import { unifiedDiff } from './diff'
-import { dependencySections, dependencyVersion, findMentions, installCommand, isCodeFile, isEslintConfig, listFiles, meetsMinimum, migrateEslintConfig, migrateNuxtrc, migratePackageJson, migrateTsconfig, moduleName } from './project'
+import { dependencySections, dependencyVersion, findMentions, installCommand, isCodeFile, isEslintConfig, listFiles, meetsMinimum, migrateEslintConfig, migrateNuxtrc, migratePackageJson, migrateTsconfig, moduleName, nitroMajor } from './project'
 import { createReport, formatNote } from './report'
 import { migrateSource } from './source'
 
@@ -82,6 +82,8 @@ export async function migrate(dir: string, options: MigrateOptions = {}): Promis
     return finish('stopped', [], report.stops.length ? manualSteps : [])
 
   const edits: FileEdit[] = [...configResult.edits]
+  // Nitro 2's useRuntimeConfig() takes the request event. Nitro 3's, on Nuxt 5 or on Nuxt 4.7 with `nitro` installed, doesn't.
+  const eventArgument = !meetsMinimum(nuxt, '5.0.0-0') && nitroMajor(rootDir, pkg) === 2
   const configPath = relative(rootDir, configFile)
   for (const path of files) {
     if (path === configPath || path === layerConfigPath)
@@ -97,7 +99,7 @@ export async function migrate(dir: string, options: MigrateOptions = {}): Promis
       const before = read(path)
       if (!/useSafeRuntimeConfig|safe-runtime-config\/|nuxt-safe-runtime-config/.test(before))
         continue
-      const after = migrateSource(path, before, report, { eventArgument: !meetsMinimum(nuxt, '5.0.0-0') })
+      const after = migrateSource(path, before, report, { eventArgument })
       if (after !== before)
         edits.push({ path, before, after })
     }
