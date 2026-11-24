@@ -7,7 +7,7 @@ import { migrate } from '../../src/migrate'
 
 const here = fileURLToPath(new URL('.', import.meta.url))
 const fixturesDir = join(here, 'fixtures')
-const tmpDir = join(here, '.tmp')
+const tmpDir = join(here, '.tmp', 'migrate')
 const fixtures = readdirSync(fixturesDir).sort()
 
 function listTree(dir: string): string[] {
