@@ -11,6 +11,7 @@ export default defineNuxtConfig({
     quota: 3000,
     appLimit: z.number().default(100),
     apiVersion: '1.00',
+    unrelatedEnabled: false,
     public: { limits: { quota: 3000 } },
   },
   safeRuntimeConfig: process.env.TEST_ENV_SCHEMA

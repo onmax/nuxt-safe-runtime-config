@@ -37,14 +37,15 @@ describe('native runtime config schemas', () => {
     expect(onlyInferredPaths(nuxt, inferredSchemaPaths(config, schema))).toEqual([['quota'], ['public', 'retries']])
   })
 
-  it('keeps inferred strings and targets configured record members rather than the record itself', () => {
-    const schema = z.object({
+  it('keeps native inference for strings and loose extras but targets typed record members', () => {
+    const schema = z.looseObject({
       apiVersion: z.string(),
-      public: z.object({ limits: z.record(z.string(), z.number()) }),
-    }).toJSONSchema({ io: 'input' })
+      public: z.looseObject({ limits: z.record(z.string(), z.number()) }),
+    }).toJSONSchema()
 
-    expect(inferredSchemaPaths({ apiVersion: '1.00', public: { limits: { quota: 3000 } } }, schema))
-      .toEqual([['public', 'limits', 'quota']])
+    const config = { apiVersion: '1.00', unrelatedEnabled: false, public: { unrelatedEnabled: false, limits: { quota: 3000 } } }
+    expect(inferredSchemaPaths(config, schema)).toEqual([['public', 'limits', 'quota']])
+    expect(inferredSchemaPaths(config, { ...schema, additionalProperties: true })).toEqual([['public', 'limits', 'quota']])
   })
   it('keeps a schema with transforms before Nuxt sees it', async () => {
     const schema = z.object({ origins: z.string().transform(value => value.split(',')) })

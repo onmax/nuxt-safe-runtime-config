@@ -54,8 +54,8 @@ describe.skipIf(!cwd)('startup on Nuxt 4.7 with Nitro 3', () => {
     expectStartupFailure({ NUXT_PUBLIC_LIMITS_QUOTA: 'abc' }, /safe-runtime-config[\s\S]*quota/)
     expectStartupFailure({ NUXT_APP_LIMIT: 'abc' }, /NUXT_E8014[\s\S]*app[_ -]?limit/i)
     await expectValidOverride(
-      { NUXT_QUOTA: '8080', NUXT_API_VERSION: '2.10', NUXT_PUBLIC_LIMITS_QUOTA: '8080' },
-      { quota: 8080, apiVersion: '2.10', limits: { quota: 8080 } },
+      { NUXT_QUOTA: '8080', NUXT_API_VERSION: '2.10', NUXT_PUBLIC_LIMITS_QUOTA: '8080', NUXT_UNRELATED_ENABLED: 'on' },
+      { quota: 8080, apiVersion: '2.10', limits: { quota: 8080 }, unrelatedEnabled: true },
     )
   }, 110000)
 

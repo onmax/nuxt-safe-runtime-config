@@ -127,8 +127,10 @@ export async function registerPassthroughPaths(nuxt: Nuxt, nuxtPackage: string, 
 
 export function inferredSchemaPaths(config: Record<string, unknown>, schema: Record<string, unknown> | null): string[][] {
   const properties = schema?.properties as Record<string, unknown> | undefined
+  const additional = schema?.additionalProperties
+  const catchall = additional && typeof additional === 'object' && Object.keys(additional).length ? additional : undefined
   return Object.entries(config).flatMap(([key, value]) => {
-    const property = properties && Object.hasOwn(properties, key) ? properties[key] : schema?.additionalProperties
+    const property = properties && Object.hasOwn(properties, key) ? properties[key] : catchall
     if (property === undefined || property === false || typeof value === 'string')
       return []
     if (value && typeof value === 'object' && !Array.isArray(value)) {
