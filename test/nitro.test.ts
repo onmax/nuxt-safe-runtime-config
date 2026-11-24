@@ -56,6 +56,7 @@ describe('nitro module', () => {
     const result = runNitroBuild(fixtureDir)
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
+    expect(`${result.stdout}\n${result.stderr}`).not.toContain('rollup:before')
     const validateModulePath = firstExisting([
       join(fixtureDir, '.nitro/safe-runtime-config/validate.mjs'),
       join(fixtureDir, 'node_modules/.nitro/safe-runtime-config/validate.mjs'),

@@ -63,7 +63,7 @@ catalog:
   eslint-plugin-format: ^2.0.1
   jiti: ^2.7.0
   lint-staged: ^17.6.0
-  nitro: 3.0.260429-beta
+  nitro: 3.0.261103-rc
   nuxt: 4.5.0
   scule: ^1.3.0
   simple-git-hooks: ^2.14.0
