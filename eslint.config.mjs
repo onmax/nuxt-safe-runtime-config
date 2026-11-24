@@ -16,5 +16,7 @@ export default antfu({
     'test/fixtures/**/.nitro/**',
     'test/fixtures/**/.nuxt/**',
     'test/fixtures/**/.output/**',
+    'test/migrate/fixtures/**',
+    'test/migrate/.tmp/**',
   ],
 })

@@ -38,6 +38,8 @@ onlyBuiltDependencies:
 catalog:
   '@antfu/eslint-config': ^10.0.0
   '@antfu/ni': ^30.6.0
+  '@babel/parser': ^7.29.11
+  '@babel/types': ^7.29.11
   '@cfworker/json-schema': ^4.1.1
   '@env-spec/parser': 0.6.2
   '@nuxt/devtools': ^3.4.1
