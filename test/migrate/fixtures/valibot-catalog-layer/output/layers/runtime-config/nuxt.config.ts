@@ -5,6 +5,7 @@ export default defineNuxtConfig({
   runtimeConfig: toStandardJsonSchema(object({
     sessionSecret: string(),
     apiKey: string(),
+    smtpPassword: string(),
     github: object({
       clientId: string(),
     }),

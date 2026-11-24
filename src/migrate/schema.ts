@@ -437,13 +437,17 @@ function matchesType(node: unknown, value: unknown, root: JsonObject, depth = 0)
 
 const typeNames: Record<string, string> = { null: 'null', array: 'an array', object: 'an object', string: 'a string', number: 'a number', integer: 'an integer', boolean: 'a boolean' }
 
-function describeValue(value: unknown): string {
+function describeType(value: unknown): string {
   if (value === null)
     return 'null'
   if (Array.isArray(value))
     return 'an array'
-  if (typeof value === 'object')
-    return 'an object'
+  return typeNames[typeof value] ?? `a ${typeof value}`
+}
+
+function describeValue(value: unknown): string {
+  if (value === null || typeof value === 'object')
+    return describeType(value)
   const text = JSON.stringify(value) ?? String(value)
   return text.length > 40 ? `${text.slice(0, 37)}...` : text
 }
@@ -462,7 +466,10 @@ function describeSchema(node: JsonObject, root: JsonObject, depth = 0): string {
   return 'another value'
 }
 
-/** Plain values whose type the JSON Schema rejects, reported at the highest path that fails. */
+/**
+ * Plain values whose type the JSON Schema rejects, reported at the highest path that fails. Values outside
+ * `public` can be secrets read from .env, so the report gives only their type.
+ */
 export function typeMismatches(json: JsonObject, value: unknown): TypeMismatch[] {
   const mismatches: TypeMismatch[] = []
   const visit = (node: unknown, current: unknown, path: string, depth: number): void => {
@@ -470,7 +477,7 @@ export function typeMismatches(json: JsonObject, value: unknown): TypeMismatch[]
       return
     const resolved = resolveRef(node, json)
     if (!matchesType(resolved, current, json)) {
-      mismatches.push({ path, expected: describeSchema(resolved, json), actual: describeValue(current) })
+      mismatches.push({ path, expected: describeSchema(resolved, json), actual: path === 'public' || path.startsWith('public.') ? describeValue(current) : describeType(current) })
       return
     }
     if (isRecord(current) && isRecord(resolved.properties)) {

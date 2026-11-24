@@ -8,6 +8,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     sessionSecret: process.env.FIXTURE_SESSION_SECRET,
     apiKey: process.env.FIXTURE_API_KEY || '',
+    smtpPassword: 31415926,
     github: {
       clientId: process.env.FIXTURE_GITHUB_CLIENT_ID,
     },
@@ -21,6 +22,7 @@ export default defineNuxtConfig({
     $schema: object({
       sessionSecret: string(),
       apiKey: string(),
+      smtpPassword: string(),
       github: object({
         clientId: string(),
       }),
