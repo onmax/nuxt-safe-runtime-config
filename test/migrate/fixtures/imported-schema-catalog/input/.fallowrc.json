@@ -1,0 +1,3 @@
+{
+  "ignoreDependencies": ["nuxt-safe-runtime-config", "@valibot/to-json-schema"]
+}

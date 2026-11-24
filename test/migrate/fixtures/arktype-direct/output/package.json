@@ -1,0 +1,9 @@
+{
+  "name": "fixture",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "nuxt": "^4.7.0",
+    "arktype": "^2.1.0"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "fixture",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@valibot/to-json-schema": "catalog:",
+    "nuxt": "catalog:",
+    "valibot": "catalog:"
+  }
+}

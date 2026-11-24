@@ -1,0 +1,3 @@
+status: nothing
+
+Nothing to migrate: nuxt-safe-runtime-config is not in package.json or nuxt.config.

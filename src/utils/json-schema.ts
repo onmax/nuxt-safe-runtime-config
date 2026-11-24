@@ -23,6 +23,23 @@ export function hasNativeJSONSchema(schema: StandardSchemaV1): boolean {
   return Boolean(getNativeJSONSchemaOutput(schema))
 }
 
+export async function getInputJSONSchema(
+  schema: StandardSchemaV1,
+  target: StandardJSONSchemaV1.Target,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const input = getNativeJSONSchemaOutput(schema, 'input')
+    if (input)
+      return await input({ target })
+    if (schema['~standard'].vendor === 'zod' && !('_zod' in schema))
+      return await toJsonSchema(schema, { removeAdditionalStrategy: 'strict' }) as Record<string, unknown>
+    return null
+  }
+  catch {
+    return null
+  }
+}
+
 export async function getJSONSchema(
   schema: StandardSchemaV1,
   target: StandardJSONSchemaV1.Target = 'draft-2020-12',

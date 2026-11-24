@@ -1,0 +1,89 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`dry run > writes nothing and prints a diff 1`] = `
+"Dry run: nothing was written. The codemod loaded nuxt.config the way Nuxt does, so code in it and in the files it imports ran.
+
+Would change:
+  modify nuxt.config.ts
+  modify app/pages/index.vue
+  modify server/api/config.get.ts
+  modify package.json
+
+Now required at startup. The codemod removed the '' placeholders of these keys, so the server exits with NUXT_E8014 unless their variables are set. To keep a key optional, make it optional in the schema:
+  - nuxt.config.ts:6 runtimeConfig.apiSecret: set NUXT_API_SECRET
+  - nuxt.config.ts:8 runtimeConfig.public.apiBase: set NUXT_PUBLIC_API_BASE
+
+Check by hand:
+  - server/api/config.get.ts:2 calls useRuntimeConfig() without the request event. Pass the event if the call runs during a request
+
+Next:
+  1. Run \`pnpm install\` to update the lockfile.
+  2. Run your typecheck. Nuxt now types runtimeConfig from the schema, so plain values in nuxt.config and code that reads them can fail it.
+  3. Run your linter with --fix. The files the codemod wrote may not match your code style.
+  4. Run \`nuxt build\`. Set every required NUXT_* variable when the server starts, or it exits with NUXT_E8014.
+
+--- a/nuxt.config.ts
++++ b/nuxt.config.ts
+@@ -1,21 +1,14 @@
++import { toStandardJsonSchema } from '@valibot/to-json-schema'
+ import { boolean, number, object, optional, string } from 'valibot'
+ 
+ export default defineNuxtConfig({
+-  modules: ['nuxt-safe-runtime-config'],
+-  runtimeConfig: {
+-    apiSecret: '',
+-    public: {
+-      apiBase: '',
+-    },
+-  },
+-  safeRuntimeConfig: {
+-    $schema: object({
+-      apiSecret: string(),
+-      port: optional(number(), 3000),
+-      debug: optional(boolean()),
+-      public: object({
+-        apiBase: string(),
+-      }),
++  modules: [],
++  runtimeConfig: toStandardJsonSchema(object({
++    apiSecret: string(),
++    port: optional(number(), 3000),
++    debug: optional(boolean()),
++    public: object({
++      apiBase: string(),
+     }),
+-  },
++  })),
+ })
+--- a/app/pages/index.vue
++++ b/app/pages/index.vue
+@@ -1,6 +1,6 @@
+ <script setup lang="ts">
+-const config = useSafeRuntimeConfig()
+-const apiBase = useSafeRuntimeConfig().public.apiBase
++const config = useRuntimeConfig()
++const apiBase = useRuntimeConfig().public.apiBase
+ </script>
+ 
+ <template>
+--- a/server/api/config.get.ts
++++ b/server/api/config.get.ts
+@@ -1,4 +1,4 @@
+ export default defineEventHandler(() => {
+-  const { port } = useSafeRuntimeConfig()
++  const { port } = useRuntimeConfig()
+   return { port }
+ })
+--- a/package.json
++++ b/package.json
+@@ -3,8 +3,8 @@
+   "private": true,
+   "type": "module",
+   "dependencies": {
++    "@valibot/to-json-schema": "~1.8.0",
+     "nuxt": "^4.7.0",
+-    "nuxt-safe-runtime-config": "^0.4.0",
+     "valibot": "^1.5.0"
+   }
+ }"
+`;

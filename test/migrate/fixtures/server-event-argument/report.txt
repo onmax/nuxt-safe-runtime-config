@@ -1,0 +1,27 @@
+status: migrated
+
+Migrated nuxt-safe-runtime-config to Nuxt runtimeConfig schemas.
+
+Changed:
+  modify nuxt.config.ts
+  modify server/api/contact.post.ts
+  modify server/api/no-param.get.ts
+  modify server/api/object.get.ts
+  modify server/api/renamed.get.ts
+  modify server/api/shadowed.get.ts
+  modify server/middleware/log.ts
+  modify server/plugins/startup.ts
+  modify server/utils/key.ts
+  modify package.json
+
+Check by hand:
+  - server/api/no-param.get.ts:2 calls useRuntimeConfig() without the request event. Pass the event if the call runs during a request
+  - server/api/shadowed.get.ts:3 calls useRuntimeConfig() without the request event. Pass the event if the call runs during a request
+  - server/plugins/startup.ts:4 calls useRuntimeConfig() without the request event. Pass the event if the call runs during a request
+  - server/utils/key.ts:2 calls useRuntimeConfig() without the request event. Pass the event if the call runs during a request
+
+Next:
+  1. Run `pnpm install` to update the lockfile.
+  2. Run your typecheck. Nuxt now types runtimeConfig from the schema, so plain values in nuxt.config and code that reads them can fail it.
+  3. Run your linter with --fix. The files the codemod wrote may not match your code style.
+  4. Run `nuxt build`. Set every required NUXT_* variable when the server starts, or it exits with NUXT_E8014.
