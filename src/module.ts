@@ -17,25 +17,22 @@ export type { ErrorBehavior, ModuleOptions, SchemaSource, ValidationOptions } fr
 
 const logger = useLogger('safe-runtime-config')
 
-const docsUrl = 'https://nuxt-safe-runtime-config.onmax.me'
+const postUrl = 'https://nuxt-safe-runtime-config.onmax.me/blog/deprecating-nuxt-safe-runtime-config'
 
 function supportsRuntimeConfigSchemas(nuxtVersion: string): boolean {
   const [major = 0, minor = 0] = nuxtVersion.split('.').map(part => Number.parseInt(part, 10))
   return major > 4 || (major === 4 && minor >= 7)
 }
 
-export function deprecationMessage(nuxtVersion: string): string {
-  const next = supportsRuntimeConfigSchemas(nuxtVersion)
-    ? 'Run `npx nuxt-safe-runtime-config@latest migrate`.'
-    : 'Upgrade Nuxt to 4.7 first (`npx nuxt upgrade`), then run `npx nuxt-safe-runtime-config@latest migrate`.'
-  return `nuxt-safe-runtime-config is deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. ${next} ${docsUrl}`
-}
+export const deprecationMessage = `nuxt-safe-runtime-config is deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. Run \`npx nuxt-safe-runtime-config@latest migrate\`. ${postUrl}`
 
 let warnedDeprecation = false
 
 function warnDeprecated(nuxt: Nuxt): void {
   warnedDeprecation = true
-  logger.warn(deprecationMessage(getNuxtVersion(nuxt)))
+  // Before 4.7 Nuxt has no schema to migrate to, so the module still has a job there.
+  if (supportsRuntimeConfigSchemas(getNuxtVersion(nuxt)))
+    logger.warn(deprecationMessage)
 }
 
 // Nuxt 4.7 builds with Nitro 3 when the app installs `nitro`; older Nuxt versions don't set `_nitroMajor`.

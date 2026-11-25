@@ -24,14 +24,18 @@ beforeEach(() => {
 })
 
 describe('deprecation warning', () => {
-  it.each(['5.0.0', '4.7.0', '4.7.0-rc.1'])('points Nuxt %s at the migrate command', async (version) => {
-    const { deprecationMessage } = await loadModule()
-    expect(deprecationMessage(version)).toBe('nuxt-safe-runtime-config is deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. Run `npx nuxt-safe-runtime-config@latest migrate`. https://nuxt-safe-runtime-config.onmax.me')
+  it.each(['5.0.0', '4.7.0', '4.7.0-rc.1'])('points Nuxt %s at the migrate command and the post', async (version) => {
+    const { default: module, deprecationMessage } = await loadModule()
+    await module.onInstall?.(nuxtWithVersion(version))
+    expect(warn).toHaveBeenCalledWith(deprecationMessage)
+    expect(deprecationMessage).toBe('nuxt-safe-runtime-config is deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. Run `npx nuxt-safe-runtime-config@latest migrate`. https://nuxt-safe-runtime-config.onmax.me/blog/deprecating-nuxt-safe-runtime-config')
   })
 
-  it.each(['4.6.4', '4.5.0', '3.17.0'])('asks Nuxt %s to upgrade before migrating', async (version) => {
-    const { deprecationMessage } = await loadModule()
-    expect(deprecationMessage(version)).toBe('nuxt-safe-runtime-config is deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. Upgrade Nuxt to 4.7 first (`npx nuxt upgrade`), then run `npx nuxt-safe-runtime-config@latest migrate`. https://nuxt-safe-runtime-config.onmax.me')
+  it.each(['4.6.4', '4.5.0', '3.17.0'])('stays quiet on Nuxt %s, which has no schema to migrate to', async (version) => {
+    const { default: module } = await loadModule()
+    await module.onInstall?.(nuxtWithVersion(version))
+    await module.onUpgrade?.(nuxtWithVersion(version), {}, '0.4.0')
+    expect(warn).not.toHaveBeenCalled()
   })
 
   it('warns on install and on upgrade', async () => {
@@ -44,10 +48,9 @@ describe('deprecation warning', () => {
 
   it('warns once per process when the module sets up', async () => {
     const { default: module } = await loadModule()
-    await module({}, nuxtWithVersion('4.6.4'))
-    await module({}, nuxtWithVersion('4.6.4'))
+    await module({}, nuxtWithVersion('4.7.0'))
+    await module({}, nuxtWithVersion('4.7.0'))
     expect(warn).toHaveBeenCalledTimes(1)
-    expect(warn.mock.calls[0]![0]).toContain('Upgrade Nuxt to 4.7 first')
   })
 
   it('does not repeat the install warning when setup runs next', async () => {

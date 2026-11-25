@@ -38,7 +38,7 @@ Nuxt 4.7 accepts a schema that implements [Standard JSON Schema](https://standar
   - `port` (`NUXT_PORT`) must be number, but received a string.
 ```
 
-That was most of this module's job. It gets no new features, and the [last release](#maintenance) prints a deprecation warning on every Nuxt version.
+That was most of this module's job. It gets no new features, and the [last release](#maintenance) prints a deprecation warning on Nuxt 4.7 and later.
 
 ## Nuxt 4.7 or ViteHub Env
 
@@ -208,7 +208,7 @@ Nuxt 4.7 can't read `.env.example`, but you can write the same rules as a schema
 The module is in maintenance mode. The repository and this site stay online.
 
 - Security fixes and severe bugs only. No new features or schema sources.
-- `nuxt-safe-runtime-config@0.5.0` is the last release. It works as before and warns that the module is deprecated.
+- `nuxt-safe-runtime-config@0.5.1` is the last release. It works as before and, on Nuxt 4.7 and later, warns that the module is deprecated.
 - [Report a vulnerability privately on GitHub](https://github.com/onmax/nuxt-safe-runtime-config/security/advisories/new). Don't open a public issue for it.
 
 The [old guides](/guide) still describe how the module works, for apps that stay on it for now.
