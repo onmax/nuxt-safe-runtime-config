@@ -7,11 +7,39 @@ export default defineNuxtPlugin(() => {
     script.type = 'module'
     script.src = 'https://console.vitehub.dev/hosted-comments.js'
     script.dataset.vitehubComments = '8ade2dbb-5d68-45c3-8df2-16618bd90fea'
-    // The embed removes `#vhc` with history.replaceState. Without this, the router writes the code back on the next navigation.
-    script.addEventListener('load', () => {
-      if (router.currentRoute.value.hash.includes('vhc=') && !location.hash.includes('vhc='))
-        router.replace(location.pathname + location.search + location.hash)
-    })
+    if (router.currentRoute.value.hash.includes('vhc=')) {
+      const loaded = new Promise((resolve) => {
+        script.onload = script.onerror = resolve
+      })
+      // The embed clears `#vhc` without Vue Router, and the next navigation would write it back into history.
+      // Only the history entry is cleaned: a navigation here would cancel a held click or scroll the page.
+      loaded.then(() => {
+        if (router.currentRoute.value.hash.includes('vhc=') && !location.hash.includes('vhc='))
+          router.options.history.replace(location.pathname + location.search + location.hash)
+      })
+      // A navigation before the embed runs would lose the code. A stalled Console request holds links for 5 s, no more.
+      const released = Promise.race([loaded, new Promise(resolve => setTimeout(resolve, 5000))])
+      const position = history.state?.position
+      const removeGuard = router.beforeEach(async (to, from) => {
+        if (!from.hash.includes('vhc='))
+          return removeGuard()
+        await released
+        // Vue Router still holds `#vhc`, so a click to the cleaned URL, such as the logo on `/`, would add an entry and scroll to the top.
+        // Without `#vhc` that click does nothing. Back and Forward have already left the cleaned entry.
+        if (history.state?.position === position && to.fullPath === location.pathname + location.search + location.hash)
+          return false
+      })
+      // The browser follows a heading permalink without Vue Router, so send it through the guard.
+      const holdAnchor = (event: MouseEvent) => {
+        const anchor = (event.target as Element).closest('a[href^="#"]')
+        if (!anchor || event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+          return
+        event.preventDefault()
+        router.push(location.pathname + location.search + anchor.getAttribute('href'))
+      }
+      document.addEventListener('click', holdAnchor, true)
+      released.then(() => document.removeEventListener('click', holdAnchor, true))
+    }
     document.head.append(script)
   })
 })
