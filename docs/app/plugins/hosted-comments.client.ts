@@ -10,6 +10,8 @@ export default defineNuxtPlugin(() => {
     if (router.currentRoute.value.hash.includes('vhc=')) {
       const loaded = new Promise((resolve) => {
         script.onload = script.onerror = resolve
+        // A stalled Console request may hold links for this long, no more.
+        setTimeout(resolve, 5000)
       })
       // A navigation before the embed runs would lose the code, and one after it would write the code back into history.
       const removeGuard = router.beforeEach(() => loaded.then(() => {}))
@@ -19,7 +21,7 @@ export default defineNuxtPlugin(() => {
         if (!anchor || event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
           return
         event.preventDefault()
-        router.push({ hash: anchor.getAttribute('href')! })
+        router.push(location.pathname + location.search + anchor.getAttribute('href'))
       }
       document.addEventListener('click', holdAnchor, true)
       loaded.then(() => {
