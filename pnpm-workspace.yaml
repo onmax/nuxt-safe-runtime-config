@@ -14,10 +14,9 @@ packages:
   - ./test/fixtures/*
 
 overrides:
-  # @nuxt/image 2.2 (docs, through Docus) calls resolveServerVariant from Kit 4.6.
-  '@nuxt/image>@nuxt/kit': 4.6.3
   # Nuxt Kit 4.6 deep-clones config classes, breaking Zod schema instances before module setup.
-  '@nuxt/kit': 4.5.0
+  # The docs run Nuxt 4.7 with its own Kit, so pin only the module's Kit.
+  nuxt-safe-runtime-config>@nuxt/kit: 4.5.0
   # 1.7.2 is rejected by pnpm trustPolicy; keep the last trusted release.
   seroval: 1.7.1
 
@@ -78,3 +77,10 @@ catalog:
   vue-tsc: ^3.3.13
   zod: ^4.6.7
   zod-to-json-schema: ^3.25.2
+
+catalogs:
+  docs:
+    # Nuxt 4.7 picks Nitro 3 when the workspace root declares `nitro`; declaring nitropack keeps the docs on Nitro 2.
+    nitropack: ^2.14.0
+    # Vite inlines Vue's CommonJS build into the server bundle when `vue` does not resolve from the docs root.
+    vue: ^3.5.46
