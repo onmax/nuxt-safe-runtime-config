@@ -25,9 +25,12 @@ export default defineNuxtPlugin(() => {
       })
       // A navigation before the embed runs would lose the code. A stalled Console request holds links for 5 s, no more.
       const released = Promise.race([loaded, new Promise(resolve => setTimeout(resolve, 5000))])
-      const removeGuard = router.beforeEach(() => {
+      const removeGuard = router.beforeEach(async (to, from) => {
         held = true
-        return released.then(() => {})
+        await released
+        // A held click to the cleaned URL itself, such as the logo on `/`, replaces the entry instead of repeating it.
+        if (!to.redirectedFrom && from.hash.includes('vhc=') && to.fullPath === location.pathname + location.search + location.hash)
+          return { path: to.path, query: to.query, hash: to.hash, replace: true }
       })
       // The browser follows a heading permalink without Vue Router, so send it through the guard.
       const holdAnchor = (event: MouseEvent) => {
