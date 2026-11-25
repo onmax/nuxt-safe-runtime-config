@@ -11,25 +11,20 @@ export default defineNuxtPlugin(() => {
       const loaded = new Promise((resolve) => {
         script.onload = script.onerror = resolve
       })
-      let held = false
       // The embed clears `#vhc` without Vue Router, and the next navigation would write it back into history.
-      // With a held navigation, `router.replace` would cancel it, so only its history entry is cleaned.
+      // Only the history entry is cleaned: a navigation here would cancel a held click or scroll the page.
       loaded.then(() => {
-        if (!router.currentRoute.value.hash.includes('vhc=') || location.hash.includes('vhc='))
-          return
-        const url = location.pathname + location.search + location.hash
-        if (held)
-          router.options.history.replace(url)
-        else
-          router.replace(url)
+        if (router.currentRoute.value.hash.includes('vhc=') && !location.hash.includes('vhc='))
+          router.options.history.replace(location.pathname + location.search + location.hash)
       })
       // A navigation before the embed runs would lose the code. A stalled Console request holds links for 5 s, no more.
       const released = Promise.race([loaded, new Promise(resolve => setTimeout(resolve, 5000))])
       const removeGuard = router.beforeEach(async (to, from) => {
-        held = true
+        if (!from.hash.includes('vhc='))
+          return removeGuard()
         await released
-        // A held click to the cleaned URL itself, such as the logo on `/`, replaces the entry instead of repeating it.
-        if (!to.redirectedFrom && from.hash.includes('vhc=') && to.fullPath === location.pathname + location.search + location.hash)
+        // Vue Router still holds `#vhc`, so a click to the cleaned URL, such as the logo on `/`, replaces the entry instead of repeating it.
+        if (!to.redirectedFrom && to.fullPath === location.pathname + location.search + location.hash)
           return { path: to.path, query: to.query, hash: to.hash, replace: true }
       })
       // The browser follows a heading permalink without Vue Router, so send it through the guard.
@@ -41,10 +36,7 @@ export default defineNuxtPlugin(() => {
         router.push(location.pathname + location.search + anchor.getAttribute('href'))
       }
       document.addEventListener('click', holdAnchor, true)
-      released.then(() => {
-        removeGuard()
-        document.removeEventListener('click', holdAnchor, true)
-      })
+      released.then(() => document.removeEventListener('click', holdAnchor, true))
     }
     document.head.append(script)
   })
