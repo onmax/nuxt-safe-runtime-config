@@ -13,8 +13,18 @@ export default defineNuxtPlugin(() => {
       })
       // A navigation before the embed runs would lose the code, and one after it would write the code back into history.
       const removeGuard = router.beforeEach(() => loaded.then(() => {}))
+      // The browser follows a heading permalink without Vue Router, so send it through the guard.
+      const holdAnchor = (event: MouseEvent) => {
+        const anchor = (event.target as Element).closest('a[href^="#"]')
+        if (!anchor || event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+          return
+        event.preventDefault()
+        router.push({ hash: anchor.getAttribute('href')! })
+      }
+      document.addEventListener('click', holdAnchor, true)
       loaded.then(() => {
         removeGuard()
+        document.removeEventListener('click', holdAnchor, true)
         if (!location.hash.includes('vhc='))
           router.options.history.replace(location.pathname + location.search + location.hash)
       })
