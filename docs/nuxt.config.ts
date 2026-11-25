@@ -11,6 +11,8 @@ export default defineNuxtConfig({
       // ViteHub Hosted Comments: open a page with ?vitehub to comment. Threads live in the ViteHub Console.
       script: [{
         'type': 'module',
+        // A deferred module would hold back Nuxt's entry until the Console answers.
+        'async': true,
         'src': 'https://console.vitehub.dev/hosted-comments.js',
         'data-vitehub-comments': '8ade2dbb-5d68-45c3-8df2-16618bd90fea',
       }],
