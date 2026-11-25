@@ -9,8 +9,8 @@ export default defineNuxtPlugin(() => {
     script.dataset.vitehubComments = '8ade2dbb-5d68-45c3-8df2-16618bd90fea'
     // The embed removes `#vhc` with history.replaceState. Without this, the router writes the code back on the next navigation.
     script.addEventListener('load', () => {
-      const { path, query, hash } = router.currentRoute.value
-      if (hash !== location.hash) router.replace({ path, query, hash: location.hash })
+      if (router.currentRoute.value.hash.includes('vhc=') && !location.hash.includes('vhc='))
+        router.replace(location.pathname + location.search + location.hash)
     })
     document.head.append(script)
   })
