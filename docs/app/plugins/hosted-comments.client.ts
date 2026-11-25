@@ -10,11 +10,15 @@ export default defineNuxtPlugin(() => {
     if (router.currentRoute.value.hash.includes('vhc=')) {
       const loaded = new Promise((resolve) => {
         script.onload = script.onerror = resolve
-        // A stalled Console request may hold links for this long, no more.
-        setTimeout(resolve, 5000)
       })
-      // A navigation before the embed runs would lose the code, and one after it would write the code back into history.
-      const removeGuard = router.beforeEach(() => loaded.then(() => {}))
+      // The embed clears `#vhc` without Vue Router, and the next navigation would write it back into history.
+      loaded.then(() => {
+        if (router.currentRoute.value.hash.includes('vhc=') && !location.hash.includes('vhc='))
+          router.options.history.replace(location.pathname + location.search + location.hash)
+      })
+      // A navigation before the embed runs would lose the code. A stalled Console request holds links for 5 s, no more.
+      const released = Promise.race([loaded, new Promise(resolve => setTimeout(resolve, 5000))])
+      const removeGuard = router.beforeEach(() => released.then(() => {}))
       // The browser follows a heading permalink without Vue Router, so send it through the guard.
       const holdAnchor = (event: MouseEvent) => {
         const anchor = (event.target as Element).closest('a[href^="#"]')
@@ -24,11 +28,9 @@ export default defineNuxtPlugin(() => {
         router.push(location.pathname + location.search + anchor.getAttribute('href'))
       }
       document.addEventListener('click', holdAnchor, true)
-      loaded.then(() => {
+      released.then(() => {
         removeGuard()
         document.removeEventListener('click', holdAnchor, true)
-        if (!location.hash.includes('vhc='))
-          router.options.history.replace(location.pathname + location.search + location.hash)
       })
     }
     document.head.append(script)
