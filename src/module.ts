@@ -21,7 +21,7 @@ const postUrl = 'https://nuxt-safe-runtime-config.onmax.me/blog/deprecating-nuxt
 
 // The same minimum as `migrate`: a 4.7.0 prerelease or nightly sorts below 4.7.0.
 function supportsRuntimeConfigSchemas(nuxtVersion: string): boolean {
-  const [core = '', prerelease] = nuxtVersion.split('-')
+  const [core = '', prerelease] = nuxtVersion.split('+')[0]!.split('-')
   const [major = 0, minor = 0, patch = 0] = core.split('.').map(part => Number.parseInt(part, 10))
   if (major !== 4)
     return major > 4

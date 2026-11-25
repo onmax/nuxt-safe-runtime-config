@@ -24,7 +24,7 @@ beforeEach(() => {
 })
 
 describe('deprecation warning', () => {
-  it.each(['5.0.0', '4.7.1', '4.7.0'])('points Nuxt %s at the migrate command and the post', async (version) => {
+  it.each(['5.0.0', '4.7.1', '4.7.0', '4.7.0+local-build'])('points Nuxt %s at the migrate command and the post', async (version) => {
     const { default: module, deprecationMessage } = await loadModule()
     await module.onInstall?.(nuxtWithVersion(version))
     expect(warn).toHaveBeenCalledWith(deprecationMessage())
