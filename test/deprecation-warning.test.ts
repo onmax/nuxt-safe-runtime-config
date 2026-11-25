@@ -24,14 +24,14 @@ beforeEach(() => {
 })
 
 describe('deprecation warning', () => {
-  it.each(['5.0.0', '4.7.0', '4.7.0-rc.1'])('points Nuxt %s at the migrate command and the post', async (version) => {
+  it.each(['5.0.0', '4.7.1', '4.7.0'])('points Nuxt %s at the migrate command and the post', async (version) => {
     const { default: module, deprecationMessage } = await loadModule()
     await module.onInstall?.(nuxtWithVersion(version))
-    expect(warn).toHaveBeenCalledWith(deprecationMessage)
-    expect(deprecationMessage).toBe('nuxt-safe-runtime-config is deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. Run `npx nuxt-safe-runtime-config@latest migrate`. https://nuxt-safe-runtime-config.onmax.me/blog/deprecating-nuxt-safe-runtime-config')
+    expect(warn).toHaveBeenCalledWith(deprecationMessage())
+    expect(deprecationMessage()).toBe('nuxt-safe-runtime-config is deprecated: Nuxt 4.7 checks runtimeConfig schemas itself. Run `npx nuxt-safe-runtime-config@latest migrate`. https://nuxt-safe-runtime-config.onmax.me/blog/deprecating-nuxt-safe-runtime-config')
   })
 
-  it.each(['4.6.4', '4.5.0', '3.17.0'])('stays quiet on Nuxt %s, which has no schema to migrate to', async (version) => {
+  it.each(['4.7.0-rc.1', '4.7.0-2611241634-21778de', '4.6.4', '3.17.0'])('stays quiet on Nuxt %s, which migrate does not accept', async (version) => {
     const { default: module } = await loadModule()
     await module.onInstall?.(nuxtWithVersion(version))
     await module.onUpgrade?.(nuxtWithVersion(version), {}, '0.4.0')
@@ -44,6 +44,13 @@ describe('deprecation warning', () => {
     await module.onUpgrade?.(nuxtWithVersion('4.7.0'), {}, '0.4.0')
     expect(warn).toHaveBeenCalledTimes(2)
     expect(warn.mock.calls[0]![0]).toContain('Run `npx nuxt-safe-runtime-config@latest migrate`.')
+  })
+
+  it('still warns a Nuxt 4.7 app set up after an older one in the same process', async () => {
+    const { default: module } = await loadModule()
+    await module({}, nuxtWithVersion('4.5.0'))
+    await module({}, nuxtWithVersion('4.7.0'))
+    expect(warn).toHaveBeenCalledTimes(1)
   })
 
   it('warns once per process when the module sets up', async () => {
